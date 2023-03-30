@@ -109,8 +109,8 @@ bool BVH::construct_from_mesh(Mesh *m) {
   for (unsigned i = 0; i < m->num_faces(); i++) {
     rootNode->face_indices.emplace_back(i);
   }
-  // divide_SAH(rootNode);
-  divide(rootNode, 0);
+  //divide_SAH(rootNode);
+  divide(rootNode, 1);
   return true;
 }
 

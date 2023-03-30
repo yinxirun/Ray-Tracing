@@ -3,6 +3,8 @@
 #include <cmath>
 #include <fstream>
 
+extern const float epsilon;
+
 Camera::Camera() : height(0), width(0) {}
 
 Camera::Camera(Vector3D _loc, Vector3D _lookat, Vector3D _up, float _fov,
@@ -83,8 +85,14 @@ void Camera::tone_mapping(float* in, unsigned char* out) {
   average_b /= (height * width);
   average_r /= (height * width);
   average_g /= (height * width);
+  float average = (average_b + average_g + average_r) / 3;
+  std::cout << "Average " << average << std::endl;
+  std::cout << "Average R " << average_r << std::endl;
+  std::cout << "Average G " << average_g << std::endl;
+  std::cout << "Average B " << average_b << std::endl;
 
   float k = 0.8;
+
   for (int i = 0; i < height * width * 3; i += 3) {
     float r = in[i] / (in[i] + average_r / k);
     float g = in[i + 1] / (in[i + 1] + average_g / k);

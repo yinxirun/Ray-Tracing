@@ -1,5 +1,7 @@
 #include "Mesh.h"
 
+#include <iostream>
+
 extern const float epsilon;
 
 unsigned Mesh::num_faces() { return faces.size(); }
@@ -121,4 +123,47 @@ void Triangle::init() {
   face_normal = face_normal / 3;
   diagonal_vertices[0].assign(xmin, ymin, zmin);
   diagonal_vertices[1].assign(xmax, ymax, zmax);
+}
+
+Vector3D Triangle::texture_mapping(Vector3D point) {
+  Vector3D u = attr->vertices[vertices[1]] - attr->vertices[vertices[0]];
+  Vector3D v = attr->vertices[vertices[2]] - attr->vertices[vertices[0]];
+  float d, a, b;
+  d = u.x * v.y - v.x * u.y;
+  if (d > epsilon || d < -epsilon) {
+    a = (point.x * v.y - v.x * point.y) / d;
+    b = (u.x * point.y - point.x * u.y) / d;
+    goto k;
+  }
+  d = u.x * v.z - v.x * u.z;
+  if (d > epsilon || d < -epsilon) {
+    a = (point.x * v.z - v.x * point.z) / d;
+    b = (u.x * point.z - point.x * u.z) / d;
+    goto k;
+  }
+  d = u.y * v.z - v.y * u.z;
+  if (d > epsilon || d < -epsilon) {
+    a = (point.y * v.z - v.y * point.z) / d;
+    b = (u.y * point.z - point.y * u.z) / d;
+    goto k;
+  }
+
+k:
+  //if (a > 1 || a < 0 || b > 1 || b < 0) std::cout << "FUCK" << std::endl;
+
+  u = attr->texcoords[texcords[1]] - attr->texcoords[texcords[0]];
+  v = attr->texcoords[texcords[2]] - attr->texcoords[texcords[0]];
+  Vector3D t = a * u + b * v;
+
+  while (t.x > 1) t.x = t.x - 1;
+  while (t.x < 0) t.x = t.x + 1;
+  while (t.y < 0) t.y = t.y + 1;
+  while (t.y > 1) t.y = t.y - 1;
+
+  int pixel_x = t.x * (material->map_width - 1);
+  int pixel_y = t.y * (material->map_height - 1);
+  float x = material->map[(material->map_width * pixel_y + pixel_x) * 3];
+  float y = material->map[(material->map_width * pixel_y + pixel_x) * 3 + 1];
+  float z = material->map[(material->map_width * pixel_y + pixel_x) * 3 + 2];
+  return Vector3D((float)z / 255.0f, (float)y / 255.0f, (float)x / 255.0f);
 }

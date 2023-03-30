@@ -1,15 +1,15 @@
 #include "PathTracing.h"
 
-#include <time.h>
-
+#include <ctime>
 #include <fstream>
 
 extern const float PI;
 extern const float E;
 extern const float epsilon;
 extern int hitnum;
-
-unsigned multi_reflect;
+int num_reflection;
+int max_reflection;
+float max_radiance;
 
 PathTracing::PathTracing(Scene *s, Camera *c, unsigned _spp, float _p)
     : scene(s), camera(c), spp(_spp), p(_p), bvh(nullptr) {}
@@ -17,146 +17,154 @@ PathTracing::PathTracing(Scene *s, Camera *c, unsigned _spp, float _p)
 bool PathTracing::enable_BVH() {
   bvh = new BVH();
   bvh->construct_from_mesh(scene->mesh);
+  std::cout << "BVH has been constructed. " << std::endl;
   return true;
 }
 
 void PathTracing::render() {
-  for (unsigned i = 0; i < camera->height; ++i) {
-    std::cout << i << " ";
+  float *temp_image = new float[camera->height * camera->width * 3];
+  for (unsigned i = 0; i < camera->height * camera->width * 3; ++i)
+    temp_image[i] = 0;
 
-    for (unsigned j = 0; j < camera->width; ++j) {
-      Ray ray = emit(j, i);
+  for (unsigned sample = 0; sample < spp; ++sample) {
+    max_reflection = INT_MIN;
+    max_radiance = __FLT_MIN__;
+    num_reflection = 0;
+    clock_t start = clock();
+    for (unsigned i = 0; i < camera->height; ++i) {
+      for (unsigned j = 0; j < camera->width; ++j) {
+        Ray ray = emit(j, i);
+        // Vector3D radiance = trace(ray);
+        Vector3D radiance;
+        float t;
+        unsigned face_id;
+        bool hit = bvh->intersect(ray, bvh->rootNode, t, face_id);
+        if (hit) {
+          // 是否击中光源
+          bool flag = false;
+          for (int i = 0; i < scene->light_sources.size(); ++i) {
+            std::vector<unsigned> &light_faces =
+                scene->light_sources[i]->faces_id;
+            for (int j = 0; j < light_faces.size(); ++j) {
+              if (light_faces[j] == face_id) {
+                flag = true;
+                break;
+              }
+            }
+            if (flag == true) break;
+          }
+          // 如果击中的不是光源
+          Vector3D hit_point = ray.origin + t * ray.direction;
+          Vector3D hit_normal = scene->mesh->get_faces()[face_id].face_normal;
+          Material *mtl = scene->mesh->get_faces()[face_id].material;
 
-      Vector3D color;
-      for (unsigned sample = 0; sample < spp; ++sample) {
-        multi_reflect = 0;
-        Vector3D radiance = trace(ray);
-        color = color + radiance;
+          if (!flag)
+            radiance =
+                shade(hit_point, hit_normal, mtl, -ray.direction, face_id);
+          else
+            radiance = mtl->emission;
+        }
+
+        temp_image[(i * camera->width + j) * 3] += radiance.z;
+        temp_image[(i * camera->width + j) * 3 + 1] += radiance.y;
+        temp_image[(i * camera->width + j) * 3 + 2] += radiance.x;
       }
-      color = color / spp;
-      camera->image[(i * camera->width + j) * 3] = color.z;
-      camera->image[(i * camera->width + j) * 3 + 1] = color.y;
-      camera->image[(i * camera->width + j) * 3 + 2] = color.x;
     }
-    if ((i + 1) % 16 == 0) {
-      std::cout << std::endl;
-      std::string name = "./examples/" + std::to_string(i) + ".bmp";
-      camera->save_BMP(name.c_str());
+    for (unsigned i = 0; i < camera->height * camera->width * 3; ++i) {
+      camera->image[i] = temp_image[i] / (sample + 1);
+      if (camera->image[i] > max_radiance) max_radiance = camera->image[i];
     }
+    clock_t end = clock();
+    std::cout << "MAX RADIANCE " << max_radiance << std::endl;
+    std::cout << "MAX NUMBER REFLECTION " << max_reflection << std::endl;
+    std::cout << "TIME " << (end - start) / 1000 << " second. " << std::endl;
+    std::string name = "./examples/" + std::to_string(sample) + ".bmp";
+    camera->save_BMP(name.c_str());
   }
+  delete[] temp_image;
 }
 
-Vector3D PathTracing::trace(Ray ray) {
-  //if (multi_reflect >= 5) return Vector3D(0, 0, 0);
-  multi_reflect += 1;
-  // intersection test
-  float t = __FLT_MAX__;
-  unsigned face_id = UINT_MAX;
-  Material *mtl = nullptr;
-  if (bvh == nullptr) {
-    for (int i = 0; i < scene->mesh->num_faces(); ++i) {
-      float _t = scene->mesh->get_faces()[i].intersect(ray);
-      if (_t == __FLT_MIN__) continue;
-      if (_t < t) {
-        t = _t;
-        face_id = i;
+Vector3D PathTracing::shade(Vector3D point, Vector3D normal, Material *m,
+                            Vector3D wo, unsigned id) {
+  num_reflection += 1;
+  if (num_reflection > max_reflection) max_reflection = num_reflection;
+
+  if (m->map != NULL)
+    m->diffuse = scene->mesh->faces[id].texture_mapping(point);
+
+  // indirect illumination
+  Vector3D indirect_radiance(0, 0, 0);
+  float r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+  if (r < p ) {
+    Vector3D wi = Vector3D::random();
+    wi.normalize();
+    while (Vector3D::dot(wi, normal) >= -epsilon) {
+      wi = Vector3D::random();
+    }
+    float t;
+    unsigned face_id;
+    bool hit = bvh->intersect(Ray(point, -wi), bvh->rootNode, t, face_id);
+
+    if (hit) {
+      bool flag = false;
+      for (int i = 0; i < scene->light_sources.size(); ++i) {
+        std::vector<unsigned> &light_faces = scene->light_sources[i]->faces_id;
+        for (int j = 0; j < light_faces.size(); ++j) {
+          if (light_faces[j] == face_id) {
+            flag = true;
+            break;
+          }
+        }
+        if (flag == true) break;
+      }
+      // 如果击中的不是光源
+      Vector3D hit_point = point - t * wi;
+      Vector3D hit_normal = scene->mesh->get_faces()[face_id].face_normal;
+      Material *mtl = scene->mesh->get_faces()[face_id].material;
+      if (!flag) {
+        indirect_radiance = (Vector3D::dot(-wi, normal)) *
+                            shade(hit_point, hit_normal, mtl, wi, face_id) *
+                            BRDF(wi, wo, m, normal) / p;
       }
     }
-    if (t == __FLT_MAX__) return Vector3D(0, 0, 0);
-  } else if (!bvh->intersect(ray, bvh->rootNode, t, face_id)) {
-    multi_reflect -= 1;
-    return Vector3D(0, 0, 0);
   }
-  mtl = scene->mesh->get_faces()[face_id].material;
 
-  // determine whether this surface is light source
-  bool flag = false;
+  // direct illumination
+  Vector3D direct_radiance(0, 0, 0);
   for (int i = 0; i < scene->light_sources.size(); ++i) {
     std::vector<unsigned> &light_faces = scene->light_sources[i]->faces_id;
-    for (int j = 0; j < light_faces.size(); ++j) {
-      if (light_faces[j] == face_id) {
-        flag = true;
-        break;
+    // for (int j = 0; j < light_faces.size(); ++j) {
+    for (int j = 0; j < 1; ++j) {
+      int index = rand() % light_faces.size();
+      Triangle &light = scene->mesh->get_faces()[light_faces[index]];
+      // 随机选面光源上的一点
+      Vector3D point_onlight = light.center;
+
+      // 构造入射光线
+      Vector3D wi = point - point_onlight;
+      // 检查反射点和光源之间是否有遮挡
+      wi.normalize();
+      if (Vector3D::dot(wi, light.face_normal) <= epsilon) continue;
+      if (Vector3D::dot(-wi, normal) <= epsilon) continue;
+      float t_temp;
+      unsigned faceid_temp;
+      bool outcome =
+          bvh->intersect(Ray(point, -wi), bvh->rootNode, t_temp, faceid_temp);
+      if (outcome && faceid_temp == light_faces[j]) {
+        hitnum += 1;
+        // 如果没有遮挡，则计算渲染方程
+        Vector3D dist = point_onlight - point;
+        float square_dist = dist.x * dist.x + dist.y * dist.y + dist.z * dist.z;
+        Vector3D contri = (Vector3D::dot(wi, light.face_normal)) *
+                          (Vector3D::dot(-wi, normal)) * light.area() *
+                          light.material->emission / square_dist *
+                          BRDF(wi, wo, m, normal);
+        direct_radiance = direct_radiance + contri;
       }
     }
-    if (flag == true) break;
   }
-  if (flag == true) {
-    multi_reflect -= 1;
-    return mtl->emission;
-  }
-
-  // Russian Roulette. Determine whether to reflection.
-  float r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-  if (r <= p) {
-    Vector3D point_hit = ray.origin + t * ray.direction;
-    Vector3D normal = scene->mesh->get_faces()[face_id].normal_average();
-
-    //  随机地反射光线（间接光）
-    Vector3D direction_new = Vector3D::random();
-    while (Vector3D::dot(direction_new, normal) <= epsilon) {
-      direction_new = Vector3D::random();
-    }
-    direction_new.normalize();
-    Ray ray_new(point_hit, direction_new);
-    //  递归地求得反射光辐射率
-
-    Vector3D indirect_illum = trace(ray_new) / p;
-
-    Vector3D radiance0 = 2 * PI * (Vector3D::dot(direction_new, normal)) *
-                         indirect_illum *
-                         BRDF(-direction_new, -ray.direction, mtl, normal);
-
-    // 朝光源反射光线（直接光）
-    Vector3D radiance1(0, 0, 0);
-    float num = 0;
-    for (int i = 0; i < scene->light_sources.size(); ++i) {
-      std::vector<unsigned> &light_faces = scene->light_sources[i]->faces_id;
-      for (int j = 0; j < 1; ++j) {
-        // 从众多面光源中随机选一个
-        unsigned index = (unsigned)(rand() % light_faces.size());
-        index = light_faces[index];
-        Triangle &light = scene->mesh->get_faces()[index];
-        // 随机选面光源上的一点
-        Vector3D point_onlight = light.centre();
-
-        // 构造入射光线
-        direction_new = point_onlight - point_hit;
-        // 检查反射点和光源之间是否有遮挡
-        if (Vector3D::dot(direction_new, light.normal_average()) >= -epsilon)
-          continue;
-        if (Vector3D::dot(direction_new, normal) <= epsilon) continue;
-        direction_new.normalize();
-        ray_new.assign(point_hit, direction_new);
-        float t_temp;
-        unsigned faceid_temp;
-        bool outcome =
-            bvh->intersect(ray_new, bvh->rootNode, t_temp, faceid_temp);
-        if (outcome && faceid_temp == index) {
-          hitnum += 1;
-          // 如果没有遮挡，则计算渲染方程
-          Vector3D dist = point_onlight - point_hit;
-          float square_dist =
-              dist.x * dist.x + dist.y * dist.y + dist.z * dist.z;
-          Vector3D contri =
-              (-Vector3D::dot(direction_new, light.normal_average())) *
-              (Vector3D::dot(direction_new, normal)) * light.area() *
-              light.material->emission *
-              BRDF(-direction_new, -ray.direction, mtl, normal) / square_dist;
-          radiance1 = radiance1 + contri;
-          break;
-        }
-      }
-    }
-
-    // ---------------------------------------------------
-    Vector3D ret = radiance0 + radiance1 + mtl->emission;
-    multi_reflect -= 1;
-    return ret;
-  } else {
-    multi_reflect = -1;
-    return mtl->emission;
-  }
+  num_reflection -= 1;
+  return direct_radiance + indirect_radiance;
 }
 
 Ray PathTracing::emit(unsigned x, unsigned y) {
@@ -179,5 +187,5 @@ Vector3D PathTracing::BRDF(Vector3D inc, Vector3D refl, Material *mtl,
   Vector3D h = (refl - inc);
   h.normalize();
   Vector3D s = (pow(Vector3D::dot(n, h), mtl->shineness) * mtl->specular);
-  return mtl->diffuse + s;
+  return (mtl->diffuse + s);
 }

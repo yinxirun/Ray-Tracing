@@ -37,11 +37,14 @@ void Importer::MTL_import(const std::string filepath, Scene *scene) {
       mtl->shineness = (float)atoi(items[1].c_str());
     } else if (keyword.compare("Ni") == 0) {
       mtl->refraction = (float)atoi(items[1].c_str());
+    } else if (keyword.compare("map_Kd") == 0) {
+      mtl->bind_map(directory(filepath) + items[1]);
     } else {
       std::cout << keyword << " is unknown. From MTL. " << std::endl;
     }
   }
   file.close();
+  std::cout << "Material Loaded. " << std::endl;
 }
 
 std::string Importer::directory(const std::string filepath) {
@@ -131,6 +134,7 @@ Scene *Importer::OBJ_import(const std::string filepath) {
     }
   }
   file.close();
+  std::cout << "Mesh Loaded. " << std::endl;
   return scene;
 }
 
@@ -174,6 +178,7 @@ void Importer::XML_import(const std::string filepath, Scene *scene,
   }
 
   // handle information about light sources
+  int num_lights = 0;
   c = c->NextSiblingElement();
   while (c != nullptr) {
     AreaLight *light = new AreaLight();
@@ -187,21 +192,22 @@ void Importer::XML_import(const std::string filepath, Scene *scene,
     if (m == nullptr) {
       delete m;
       continue;
-      std::cout << "dsfdsfdsfasdfds" << std::endl;
+      std::cout << "This type of light is not existing. " << std::endl;
     }
-    m->emission.x = light->radiance.x;
+    m->emission.x = light->radiance.z;
     m->emission.y = light->radiance.y;
-    m->emission.z = light->radiance.z;
+    m->emission.z = light->radiance.x;
 
     // capture all face index with which faces applies this material.
     unsigned num_faces = scene->mesh->num_faces();
     std::vector<Triangle> &faces = scene->mesh->get_faces();
     for (unsigned i = 0; i < num_faces; ++i)
       if (faces[i].material == m) light->faces_id.emplace_back(i);
-
+    num_lights += light->faces_id.size();
     scene->light_sources.emplace_back(light);
     c = c->NextSiblingElement();
   }
+  std::cout << num_lights << " area lights in the scene. " << std::endl;
 }
 
 void Importer::OBJ_import(const std::string filepath, Scene *scene) {
