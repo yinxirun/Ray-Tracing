@@ -74,20 +74,17 @@ $$
 
 $$
 \begin{matrix}
-    a_x&b_x&d_x \\
-    a_y&b_y&d_y \\
-    a_z&b_z&d_z
+a_x&b_x&d_x \\
+a_y&b_y&d_y \\
+a_z&b_z&d_z
 \end{matrix}
-
 \begin{matrix}
-    \alpha \\ \beta \\ -t
-\end{matrix}
-
-=
+\alpha \\ \beta \\ -t
+\end{matrix} =
 \begin{matrix}
-	o_x - c_x \\
-    o_y - c_y \\
-    o_z - c_z
+o_x - c_x \\
+o_y - c_y \\
+o_z - c_z
 \end{matrix}
 $$
 
