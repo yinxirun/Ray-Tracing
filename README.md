@@ -73,26 +73,22 @@ $$
 假设 $\mathbf a=(a_x,a_y,a_z)$ ， $\mathbf{b}=(b_x,b_y,b_z)$ ， $\mathbf{t}=(t_x,t_y,t_z)$ ， $\mathbf{o}=(o_x,o_y,o_z)$ ， $\mathbf{C}=(c_x,c_y,c_z)$ ，则有方程
 
 $$
-\left[
-\begin{matrix}
+\begin{bmatrix}
     a_x&b_x&d_x \\
     a_y&b_y&d_y \\
     a_z&b_z&d_z
-\end{matrix}
-\right]
-\left[
-\begin{matrix}
+\end{bmatrix}
+
+\begin{bmatrix}
     \alpha \\ \beta \\ -t
-\end{matrix}
-\right]
+\end{bmatrix}
+
 =
-\left[
-\begin{matrix}
+\begin{bmatrix}
 	o_x - c_x \\
     o_y - c_y \\
     o_z - c_z
-\end{matrix}
-\right]
+\end{bmatrix}
 $$
 
 **Cramer's Law**可解上式。
@@ -117,7 +113,7 @@ $$
 \mathrm dP=\frac{\mathrm d\Omega}{4\pi}=\frac{\sin\theta}{4\pi}\,\mathrm d\theta\,\mathrm d\varphi=-\frac{1}{4\pi}\mathrm d\cos\theta\,\mathrm d\varphi
 $$
 
-因此只需要 $\cos\theta$和$\varphi$ 分别是均匀分布即可。
+因此只需要 $\cos\theta$ 和 $\varphi$ 分别是均匀分布即可。
 
 # Rendering Equation 渲染方程
 ## Radiant flux 辐射通量
