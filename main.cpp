@@ -3,35 +3,38 @@
 #include <iostream>
 #include <string>
 
-#include "Camera.h"
-#include "Importer.h"
-#include "PathTracing.h"
-#include "Scene.h"
-#include "Vec.h"
-using std::cout;
-using std::endl;
+#include "bvh.h"
+#include "path_tracing.h"
 
-extern const float PI = 3.1415926535;
-extern const float E = 2.718281828459045;
-extern const float epsilon = 0.000001;
-int hitnum = 0;
+// const std::string modelPath = "./models/veach-mis/veach-mis.obj";
+std::string modelPath = "./models/cornell-box/cornell-box.obj";
+
+const unsigned width = 512;
+
+const unsigned height = 512;
+
+std::fstream recorder;
 
 int main() {
-  std::string dragon = "./data/cornell-box/cornell-box.";
-  std::string veach = "./data/veach-mis/veach-mis.";
-  std::string stairs = "./data/staircase/stairscase.";
-  std::string model = stairs;
+  recorder.open("./log.txt", std::ios::out);
+  clock_t start = clock();
+  Scene scene;
+  scene.load(modelPath);
+  clock_t end = clock();
+  std::cout << "Time to load models is " << end - start << "ms." << std::endl;
 
-  Scene *scene = Importer::OBJ_import(model + "obj");
+  start = clock();
+  BVH bvh(scene);
+  end = clock();
+  std::cout << "Time to build BVH is " << end - start << "ms." << std::endl;
+  std::cout << "Number of BVH's nodes is " << bvh.getNodeNum() << "."
+            << std::endl;
+  std::cout << "Number of BVH's leaf nodes is " << bvh.getLeafNodeNum() << "."
+            << std::endl;
 
-  Camera *camera = new Camera();
-  Importer::XML_import(model + "xml", scene, camera);
-
-  PathTracing pt(scene, camera, 1024, 0.4);
-  pt.enable_BVH();
-
-  pt.render();
-
-  delete scene;
-  delete camera;
+  Camera camera;
+  PathTracingSolver pt(width, height);
+  pt.draw(scene, bvh, camera);
+  std::cout << "over" << std::endl;
+  recorder.close();
 }
