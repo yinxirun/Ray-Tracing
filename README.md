@@ -1,6 +1,6 @@
 # 生成光线
 
-在世界空间中，以归一化的向量$\mathbf{forward}$、$\mathbf{up}$和$\mathbf{right}$分别定义了相机的前方、上方和右方。
+在世界空间中，以归一化的向量 $\mathbf{forward}$ 、 $\mathbf{up}$ 和 $\mathbf{right}$ 分别定义了相机的前方、上方和右方。
 
 已知，相机的位置为 $ \mathbf{o} $ ，视场角为大小为 $fovy$ ，成像平面在相机的正前方，与$\mathbf{forward}$相互垂直，图像的宽高比为$aspect$，分辨率为$width\times height$。
 
