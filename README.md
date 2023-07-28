@@ -38,13 +38,13 @@ $$
 =\frac{h}{2}\left(\frac{1}{\tan{\frac{fovy}{2}}}\mathbf{forward}+\frac{2j+1-height}{height}\mathbf{up}+\frac{(2i+1-width)aspect}{width}\mathbf{right}\right)
 $$
 
-令$\mathbf t=\left(\frac{1}{\tan{\frac{fovy}{2}}}\mathbf{forward}+\frac{2j+1-height}{height}\mathbf{up}+\frac{(2i+1-width)aspect}{width}\mathbf{right}\right)$，则光线的传播方向为
+令 $\mathbf t=\left(\frac{1}{\tan{\frac{fovy}{2}}}\mathbf{forward}+\frac{2j+1-height}{height}\mathbf{up}+\frac{(2i+1-width)aspect}{width}\mathbf{right}\right)$ ，则光线的传播方向为
 
 $$
 \mathbf d=\frac{\mathbf t}{|\mathbf{t}|}
 $$
 
-注意，$\mathbf{d}$不是$d$。
+注意， $\mathbf{d}$ 不是 $d$ 。
 
 # 光线和三角形求交
 
