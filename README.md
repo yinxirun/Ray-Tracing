@@ -73,19 +73,21 @@ $$
 假设 $\mathbf a=(a_x,a_y,a_z)$ ， $\mathbf{b}=(b_x,b_y,b_z)$ ， $\mathbf{t}=(t_x,t_y,t_z)$ ， $\mathbf{o}=(o_x,o_y,o_z)$ ， $\mathbf{C}=(c_x,c_y,c_z)$ ，则有方程
 
 $$
-\begin{matrix}
+\begin{bmatrix}
 a_x&b_x&d_x \\
 a_y&b_y&d_y \\
 a_z&b_z&d_z
-\end{matrix}
-\begin{matrix}
-\alpha \\ \beta \\ -t
-\end{matrix} =
-\begin{matrix}
+\end{bmatrix}
+\begin{bmatrix}
+\alpha \\
+\beta \\
+-t
+\end{bmatrix} =
+\begin{bmatrix}
 o_x - c_x \\
 o_y - c_y \\
 o_z - c_z
-\end{matrix}
+\end{bmatrix}
 $$
 
 Cramer's Law可解上式。
