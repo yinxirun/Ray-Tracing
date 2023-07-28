@@ -73,25 +73,25 @@ $$
 假设 $\mathbf a=(a_x,a_y,a_z)$ ， $\mathbf{b}=(b_x,b_y,b_z)$ ， $\mathbf{t}=(t_x,t_y,t_z)$ ， $\mathbf{o}=(o_x,o_y,o_z)$ ， $\mathbf{C}=(c_x,c_y,c_z)$ ，则有方程
 
 $$
-\begin{bmatrix}
+\begin{matrix}
     a_x&b_x&d_x \\
     a_y&b_y&d_y \\
     a_z&b_z&d_z
-\end{bmatrix}
+\end{matrix}
 
-\begin{bmatrix}
+\begin{matrix}
     \alpha \\ \beta \\ -t
-\end{bmatrix}
+\end{matrix}
 
 =
-\begin{bmatrix}
+\begin{matrix}
 	o_x - c_x \\
     o_y - c_y \\
     o_z - c_z
-\end{bmatrix}
+\end{matrix}
 $$
 
-**Cramer's Law**可解上式。
+Cramer's Law可解上式。
 
 # 光线与轴对齐包围盒求交
 包围盒由6个平面所围成，这6个平面为 $X_1$ ， $X_2$ ， $Y_1$ ， $Y_2$ ， $Z_1$ ， $Z_2$ ，其中， $X_1$ 和 $X_2$ 平行， $Y_1$ 和 $Y_2$ 平行， $Z_1$ 和 $Z_2$ 平行。光线为 $\mathbf{o}+t\mathbf{d}$ 。
