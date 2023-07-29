@@ -50,7 +50,7 @@ $$
 
 光线为 $\mathbf{o}+t\mathbf{d}$，其中 $\mathbf{o}$ 为光的发射点， $\mathbf{d}$ 为光的传播方向。
 
-三角形的三点分别为A、B和C，向量 $\mathbf{a}=\mathbf{CB}$，$\mathbf{b}=\mathbf{CA}$ 。三角形内任意一点可 $\mathbf{p}$ 由以下式子表示。
+三角形的三点分别为A、B和C，向量 $\mathbf{a}=\mathbf{CB}$ ， $\mathbf{b}=\mathbf{CA}$ 。三角形内任意一点可 $\mathbf{p}$ 由以下式子表示。
 
 $$
 \mathbf{p}=\mathbf{C}+\alpha \mathbf{a}+\beta\mathbf{b}
