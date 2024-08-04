@@ -1,0 +1,18 @@
+cmake_minimum_required (VERSION 3.15)
+
+project (PathTracign)
+
+# 创建保存结果的文件夹
+execute_process( COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/output)
+
+# 可执行程序输出目录
+set(OUTPUT ${CMAKE_CURRENT_SOURCE_DIR})
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG 	${OUTPUT})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE 	${OUTPUT})
+
+file(GLOB_RECURSE SRCS src/*.cpp)
+
+add_executable(main ${SRCS})
+
+target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

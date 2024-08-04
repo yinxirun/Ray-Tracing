@@ -1,13 +1,8 @@
-example-scenes-cg22/
 .vscode/
 output/
-models/
+build/
 
-*.bmp
+/*.bmp
 *.exe
-*.json
-*.bak
 *.xml
-*.obj
-*.txt
 *.dll

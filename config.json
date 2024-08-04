@@ -1,0 +1,69 @@
+{
+    "scene_to_render": 0,
+    "spp": 128,
+    "rr": 0.5,
+    "tone_mapping":"ACES",
+    "bvh_setting": {
+        "split_method": [
+            "SAH"
+        ],
+        "sah_setting": {
+            "num_buckets": 12,
+            "traval_cost": 1,
+            "intersect_cost": 1
+        }
+    },
+    "denoise": true,
+    "scenes": [
+        {
+            "path": "assets/cornell-box/cornell-box.obj",
+            "camera": {
+                "position": [
+                    278,
+                    273,
+                    -800
+                ],
+                "lookat": [
+                    278,
+                    273,
+                    -799
+                ],
+                "up": [
+                    0,
+                    1,
+                    0
+                ],
+                "fovy": 39.3077,
+                "near": 800,
+                "far": 2000,
+                "width": 1024,
+                "height": 1024
+            }
+        },
+        {
+            "path": "assets/cornell-box-dragon/cornell-box.obj",
+            "camera": {
+                "position": [
+                    278,
+                    273,
+                    -800
+                ],
+                "lookat": [
+                    278,
+                    273,
+                    -799
+                ],
+                "up": [
+                    0,
+                    1,
+                    0
+                ],
+                "fovy": 39.3077,
+                "near": 800,
+                "far": 2000,
+                "width": 512,
+                "height": 512
+            }
+        }
+    ]
+}
