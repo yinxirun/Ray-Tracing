@@ -118,8 +118,12 @@ void PathTracingSolver::RenderAndSave(Scene &scene, BVHAccel &bvh,
         colorImage[i] = tempFrame[i] / (float)(s + 1);
       }
       std::string fileName = "./output/" + std::to_string(s) + ".exr";
-      ToneMapping(colorImage);
       SaveColorImageHDR(fileName, colorImage);
+      if (denoise) {
+        fileName = "./output/" + std::to_string(s) + "Denoised.exr";
+        Denoise();
+        SaveColorImageHDR(fileName, colorImageDenoised);
+      }
     }
   }
 
@@ -263,10 +267,13 @@ void PathTracingSolver::Denoise() {
   constexpr float sigmaPlane = 0.1;
   constexpr float k = 0.5;
 
-  std::vector<glm::vec3> tempImage(width * height);
+  std::vector<glm::vec3> tempImage = colorImage;
   auto removeOutlier = [&](unsigned tid) {
     for (unsigned centreIndex = tid; centreIndex < pixelNum;
          centreIndex += threadNum) {
+      if (triangleIDImage[centreIndex] == UINT32_MAX) {
+        continue;
+      }
       int y = centreIndex / width;
       int x = centreIndex % width;
       glm::vec3 standardDeviation;
@@ -322,9 +329,13 @@ void PathTracingSolver::Denoise() {
   auto filter = [&](unsigned tid) {
     for (unsigned centreIndex = tid; centreIndex < pixelNum;
          centreIndex += threadNum) {
+      if (triangleIDImage[centreIndex] == UINT32_MAX) {
+        continue;
+      }
       int y = centreIndex / width;
       int x = centreIndex % width;
       float weightSum = 0;
+      int count = 0;
       glm::vec3 color = glm::vec3(0);
       for (int i = -kernelRadius; i <= kernelRadius; ++i) {
         if (x + i < 0 || x + i >= width) continue;
@@ -334,6 +345,7 @@ void PathTracingSolver::Denoise() {
           if (triangleIDImage[index] == UINT32_MAX) {
             continue;
           }
+          count += 1;
           // distance
           float distanceWeight =
               (-i * i - j * j) / (2 * sigmaDistance * sigmaDistance);
@@ -344,8 +356,10 @@ void PathTracingSolver::Denoise() {
                               (2 * sigmaColor * sigmaColor);
 
           // normal
-          float d =
-              glm::acos(glm::dot(normalImage[centreIndex], normalImage[index]));
+          float cosine = glm::dot(normalImage[centreIndex], normalImage[index]);
+          cosine = cosine > 1 ? 1 : cosine;
+          cosine = cosine < 0 ? 0 : cosine;
+          float d = glm::acos(cosine);
           float normalWeight = -d * d / (2 * sigmaNormal * sigmaNormal);
 
           // plane
@@ -359,13 +373,15 @@ void PathTracingSolver::Denoise() {
           float planeWeight = -d * d / (2 * sigmaPlane * sigmaPlane);
 
           float weight =
-              exp(distanceWeight + colorWeight + planeWeight + normalWeight);
+              exp(distanceWeight + colorWeight + normalWeight + planeWeight);
 
           color += weight * tempImage[index];
           weightSum += weight;
         }
       }
-      color /= weightSum;
+      if (count != 0) {
+        color /= weightSum;
+      }
       colorImageDenoised[centreIndex] = color;
     }
   };
@@ -473,9 +489,9 @@ void PathTracingSolver::SaveTriangleIdImage(std::string fileName) {
   for (int i = 0; i < triangleIDImage.size(); i++) {
     glm::uint32 id = triangleIDImage[i];
     if (id == UINT32_MAX) {
-      img[i * 3 + 0] = 0;
-      img[i * 3 + 1] = 0;
-      img[i * 3 + 2] = 0;
+      img[i * 3 + 0] = 255;
+      img[i * 3 + 1] = 255;
+      img[i * 3 + 2] = 255;
     } else {
       img[i * 3 + 0] = colors[id].x;
       img[i * 3 + 1] = colors[id].y;
