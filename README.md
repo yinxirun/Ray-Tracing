@@ -12,7 +12,8 @@
 
 - 基于 Surface Area Heuristic 的 BVH 构建
 - 针对光源的重要性采样
-- 针对漫反射材质的余弦重要性采样
+- 针对 Diffuse 材质的余弦重要性采样
+- 针对 Speular 材质的 GGX 重要性采样
 - 基于联合双边滤波的降噪
 
 ## Todo

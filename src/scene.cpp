@@ -208,10 +208,14 @@ void Scene::load(std::string inputfile) {
         glm::vec3(mats[i].diffuse[0], mats[i].diffuse[1], mats[i].diffuse[2]);
     materials[i]->emission = glm::vec3(mats[i].emission[0], mats[i].emission[1],
                                        mats[i].emission[2]);
+    materials[i]->metallic = mats[i].metallic;
+    materials[i]->roughness = mats[i].roughness;
 
     if (materials[i]->emission.x > 0 || materials[i]->emission.y > 0 ||
         materials[i]->emission.z > 0) {
       materials[i]->type = MaterialType::EMISSIVE;
+    } else if (materials[i]->metallic > 0 || materials[i]->roughness > 0) {
+      materials[i]->type = MaterialType::SPECULAR;
     } else {
       materials[i]->type = MaterialType::DIFFUSE;
     }

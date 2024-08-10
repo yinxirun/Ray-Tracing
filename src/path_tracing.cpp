@@ -17,12 +17,16 @@
 #define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 
+float mix(float x, float y, float a) { return x * (1 - a) + y * a; }
+
+glm::vec3 mix(glm::vec3 x, glm::vec3 y, float a) { return (1 - a) * x + a * y; }
+
 PathTracingSolver::PathTracingSolver(unsigned spp, float rr)
     : u(0, 1), sampleNum(spp), rr(rr) {}
 
 void PathTracingSolver::SetCamera(Camera *c) { camera = c; }
 
-Ray PathTracingSolver::emitRay(unsigned x, unsigned y) {
+Ray PathTracingSolver::EmitRay(unsigned x, unsigned y) {
   float w = static_cast<float>(camera->width);
   float h = static_cast<float>(camera->height);
   float aspect = w / h;
@@ -57,7 +61,7 @@ void PathTracingSolver::RenderAndSave(Scene &scene, BVHAccel &bvh,
   std::vector<Ray> rays;
   for (unsigned i = 0; i < height; ++i) {
     for (unsigned j = 0; j < width; ++j) {
-      rays.push_back(emitRay(j, i));
+      rays.push_back(EmitRay(j, i));
     }
   }
 
@@ -100,7 +104,7 @@ void PathTracingSolver::RenderAndSave(Scene &scene, BVHAccel &bvh,
           tempFrame[index] += glm::vec3(0, 0, 0);
         } else {
           tempFrame[index] +=
-              shade(bvh, positionImage[index], normalImage[index],
+              Shade(bvh, positionImage[index], normalImage[index],
                     materials[index], -rays[index].direction);
         }
       }
@@ -142,7 +146,7 @@ void PathTracingSolver::RenderAndSave(Scene &scene, BVHAccel &bvh,
   }
 }
 
-glm::vec3 PathTracingSolver::shade(BVHAccel &bvh, glm::vec3 hitPoint,
+glm::vec3 PathTracingSolver::Shade(BVHAccel &bvh, glm::vec3 hitPoint,
                                    glm::vec3 n, const Material *m,
                                    glm::vec3 out) {
   if (m->type == MaterialType::EMISSIVE) {
@@ -170,7 +174,7 @@ glm::vec3 PathTracingSolver::shade(BVHAccel &bvh, glm::vec3 hitPoint,
     float cosine1 = -glm::dot(lightNormal, newDirection);
     if (cosine0 < 0 || cosine1 < 0) continue;
     illuminationDirect += lightMaterial->emission *
-                          BRDF(-newDirection, out, m) * cosine0 * cosine1 *
+                          BRDF(-newDirection, out, n, m) * cosine0 * cosine1 *
                           area / dist / dist;
   }
 
@@ -181,7 +185,7 @@ glm::vec3 PathTracingSolver::shade(BVHAccel &bvh, glm::vec3 hitPoint,
 
   glm::vec3 direction;
   float pdf;
-  Sample(m, n, direction, pdf);
+  Sample(m, n, out, direction, pdf);
 
   Ray ray(hitPoint, direction);
   SurfaceInteraction info;
@@ -196,8 +200,8 @@ glm::vec3 PathTracingSolver::shade(BVHAccel &bvh, glm::vec3 hitPoint,
     } else {
       glm::vec3 newHitPoint = ray.origin + info.time * ray.direction;
       illuminationIndirect =
-          BRDF(-ray.direction, out, m) *
-          shade(bvh, newHitPoint, info.normal, info.material, -ray.direction) *
+          BRDF(-ray.direction, out, n, m) *
+          Shade(bvh, newHitPoint, info.normal, info.material, -ray.direction) *
           glm::dot(n, ray.direction) / pdf / rr;
     }
   }
@@ -218,13 +222,49 @@ void PathTracingSolver::SaveColorImageLDR(std::string fileName) {
   stbi_write_bmp(fileName.c_str(), width, height, 3, img.data());
 }
 
-glm::vec3 PathTracingSolver::BRDF(glm::vec3 in, glm::vec3 out,
+glm::vec3 PathTracingSolver::BRDF(glm::vec3 in, glm::vec3 out, glm::vec3 normal,
                                   const Material *material) {
-  return material->albedo / pi;
+  glm::vec3 h = glm::normalize(out - in);
+  float dotHV = glm::dot(h, out);
+  float dotNV = glm::dot(normal, out);
+  float dotNL = glm::dot(normal, -in);
+  float dotNH = glm::dot(normal, h);
+  if (dotNL < 0 || dotNV < 0) {
+    return glm::vec3(0.f);
+  }
+
+  switch (material->type) {
+    case MaterialType::SPECULAR: {
+      // Fresnel - Schlick
+      glm::vec3 F0(0.04, 0.04, 0.04);
+      F0 = mix(F0, material->albedo, material->metallic);
+      glm::vec3 F = F0 + (glm::vec3(1.0f) - F0) * (float)pow(1.0 - dotHV, 5.0);
+
+      // Geometric Shadowing - SchlicksmithGGX
+      float r = (material->roughness + 1.0);
+      float k = (r * r) / 8.0;
+      float GL = dotNL / (dotNL * (1.0 - k) + k);
+      float GV = dotNV / (dotNV * (1.0 - k) + k);
+      float G = GL * GV;
+
+      // Normal Distribution - GGX
+      float alpha = material->roughness * material->roughness;
+      float alpha2 = alpha * alpha;
+      float denom = dotNH * dotNH * (alpha2 - 1.0) + 1.0;
+      float D = (alpha2) / (pi * denom * denom);
+
+      return D * F * G / (4.0f * dotNL * dotNV + 0.001f);
+    }
+    case MaterialType::DIFFUSE:
+      return material->albedo / pi;
+    default:
+      return glm::vec3(0);
+  }
 }
 
 void PathTracingSolver::Sample(const Material *material, glm::vec3 normal,
-                               glm::vec3 &direction, float &pdf) {
+                               glm::vec3 out, glm::vec3 &direction,
+                               float &pdf) {
   float theta, phi;
 
   glm::vec3 t = glm::cross(normal, glm::vec3(0, 1, 0));
@@ -234,23 +274,46 @@ void PathTracingSolver::Sample(const Material *material, glm::vec3 normal,
   t = glm::normalize(t);
   glm::vec3 b = glm::normalize(glm::cross(normal, t));
 
+  float x = u(e);
+  float y = u(e);
+
   switch (material->type) {
+    case MaterialType::SPECULAR: {
+      // GGX 采样
+      float roughness = material->roughness;
+      theta = acos(sqrt((1 - x) / (1 + x * (roughness * roughness - 1))));
+      phi = 2 * pi * y;
+
+      glm::vec3 h = sinf(theta) * cosf(phi) * t + sinf(theta) * sinf(phi) * b +
+                    cosf(theta) * normal;
+
+      direction = 2.0f * glm::dot(h, out) * h - out;
+
+      float d =
+          (cosf(theta) * roughness * roughness - cosf(theta)) * cosf(theta) + 1;
+      float D = roughness * roughness / pi / d / d;
+      pdf = D * cosf(theta) / 4.0f / glm::dot(direction, h);
+
+      break;
+    }
     case MaterialType::DIFFUSE:
       // 半球余弦权重采样
-      theta = acos(1 - 2 * u(e)) / 2;
-      phi = 2 * pi * u(e);
+      theta = acos(1 - 2 * x) / 2;
+      phi = 2 * pi * y;
       pdf = cos(theta) / pi;
+      direction = sinf(theta) * cosf(phi) * t + sinf(theta) * sinf(phi) * b +
+                  cosf(theta) * normal;
       break;
     default:
       // 半球均匀采样
-      theta = acos(1 - u(e));
-      phi = 2 * pi * u(e);
+      theta = acos(1 - x);
+      phi = 2 * pi * y;
       pdf = 1 / 2 / pi;
+
+      direction = sinf(theta) * cosf(phi) * t + sinf(theta) * sinf(phi) * b +
+                  cosf(theta) * normal;
       break;
   }
-
-  direction = sinf(theta) * cosf(phi) * t + sinf(theta) * sinf(phi) * b +
-              cosf(theta) * normal;
 }
 
 void PathTracingSolver::Denoise() {

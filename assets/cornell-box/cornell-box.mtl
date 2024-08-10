@@ -1,23 +1,27 @@
 newmtl TallBlock
-Kd 1 1 1
+Kd 0.79 0.76 0.73
+Pr 0.1
+Pm 1
+Ps 0
+Ke 0 0 0
 
 newmtl ShortBlock
-Kd 1 1 1
+Kd 0.79 0.76 0.73
 
 newmtl LeftWall
-Kd 1 0 0
+Kd 0.9 0 0
 
 newmtl RightWall
-Kd	0 1 0
+Kd	0 0.9 0
 
 newmtl Floor
-Kd	1 1 1
+Kd	0.79 0.76 0.73
 
 newmtl Ceilling
-Kd	1 1 1
+Kd	0.79 0.76 0.73
 
 newmtl Light
 Ke 34 24 8
 
 newmtl BackWall
-Kd	1 1 1
+Kd	0.79 0.76 0.73

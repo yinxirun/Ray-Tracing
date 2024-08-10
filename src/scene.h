@@ -17,6 +17,8 @@ struct Material {
   std::string name;
   glm::vec3 albedo;
   glm::vec3 emission;
+  float roughness = 0;
+  float metallic = 0;
   MaterialType type;
 };
 

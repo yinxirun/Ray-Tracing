@@ -1,6 +1,6 @@
 {
-    "scene_to_render": 1,
-    "spp": 8192,
+    "scene_to_render": 0,
+    "spp": 100000,
     "rr": 0.5,
     "tone_mapping":"ACES",
     "bvh_setting": {

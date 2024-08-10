@@ -1,52 +1,60 @@
-# 生成光线
+本文介绍代码中的相关算法和实现
 
-在世界空间中，以归一化的向量 $\mathbf{forward}$ 、 $\mathbf{up}$ 和 $\mathbf{right}$ 分别定义了相机的前方、上方和右方。
+# 相机
 
-已知，相机的位置为 $\mathbf{o}$ ，视场角为大小为 $fovy$ ，成像平面在相机的正前方，与 $\mathbf{forward}$ 相互垂直，图像的宽高比为 $aspect$ ，分辨率为 $width\times height$ 。
+相机为针孔相机。
 
-设图像的高为 $h$ ，宽为 $w=h\times aspect$ 。那么，相机的焦距为
+已知，在世界空间中，以归一化的向量 $\mathbf{forward}$ 、 $\mathbf{up}$ 和 $\mathbf{right}$ 分别定义了相机的前方、上方和右方。相机的位置为 $\mathbf{o}$ ，纵向视场角为大小为 $fovy$ ，胶片的宽高比为 $aspect$ ，宽度为 $w$ 。成像分辨率为 $W\times H$ 。
+
+胶片的高为 $h$ ，
+
+$$
+h=\frac{w}{aspect}
+$$
+
+相机的像距为
 
 $$
 d=\frac{h}{2\tan{\frac{fovy}{2}}}
 $$
 
-一个像素的高度为 $m=\frac{h}{height}$ ，宽度为 $n=\frac{w}{width}$ 。
+一个像素的高度为 $m=\frac{h}{H}$ ，宽度为 $n=\frac{w}{W}$ 。
 
-图像的左下角的位置为
-
-$$
-\mathbf{s}=\mathbf{o}+\left(-\frac{w}{2}\mathbf{right}-\frac{h}{2}\mathbf{up}+d\mathbf{forward}\right)
-$$
-
-则图像左下角的像素的位置为
+图像的左上角的位置为
 
 $$
-\mathbf{s}+\frac{m}{2}\mathbf{up}+\frac{n}{2}\mathbf{right}
+\mathbf{s}=\mathbf{o}+\left(-\frac{w}{2}\mathbf{right}+\frac{h}{2}\mathbf{up}+d\mathbf{forward}\right)
 $$
 
-以此类推，位于从左往右数第i列，从下往上数第j行的像素的位置为
+则图像左上角的像素中心的位置为
 
 $$
-\mathbf{p}_{i,j}=\mathbf{s}+\frac{(2j+1)m}{2}\mathbf{up}+\frac{(2i+1)n}{2}\mathbf{right}
+\mathbf{s}-\frac{m}{2}\mathbf{up}+\frac{n}{2}\mathbf{right}
+$$
+
+以此类推，位于从左往右数第i列，从上往下数第j行的像素的位置为
+
+$$
+\mathbf{p}_{i,j}=\mathbf{s}-\frac{(2j+1)m}{2}\mathbf{up}+\frac{(2i+1)n}{2}\mathbf{right}
 $$
 
 注意，其中i和j都是从0开始数。然后可知，从相机位置指向该像素的位置的向量为
 
 $$
 \mathbf r=\mathbf{p}_{i,j}-\mathbf{o}\\
-=d \mathbf{forward}+(\frac{(2j+1)m}{2}-\frac{h}{2})\mathbf{up}+(\frac{(2i+1)n}{2}-\frac{w}{2})\mathbf{right}\\
-=\frac{h}{2}\left(\frac{1}{\tan{\frac{fovy}{2}}}\mathbf{forward}+\frac{2j+1-height}{height}\mathbf{up}+\frac{(2i+1-width)aspect}{width}\mathbf{right}\right)
+=d \mathbf{forward}+(\frac{h}{2}-\frac{(2j+1)m}{2})\mathbf{up}+(\frac{(2i+1)n}{2}-\frac{w}{2})\mathbf{right}\\
+=\frac{h}{2}\left(\frac{1}{\tan{\frac{fovy}{2}}}\mathbf{forward}+\frac{H-2j-1}{H}\mathbf{up}+\frac{(2i+1-W)aspect}{W}\mathbf{right}\right)
 $$
 
-令 $\mathbf t=\left(\frac{1}{\tan{\frac{fovy}{2}}}\mathbf{forward}+\frac{2j+1-height}{height}\mathbf{up}+\frac{(2i+1-width)aspect}{width}\mathbf{right}\right)$ ，则光线的传播方向为
+则发射光线的传播方向为
 
 $$
-\mathbf d=\frac{\mathbf t}{|\mathbf{t}|}
+\mathbf d=\frac{\mathbf r}{|\mathbf{r}|}
 $$
 
-注意， $\mathbf{d}$ 不是 $d$ 。
+# 求交
 
-# 光线和三角形求交
+## 光线和三角形
 
 光线为 $\mathbf{o}+t\mathbf{d}$，其中 $\mathbf{o}$ 为光的发射点， $\mathbf{d}$ 为光的传播方向。
 
@@ -94,7 +102,7 @@ $$
 
 Cramer's Law可解上式。
 
-# 光线与轴对齐包围盒求交
+## 光线与轴对齐包围盒
 包围盒由6个平面所围成，这6个平面为 $X_1$ ， $X_2$ ， $Y_1$ ， $Y_2$ ， $Z_1$ ， $Z_2$ ，其中， $X_1$ 和 $X_2$ 平行， $Y_1$ 和 $Y_2$ 平行， $Z_1$ 和 $Z_2$ 平行。光线为 $\mathbf{o}+t\mathbf{d}$ 。
 
 当光线和这3对平面都相交时，交点的参数 $t$ 依次分别为 $t_x^1$ 、 $t_x^2$ 、 $t_y^1$ 、 $t_y^2$ 、 $t_z^1$ 、 $t_z^2$ 。如果光线与包围盒相交，那么必然存在参数 $t$ 满足以下条件。
@@ -107,16 +115,9 @@ $$
 
 当光线只与2对或1对平面相交时，这种情况是上述情况的退化，不言自明。
 
-# 立体角均匀采样
-在立体角元 $\mathrm d\Omega$ 内的概率
-
-$$
-\mathrm dP=\frac{\mathrm d\Omega}{4\pi}=\frac{\sin\theta}{4\pi}\,\mathrm d\theta\,\mathrm d\varphi=-\frac{1}{4\pi}\mathrm d\cos\theta\,\mathrm d\varphi
-$$
-
 因此只需要 $\cos\theta$ 和 $\varphi$ 分别是均匀分布即可。
 
-# Rendering Equation 渲染方程
+# 渲染方程
 ## Radiant flux 辐射通量
 单位时间内通过某一截面的辐射能量，也可以说是通过某一表面的辐射功率，单位是瓦特（ $W$ ）。
 
@@ -220,3 +221,120 @@ E(X)
 =\lim_{n\rightarrow+\infty}{\left[\frac{1-(1-p)^n}{p}-n(1-p)^n\right]}
 =\frac{1}{p}
 $$
+
+# 重要性采样
+
+## 余弦权重重要性采样
+
+在半球面上，有
+
+$$
+\int_{HemiSphere}\frac{\cos\theta}{\pi}\,\mathrm dA=1
+$$
+
+因此，我们采用此 PDF ，即
+
+$$
+PDF(\omega)=\frac{\cos\theta}{\pi}
+$$
+
+因 $\mathrm d\omega=\sin\theta\,\mathrm d\theta\,\mathrm d\phi$ ，所以
+
+$$
+PDF(\theta,\phi)=\frac{\cos\theta\sin\theta}{\pi}
+$$
+
+则边缘概率密度
+
+$$
+PDF(\theta) = \int_0^{2\pi}\frac{\cos\theta\sin\theta}{\pi}\,\mathrm d\phi=\sin{2\theta}
+$$
+
+$$
+PDF(\phi)=\int_0^{\frac{\pi}{2}}\frac{\cos\theta\sin\theta}{\pi}\,\mathrm d\theta=\frac{1}{2\pi}
+$$
+
+则边缘累积概率分布
+
+$$
+CDF(\theta)=\int_0^\theta PDF(\theta)\,\mathrm d\theta=\frac{1-\cos{2\theta}}{2}
+$$
+
+$$
+CDF(\phi)=\int_0^\theta PDF(\phi)\,\mathrm d\theta=\frac{\phi}{2\pi}
+$$
+
+则
+
+$$
+\theta=\frac{\arccos(1-2\xi_1)}{2}
+$$
+
+$$
+\phi=2\pi\xi_2
+$$
+
+## GGX重要性采样
+
+GGX法线分布为
+
+$$
+D(\mathbf h)=\frac{\alpha^2}{\pi((\mathbf n\cdot\mathbf h)^2(\alpha^2-1)+1)^2}
+$$
+
+其中， $\alpha$ 为粗糙度， $\mathbf n$ 为宏观法线。
+
+法线分布函数必满足以下性质
+
+$$
+\int D(\mathbf h)(\mathbf n\cdot\mathbf h)\,\mathrm d \mathbf h=1
+$$
+
+因此，我们选择采样微观法线的方向，其概率密度函数为
+
+$$
+PDF_h(\omega)=D(\omega)(\omega\cdot\mathbf n)=\frac{\alpha^2}{\pi(\cos^2\theta(\alpha^2-1)+1)^2}\cos\theta
+$$
+
+其中， $\theta$ 为 $\omega$ 和 $\mathbf n$ 的夹角。
+
+边缘概率密度函数
+
+$$
+PDF_h(\theta)=\frac{2\alpha^2}{(\cos^2\theta(\alpha^2-1)+1)^2}\cos\theta\sin\theta
+$$
+
+$$
+PDF_h(\phi)=\frac{1}{2\pi}
+$$
+
+最终
+
+$$
+\theta=\arccos\sqrt{\frac{1-\xi_1}{1+\xi_1(\alpha^2-1)}}
+$$
+
+$$
+\phi=\frac{\phi}{2\pi}
+$$
+
+采样得到微观法线 $\mathbf h$ ，根据微观法线 $\mathbf h$ 和出射方向 $\mathbf o$ ，可得入射方向
+
+$$
+\mathbf i = 2(\mathbf o\cdot\mathbf h)\mathbf h-\mathbf o
+$$
+
+相应地，需要得知此入射方向的概率密度 $PDF_i(\mathbf i)$ 。据外部资料可知
+
+$$
+PDF_h=PDF_i\left\Vert \frac{\partial\mathbf h}{\partial\mathbf i} \right\Vert
+$$
+
+推导可得，
+
+$$
+\left\Vert \frac{\partial\mathbf h}{\partial\mathbf i} \right\Vert=\frac{1}{4(\mathbf i\cdot\mathbf h)}
+$$
+
+# FXAA
+

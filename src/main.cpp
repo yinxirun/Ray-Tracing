@@ -13,7 +13,6 @@ const float pi = 3.1415926535;
 const float epsilon = 0.001;
 
 int main() {
-
   nlohmann::json configLoader;
   std::fstream f("config.json", std::ios::in);
   f >> configLoader;

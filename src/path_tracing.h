@@ -15,7 +15,8 @@ class PathTracingSolver {
   void SavePositionImage(std::string fileName);
   void SaveTriangleIdImage(std::string fileName);
 
-  void SaveColorImageHDR(std::string fileName,std::vector<glm::vec3>& hdrImage);
+  void SaveColorImageHDR(std::string fileName,
+                         std::vector<glm::vec3> &hdrImage);
 
  private:
   std::vector<glm::vec3> colorImage;
@@ -27,25 +28,27 @@ class PathTracingSolver {
 
   Camera *camera = nullptr;
 
-  std::vector<Primitive*> lights;
+  std::vector<Primitive *> lights;
 
+  // 存活的概率
   float rr;
   unsigned sampleNum;
   std::default_random_engine e;
   // 0  1
   std::uniform_real_distribution<float> u;
 
-  Ray emitRay(unsigned x, unsigned y);
+  Ray EmitRay(unsigned x, unsigned y);
 
-  glm::vec3 shade(BVHAccel &bvh, glm::vec3 hitPoint, glm::vec3 normal,
+  glm::vec3 Shade(BVHAccel &bvh, glm::vec3 hitPoint, glm::vec3 normal,
                   const Material *material, glm::vec3 out);
 
-  glm::vec3 BRDF(glm::vec3 in, glm::vec3 out, const Material *material);
+  glm::vec3 BRDF(glm::vec3 in, glm::vec3 out, glm::vec3 normal,
+                 const Material *material);
 
-  void Sample(const Material *material, glm::vec3 normal, glm::vec3 &d,
-              float &pdf);
+  void Sample(const Material *material, glm::vec3 normal, glm::vec3 out,
+              glm::vec3 &d, float &pdf);
 
-  void ToneMapping(std::vector<glm::vec3>& hdrImage);
+  void ToneMapping(std::vector<glm::vec3> &hdrImage);
 
   void Denoise();
 };
