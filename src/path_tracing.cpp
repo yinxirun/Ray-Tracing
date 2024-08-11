@@ -466,14 +466,6 @@ void PathTracingSolver::Denoise() {
 }
 
 void PathTracingSolver::ToneMapping(std::vector<glm::vec3> &hdrImage) {
-  float avg = 0;
-  for (int i = 0; i < hdrImage.size(); ++i) {
-    avg += sqrt(hdrImage[i].x * hdrImage[i].x + hdrImage[i].y * hdrImage[i].y +
-                hdrImage[i].z * hdrImage[i].z);
-  }
-  avg = avg / hdrImage.size();
-
-  float adapted_lum = avg;
   const float A = 2.51f;
   const float B = 0.03f;
   const float C = 2.43f;

@@ -18,6 +18,9 @@ config.json 用于配置运行时参数。
 - 针对 Speular 材质的 GGX 重要性采样
 - 基于联合双边滤波的降噪
 - ACES 色调映射
+- FXAA 后处理
+
+具体实现见 [Document](Document.md)
 
 ## Todo
 

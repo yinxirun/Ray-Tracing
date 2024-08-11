@@ -338,3 +338,4 @@ $$
 
 # FXAA
 
+![](images/fxaa.png)
