@@ -4,9 +4,12 @@
 #include <string>
 
 #include "bvh_accel.h"
+#include "fxaa.h"
 #include "nlohmann/json.hpp"
 #include "path_tracing.h"
 #include "scene.h"
+#include "stb_image.h"
+#include "stb_image_write.h"
 
 const float pi = 3.1415926535;
 
@@ -57,5 +60,34 @@ int main() {
   pt.SetCamera(&camera);
   pt.RenderAndSave(scene, accelerator, denoise);
 
-  std::cout << "Over" << std::endl;
+  std::cout << "Complete Rendering" << std::endl;
+
+  int x, y, c;
+  unsigned char* pixels = stbi_load("Final.bmp", &x, &y, &c, 0);
+  std::vector<glm::vec3> input(x * y);
+  for (int i = 0; i < x * y; ++i) {
+    input[i].x = pixels[i * 3 + 0];
+    input[i].y = pixels[i * 3 + 1];
+    input[i].z = pixels[i * 3 + 2];
+    input[i] /= 255.f;
+  }
+  stbi_image_free(pixels);
+
+  auto image = FXAA()(input, x, y);
+
+  for (int i = 0; i < y; ++i) {
+    for (int j = 0; j < x; ++j) {
+      std::cout << image[i * x + j].x << " ";
+    }
+    std::cout << std::endl;
+  }
+
+  pixels = new unsigned char[x * y * c];
+  for (int i = 0; i < x * y; ++i) {
+    pixels[i * 3 + 0] = image[i].x * 255;
+    pixels[i * 3 + 1] = image[i].y * 255;
+    pixels[i * 3 + 2] = image[i].z * 255;
+  }
+  stbi_write_bmp("Final_AA.bmp", x, y, c, pixels);
+  delete[] pixels;
 }

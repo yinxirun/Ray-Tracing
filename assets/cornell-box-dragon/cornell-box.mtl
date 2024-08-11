@@ -23,3 +23,8 @@ Ke 34 24 8
 Tr 1 1 1
 Ns 1
 Ni 1
+
+newmtl Cool
+Kd 0.79 0.76 0.73
+Pm 1
+Pr 0.2

@@ -1,5 +1,5 @@
 {
-    "scene_to_render": 0,
+    "scene_to_render": 1,
     "spp": 100000,
     "rr": 0.5,
     "tone_mapping":"ACES",
