@@ -12,11 +12,14 @@
 #include "stb_image_write.h"
 #include "tinyexr.h"
 
+#include "gpu/application.h"
+
 const float pi = 3.1415926535;
 
 const float epsilon = 0.001;
 
-int main() {
+int CPU()
+{
   nlohmann::json configLoader;
   std::fstream f("config.json", std::ios::in);
   f >> configLoader;
@@ -64,9 +67,10 @@ int main() {
   std::cout << "Complete Rendering" << std::endl;
 
   int x, y, c;
-  unsigned char* pixels = stbi_load("Final.bmp", &x, &y, &c, 0);
+  unsigned char *pixels = stbi_load("Final.bmp", &x, &y, &c, 0);
   std::vector<glm::vec3> inputImage(x * y);
-  for (int i = 0; i < x * y; ++i) {
+  for (int i = 0; i < x * y; ++i)
+  {
     inputImage[i].x = pixels[i * c + 0];
     inputImage[i].y = pixels[i * c + 1];
     inputImage[i].z = pixels[i * c + 2];
@@ -77,7 +81,8 @@ int main() {
   auto image = FXAA()(inputImage, x, y);
 
   pixels = new unsigned char[x * y * 3];
-  for (int i = 0; i < x * y; ++i) {
+  for (int i = 0; i < x * y; ++i)
+  {
     pixels[i * 3 + 0] = image[i].x * 255;
     pixels[i * 3 + 1] = image[i].y * 255;
     pixels[i * 3 + 2] = image[i].z * 255;
@@ -85,4 +90,21 @@ int main() {
   stbi_write_bmp("Final_AA.bmp", x, y, 3, pixels);
 
   delete[] pixels;
+
+  return 0;
+}
+
+#include "gpu/vk/rhi.h"
+
+int main()
+{
+  glfwInit();
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+  RHI *rhi = new RHI();
+  rhi->Init();
+
+  rhi->Shutdown();
+
+  delete rhi;
 }

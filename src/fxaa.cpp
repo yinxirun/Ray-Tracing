@@ -12,7 +12,8 @@ const float EDGE_THRESHOLD = 0.125;
 
 const int ITERATIONS = 12;
 
-float QUALITY(int i) {
+float QUALITY(int i)
+{
   return 1.0f;
   float arr[] = {1.5, 2.0, 2.0, 2.0, 2.0, 4.0, 8.0};
   if (i < 5)
@@ -25,23 +26,27 @@ float QUALITY(int i) {
 
 #define SUBPIXEL_QUALITY 0.75
 
-float clamp(float x, float mi, float ma) {
+float clamp(float x, float mi, float ma)
+{
   return std::min(ma, std::max(mi, x));
 }
 
-float rgb2luma(vec3 rgb) {
+float rgb2luma(vec3 rgb)
+{
   // return rgb.y * (0.587 / 0.299) + rgb.x;
   return sqrt(dot(rgb, vec3(0.299, 0.587, 0.114)));
 }
 
-vec3 FXAA::texture(std::vector<vec3>& tex, ivec2 xy) {
+vec3 FXAA::texture(std::vector<vec3> &tex, ivec2 xy)
+{
   int x = std::min(width - 1, std::max(0, xy.x));
   int y = std::min(height - 1, std::max(0, xy.y));
   int index = x + y * width;
   return tex[index];
 }
 
-vec3 FXAA::texture(std::vector<vec3>& tex, vec2 uv) {
+vec3 FXAA::texture(std::vector<vec3> &tex, vec2 uv)
+{
   float x = width * uv.x;
   float y = height * uv.y;
 
@@ -61,16 +66,19 @@ vec3 FXAA::texture(std::vector<vec3>& tex, vec2 uv) {
   return (1 - x + x1 + 0.5f) * t1 + (x - x1 - 0.5f) * t2;
 }
 
-std::vector<vec3> FXAA::operator()(std::vector<vec3>& input, unsigned width,
-                                   unsigned height) {
+std::vector<vec3> FXAA::operator()(std::vector<vec3> &input, unsigned width,
+                                   unsigned height)
+{
   pixels.resize(width * height);
   this->width = width;
   this->height = height;
 
   vec2 inverseScreenSize(1.0f / width, 1.0f / height);
 
-  for (int i = 0; i < height; ++i) {
-    for (int j = 0; j < width; ++j) {
+  for (int i = 0; i < height; ++i)
+  {
+    for (int j = 0; j < width; ++j)
+    {
       vec2 uv(float(j + 0.5) / width, float(i + 0.5) / height);
 
       vec3 colorCenter = texture(input, ivec2(j, i));
@@ -96,7 +104,8 @@ std::vector<vec3> FXAA::operator()(std::vector<vec3>& input, unsigned width,
       float lumaRange = lumaMax - lumaMin;
 
       // 如果亮度变化低于阈值（或者在一个非常黑暗的区域），像素就不在边缘上，不执行任何AA。
-      if (lumaRange < std::max(EDGE_THRESHOLD_MIN, lumaMax * EDGE_THRESHOLD)) {
+      if (lumaRange < std::max(EDGE_THRESHOLD_MIN, lumaMax * EDGE_THRESHOLD))
+      {
         pixels[i * width + j] = colorCenter;
         continue;
       }
@@ -150,18 +159,24 @@ std::vector<vec3> FXAA::operator()(std::vector<vec3>& input, unsigned width,
       // 在正确方向上移动像素的亮度到中心像素亮度的局部平均亮度。
       float lumaLocalAverage = 0.0;
 
-      if (is1Steepest) {
+      if (is1Steepest)
+      {
         stepLength = -stepLength;
         lumaLocalAverage = 0.5 * (luma1 + lumaCenter);
-      } else {
+      }
+      else
+      {
         lumaLocalAverage = 0.5 * (luma2 + lumaCenter);
       }
 
       // 将UV向正确的方向移动半像素。
       vec2 currentUV = uv;
-      if (isHorizontal) {
+      if (isHorizontal)
+      {
         currentUV.y += stepLength * 0.5;
-      } else {
+      }
+      else
+      {
         currentUV.x += stepLength * 0.5;
       }
 
@@ -186,25 +201,31 @@ std::vector<vec3> FXAA::operator()(std::vector<vec3>& input, unsigned width,
       bool reachedBoth = reached1 && reached2;
 
       // 如果没有到达边缘一侧，我们将继续朝着这个方向进行探测
-      if (!reached1) {
+      if (!reached1)
+      {
         uv1 -= offset;
       }
-      if (!reached2) {
+      if (!reached2)
+      {
         uv2 += offset;
       }
 
       // Step5 继续迭代
 
       // 如果两边都还没有到达，则继续探测。
-      if (!reachedBoth) {
-        for (int i = 2; i < ITERATIONS; i++) {
+      if (!reachedBoth)
+      {
+        for (int i = 2; i < ITERATIONS; i++)
+        {
           // 如果没有到达一侧，读取第一个方向的亮度，计算差值。
-          if (!reached1) {
+          if (!reached1)
+          {
             lumaEnd1 = rgb2luma(texture(input, uv1));
             lumaEnd1 = lumaEnd1 - lumaLocalAverage;
           }
           // 如果没有到达另一侧，读取相反方向的亮度，计算差值。
-          if (!reached2) {
+          if (!reached2)
+          {
             lumaEnd2 = rgb2luma(texture(input, uv2));
             lumaEnd2 = lumaEnd2 - lumaLocalAverage;
           }
@@ -216,15 +237,18 @@ std::vector<vec3> FXAA::operator()(std::vector<vec3>& input, unsigned width,
           reachedBoth = reached1 && reached2;
 
           // 如果这一侧没有到达，我们用变量QUALITY继续沿着这个方向探测。
-          if (!reached1) {
+          if (!reached1)
+          {
             uv1 -= offset * QUALITY(i);
           }
-          if (!reached2) {
+          if (!reached2)
+          {
             uv2 += offset * QUALITY(i);
           }
 
           // 如果两侧都已经到达了，则停止探测。
-          if (reachedBoth) {
+          if (reachedBoth)
+          {
             break;
           }
         }
@@ -278,9 +302,12 @@ std::vector<vec3> FXAA::operator()(std::vector<vec3>& input, unsigned width,
       // Step8 最后
       // 计算最后的UV坐标。
       vec2 finalUv = uv;
-      if (isHorizontal) {
+      if (isHorizontal)
+      {
         finalUv.y += finalOffset * stepLength;
-      } else {
+      }
+      else
+      {
         finalUv.x += finalOffset * stepLength;
       }
 

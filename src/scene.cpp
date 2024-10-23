@@ -17,19 +17,23 @@
 #include "glm/glm.hpp"
 #include "path_tracing.h"
 
-std::vector<std::shared_ptr<Primitive>> Scene::AllTriangles() {
+std::vector<std::shared_ptr<Primitive>> Scene::AllTriangles()
+{
   std::vector<std::shared_ptr<Primitive>> primitives;
   size_t triangleCount = 0;
 
-  for (auto &mesh : meshes) {
+  for (auto &mesh : meshes)
+  {
     const std::vector<Vertex> &vertices = mesh.getVertices();
     const std::vector<unsigned> &indices = mesh.getIndices();
 
-    for (size_t i = 0; i < mesh.sections.size(); ++i) {
+    for (size_t i = 0; i < mesh.sections.size(); ++i)
+    {
       Section &section = mesh.sections[i];
       Material *mat = materials[section.materialId].get();
 
-      for (auto polygonID : section.polygonIDs) {
+      for (auto polygonID : section.polygonIDs)
+      {
         size_t vertexInstanceID[3] = {polygonID * 3, polygonID * 3 + 1,
                                       polygonID * 3 + 2};
 
@@ -51,7 +55,8 @@ std::vector<std::shared_ptr<Primitive>> Scene::AllTriangles() {
   return primitives;
 }
 
-void Scene::load(std::string inputfile) {
+void Scene::load(std::string inputfile)
+{
 #ifdef ASSIMP
   Assimp::Importer importer;
   // And have it read the given file with some example postprocessing
@@ -62,7 +67,8 @@ void Scene::load(std::string inputfile) {
                     aiProcess_JoinIdenticalVertices | aiProcess_SortByPType);
 
   // If the import failed, report it
-  if (nullptr == scene) {
+  if (nullptr == scene)
+  {
     throw std::exception();
   }
   std::cout << "Number of meshes is " << scene->mNumMeshes << std::endl;
@@ -71,10 +77,12 @@ void Scene::load(std::string inputfile) {
   this->meshes.resize(0);
   this->materials.resize(0);
 
-  for (unsigned i = 0; i < scene->mNumMeshes; ++i) {
+  for (unsigned i = 0; i < scene->mNumMeshes; ++i)
+  {
     unsigned numVertices = scene->mMeshes[i]->mNumVertices;
     std::vector<Vertex> vertices(numVertices);
-    for (unsigned j = 0; j < numVertices; ++j) {
+    for (unsigned j = 0; j < numVertices; ++j)
+    {
       vertices[j].position = {scene->mMeshes[i]->mVertices[j].x,
                               scene->mMeshes[i]->mVertices[j].y,
                               scene->mMeshes[i]->mVertices[j].z};
@@ -87,7 +95,8 @@ void Scene::load(std::string inputfile) {
 
     unsigned numTriangle = scene->mMeshes[i]->mNumFaces;
     std::vector<unsigned> indices(numTriangle * 3);
-    for (unsigned j = 0; j < numTriangle; ++j) {
+    for (unsigned j = 0; j < numTriangle; ++j)
+    {
       assert(scene->mMeshes[i]->mFaces[j].mNumIndices == 3);
       indices[j * 3 + 0] = scene->mMeshes[i]->mFaces[j].mIndices[0];
       indices[j * 3 + 1] = scene->mMeshes[i]->mFaces[j].mIndices[1];
@@ -96,7 +105,8 @@ void Scene::load(std::string inputfile) {
     this->meshes.push_back(
         Mesh(vertices, indices, scene->mMeshes[i]->mMaterialIndex));
   }
-  for (unsigned i = 0; i < scene->mNumMaterials; ++i) {
+  for (unsigned i = 0; i < scene->mNumMaterials; ++i)
+  {
     Material m;
     m.name = scene->mMaterials[i]->GetName().C_Str();
     aiColor3D color(0.f, 0.f, 0.f);
@@ -113,14 +123,17 @@ void Scene::load(std::string inputfile) {
 
   tinyobj::ObjReader reader;
 
-  if (!reader.ParseFromFile(inputfile, reader_config)) {
-    if (!reader.Error().empty()) {
+  if (!reader.ParseFromFile(inputfile, reader_config))
+  {
+    if (!reader.Error().empty())
+    {
       std::cerr << "TinyObjReader: " << reader.Error();
     }
     exit(1);
   }
 
-  if (!reader.Warning().empty()) {
+  if (!reader.Warning().empty())
+  {
     std::cout << "TinyObjReader: " << reader.Warning();
   }
 
@@ -128,7 +141,8 @@ void Scene::load(std::string inputfile) {
   auto &shapes = reader.GetShapes();
   auto &mats = reader.GetMaterials();
 
-  for (size_t s = 0; s < shapes.size(); s++) {
+  for (size_t s = 0; s < shapes.size(); s++)
+  {
     Mesh mesh;
 
     size_t numPolygon = shapes[s].mesh.num_face_vertices.size();
@@ -137,14 +151,18 @@ void Scene::load(std::string inputfile) {
     std::unordered_map<size_t, size_t> mat2Section;
 
     // handle sections
-    for (size_t f = 0; f < numPolygon; f++) {
-      if (mat2Section.count(shapes[s].mesh.material_ids[f]) == 0) {
+    for (size_t f = 0; f < numPolygon; f++)
+    {
+      if (mat2Section.count(shapes[s].mesh.material_ids[f]) == 0)
+      {
         size_t sectionID = mesh.sections.size();
         mesh.sections.push_back(Section());
         mesh.sections[sectionID].materialId = shapes[s].mesh.material_ids[f];
         mesh.sections[sectionID].polygonIDs.push_back(f);
         mat2Section[shapes[s].mesh.material_ids[f]] = sectionID;
-      } else {
+      }
+      else
+      {
         size_t sectionID = mat2Section[shapes[s].mesh.material_ids[f]];
         mesh.sections[sectionID].polygonIDs.push_back(f);
       }
@@ -154,14 +172,16 @@ void Scene::load(std::string inputfile) {
     std::unordered_map<Vertex, size_t> uniqueVertices{};
 
     size_t index_offset = 0;
-    for (size_t f = 0; f < numPolygon; f++) {
+    for (size_t f = 0; f < numPolygon; f++)
+    {
       size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
 
       // only support triangles
       assert(fv == 3);
 
       // Loop over vertices in the face.
-      for (size_t v = 0; v < fv; v++) {
+      for (size_t v = 0; v < fv; v++)
+      {
         Vertex vertex;
 
         // access to vertex
@@ -172,7 +192,8 @@ void Scene::load(std::string inputfile) {
 
         // Check if `normal_index` is zero or positive. negative = no normal
         // data
-        if (idx.normal_index >= 0) {
+        if (idx.normal_index >= 0)
+        {
           vertex.normal.x = attrib.normals[3 * size_t(idx.normal_index) + 0];
           vertex.normal.y = attrib.normals[3 * size_t(idx.normal_index) + 1];
           vertex.normal.z = attrib.normals[3 * size_t(idx.normal_index) + 2];
@@ -180,14 +201,16 @@ void Scene::load(std::string inputfile) {
 
         // Check if `texcoord_index` is zero or positive. negative = no texcoord
         // data
-        if (idx.texcoord_index >= 0) {
+        if (idx.texcoord_index >= 0)
+        {
           vertex.texCoord.x =
               attrib.texcoords[2 * size_t(idx.texcoord_index) + 0];
           vertex.texCoord.y =
               attrib.texcoords[2 * size_t(idx.texcoord_index) + 1];
         }
 
-        if (uniqueVertices.count(vertex) == 0) {
+        if (uniqueVertices.count(vertex) == 0)
+        {
           uniqueVertices[vertex] = mesh.vertices.size();
           mesh.vertices.push_back(vertex);
         }
@@ -201,7 +224,8 @@ void Scene::load(std::string inputfile) {
 
   // Load materials
   materials.resize(mats.size());
-  for (size_t i = 0; i < mats.size(); ++i) {
+  for (size_t i = 0; i < mats.size(); ++i)
+  {
     materials[i] = std::make_unique<Material>();
     materials[i]->name = mats[i].name;
     materials[i]->albedo =
@@ -212,11 +236,16 @@ void Scene::load(std::string inputfile) {
     materials[i]->roughness = mats[i].roughness;
 
     if (materials[i]->emission.x > 0 || materials[i]->emission.y > 0 ||
-        materials[i]->emission.z > 0) {
+        materials[i]->emission.z > 0)
+    {
       materials[i]->type = MaterialType::EMISSIVE;
-    } else if (materials[i]->metallic > 0 || materials[i]->roughness > 0) {
+    }
+    else if (materials[i]->metallic > 0 || materials[i]->roughness > 0)
+    {
       materials[i]->type = MaterialType::SPECULAR;
-    } else {
+    }
+    else
+    {
       materials[i]->type = MaterialType::DIFFUSE;
     }
   }
