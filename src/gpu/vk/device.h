@@ -6,9 +6,17 @@
 #include <iostream>
 #include "common.h"
 #include <cstring>
+#include "vulkan_memory.h"
+#include "gpu/core/pixel_format.h"
 
 class Queue;
 class RHI;
+class CmdBuffer;
+class CommandListContextImmediate;
+class CommandListContext;
+class DescriptorPoolsManager;
+class BindlessDescriptorManager;
+class Device;
 
 extern const std::vector<const char *> deviceExtensions;
 extern const std::vector<const char *> validationLayers;
@@ -34,10 +42,70 @@ private:
     friend class FVulkanDevice;
 };
 
+namespace VulkanRHI
+{
+    class DeferredDeletionQueue2 : public DeviceChild
+    {
+    public:
+        DeferredDeletionQueue2(Device *InDevice);
+        ~DeferredDeletionQueue2();
+
+        enum class EType
+        {
+            RenderPass,
+            Buffer,
+            BufferView,
+            Image,
+            ImageView,
+            Pipeline,
+            PipelineLayout,
+            Framebuffer,
+            DescriptorSetLayout,
+            Sampler,
+            Semaphore,
+            ShaderModule,
+            Event,
+            ResourceAllocation,
+            DeviceMemoryAllocation,
+            BufferSuballocation,
+            AccelerationStructure,
+            BindlessHandle,
+        };
+
+        template <typename T>
+        inline void EnqueueResource(EType Type, T Handle)
+        {
+            static_assert(sizeof(T) <= sizeof(uint64), "Vulkan resource handle type size too large.");
+            EnqueueGenericResource(Type, (uint64)Handle);
+        }
+
+        void ReleaseResources(bool bDeleteImmediately = false);
+
+        inline void Clear() { ReleaseResources(true); }
+
+    private:
+        void EnqueueGenericResource(EType Type, uint64 Handle);
+        struct Entry
+        {
+            EType StructureType;
+            uint32 FrameNumber;
+            uint64 FenceCounter;
+            CmdBuffer *CmdBuffer;
+
+            uint64 Handle;
+            // VulkanAllocation Allocation;
+            // DeviceMemoryAllocation *DeviceMemoryAllocation;
+        };
+        std::vector<Entry> Entries;
+    };
+}
+
 class Device
 {
 public:
     Device(RHI *rhi, VkPhysicalDevice Gpu);
+
+    ~Device();
 
     void InitGPU();
 
@@ -45,20 +113,59 @@ public:
 
     void Destroy();
 
-    inline VkDevice GetInstanceHandle() const
-    {
-        return device;
-    }
+    void WaitUntilIdle();
 
-    inline const VkPhysicalDeviceProperties &GetDeviceProperties() const
-    {
-        return gpuProps;
-    }
+    inline Queue *GetGraphicsQueue() { return gfxQueue; }
+
+    inline Queue *GetComputeQueue() { return computeQueue; }
+
+    inline Queue *GetTransferQueue() { return transferQueue; }
+
+    inline Queue *GetPresentQueue() { return presentQueue; }
+
+    inline VkPhysicalDevice GetPhysicalHandle() const { return gpu; }
+
+    bool SupportsBindless() const;
+
+    const VkComponentMapping &GetFormatComponentMapping(EPixelFormat UEFormat) const;
+
+    inline VkDevice GetInstanceHandle() const { return device; }
+
+    inline const VkPhysicalDeviceProperties &GetDeviceProperties() const { return gpuProps; }
+    // 398
+    inline VulkanRHI::DeferredDeletionQueue2 &GetDeferredDeletionQueue() { return deferredDeletionQueue; }
+
+    inline DescriptorPoolsManager &GetDescriptorPoolsManager() { return *descriptorPoolsManager; }
+
+    // 428
+    inline BindlessDescriptorManager *GetBindlessDescriptorManager() { return bindlessDescriptorManager; }
+
+    inline CommandListContextImmediate &GetImmediateContext() { return *immediateContext; }
+
+    // 450
+    void NotifyDeletedImage(VkImage Image, bool bRenderTarget);
+
+    inline VulkanRHI::FenceManager &GetFenceManager() { return fenceManager; }
+
+    // 471
+    void SubmitCommandsAndFlushGPU();
+
+    inline bool SupportsParallelRendering() const { return false; }
+
+    void SetupPresentQueue(VkSurfaceKHR Surface);
 
 private:
-    RHI *rhi;
-
+    void SubmitCommands(CommandListContext *Context);
+    
     VkDevice device;
+
+    VulkanRHI::DeferredDeletionQueue2 deferredDeletionQueue;
+    VulkanRHI::FenceManager fenceManager;
+
+    // Active on >= SM4
+    DescriptorPoolsManager *descriptorPoolsManager = nullptr;
+    BindlessDescriptorManager *bindlessDescriptorManager = nullptr;
+
     VkPhysicalDevice gpu;
     VkPhysicalDeviceProperties gpuProps;
 
@@ -69,4 +176,14 @@ private:
     Queue *computeQueue;
     Queue *transferQueue;
     Queue *presentQueue;
+
+    VkComponentMapping PixelFormatComponentMapping[PF_MAX];
+
+    CommandListContextImmediate *immediateContext;
+    CommandListContext *computeContext;
+    std::vector<CommandListContext *> commandContexts;
+
+    RHI *rhi = nullptr;
+
+    void SetupFormats();
 };

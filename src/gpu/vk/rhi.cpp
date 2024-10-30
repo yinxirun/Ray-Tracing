@@ -5,6 +5,8 @@
 #include "GLFW/glfw3.h"
 #include "common.h"
 #include "device.h"
+#include "viewport.h"
+#include "context.h"
 
 #define VULKAN_HAS_DEBUGGING_ENABLED 1
 
@@ -141,6 +143,20 @@ void RHI::Shutdown()
     vkDestroyInstance(instance, nullptr);
 }
 
+CommandListContext* RHI::GetDefaultContext(){return &device->GetImmediateContext();}
+
+std::shared_ptr<Viewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
+                                              bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
+{
+    // Use a default pixel format if none was specified
+    if (PreferredPixelFormat == PF_Unknown)
+    {
+        PreferredPixelFormat = PF_B8G8R8A8;
+    }
+
+    return std::shared_ptr<Viewport>(new Viewport(device, WindowHandle, SizeX, SizeY, PreferredPixelFormat));
+}
+
 void RHI::InitInstance()
 {
     device->InitGPU();
@@ -220,3 +236,5 @@ void RHI::RemoveDebugLayerCallback()
 {
     DestroyDebugUtilsMessengerEXT(instance, messenger, nullptr);
 }
+
+RHI *globalRHI = nullptr;

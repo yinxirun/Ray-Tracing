@@ -13,6 +13,8 @@
 #include "tinyexr.h"
 
 #include "gpu/application.h"
+#include "gpu/vk/viewport.h"
+#include "gpu/vk/context.h"
 
 const float pi = 3.1415926535;
 
@@ -101,10 +103,20 @@ int main()
   glfwInit();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
+  GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Xi", nullptr, nullptr);
+
   RHI *rhi = new RHI();
+  globalRHI = rhi;
   rhi->Init();
+  {
+    CommandListContext *context = rhi->GetDefaultContext();
+    std::shared_ptr<Viewport> viewport = rhi->CreateViewport(window, 800, 600, false, EPixelFormat::PF_B8G8R8A8);
+    context->RHIBeginDrawingViewport(viewport);
+    context->RHIEndDrawingViewport(viewport.get(), false);
+  }
 
   rhi->Shutdown();
 
-  delete rhi;
+  glfwDestroyWindow(window);
+  glfwTerminate();
 }

@@ -32,6 +32,11 @@ public:
         size = allocInfo.size;
     }
 
+    ~Image()
+    {
+        vmaDestroyImage(allocator, handle, allocation);
+    }
+
     void Upload(void *data)
     {
         VkBufferCreateInfo bufferCI{};
