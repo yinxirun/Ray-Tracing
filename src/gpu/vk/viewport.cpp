@@ -333,7 +333,7 @@ bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue 
             // failing to do the delayacquire can only happen if we were in this mode to begin with
             check(GVulkanDelayAcquireImage == EDelayAcquireImageType::DelayAcquire);
 
-            // UE_LOG(LogVulkanRHI, Log, TEXT("AcquireNextImage() failed due to the outdated swapchain, not even attempting to present."));
+            printf("LOG: AcquireNextImage() failed due to the outdated swapchain, not even attempting to present.\n");
 
             // cannot just throw out this command buffer (needs to be submitted or other checks fail)
             queue->Submit(cmdBuffer);
@@ -546,6 +546,28 @@ void Viewport::RecreateSwapchain(void *newNativeWindow)
     CreateSwapchain(&recreateInfo);
     check(recreateInfo.surface == VK_NULL_HANDLE);
     check(recreateInfo.swapChain == VK_NULL_HANDLE);
+}
+
+void Viewport::RecreateSwapchainFromRT(EPixelFormat PreferredPixelFormat)
+{
+    check(IsInRenderingThread());
+
+    // TODO: should flush RHIT commands here?
+
+    SwapChainRecreateInfo recreateInfo = {VK_NULL_HANDLE, VK_NULL_HANDLE};
+    DestroySwapchain(&recreateInfo);
+    pixelFormat = PreferredPixelFormat;
+    CreateSwapchain(&recreateInfo);
+    check(recreateInfo.surface == VK_NULL_HANDLE);
+    check(recreateInfo.swapChain == VK_NULL_HANDLE);
+}
+
+void Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, EPixelFormat PreferredPixelFormat)
+{
+    sizeX = InSizeX;
+    sizeY = InSizeY;
+
+    RecreateSwapchainFromRT(PreferredPixelFormat);
 }
 
 bool Viewport::DoCheckedSwapChainJob(std::function<int32(Viewport *)> SwapChainJob)

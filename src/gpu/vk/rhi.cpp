@@ -143,7 +143,7 @@ void RHI::Shutdown()
     vkDestroyInstance(instance, nullptr);
 }
 
-CommandListContext* RHI::GetDefaultContext(){return &device->GetImmediateContext();}
+CommandListContext *RHI::GetDefaultContext() { return &device->GetImmediateContext(); }
 
 std::shared_ptr<Viewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
                                               bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
@@ -160,6 +160,28 @@ std::shared_ptr<Viewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, 
 void RHI::InitInstance()
 {
     device->InitGPU();
+}
+
+void RHI::ResizeViewport(Viewport *viewport, uint32 sizeX, uint32 sizeY,
+                         bool bIsFullscreen, EPixelFormat preferredPixelFormat)
+{
+    check(IsInGameThread());
+
+    // Use a default pixel format if none was specified
+    if (preferredPixelFormat == PF_Unknown)
+    {
+        preferredPixelFormat = PF_B8G8R8A8;
+    }
+
+    if (viewport->GetSizeXY() != IntVec2(sizeX, sizeY) || viewport->IsFullscreen() != bIsFullscreen)
+    {
+#ifdef PRINT_UNIMPLEMENT
+        printf("RHI::Need multiple thread\n %s %d\n", __FILE__, __LINE__);
+#endif
+        device->SubmitCommandsAndFlushGPU();
+        viewport->Resize(sizeX, sizeY, bIsFullscreen, preferredPixelFormat);
+        device->SubmitCommandsAndFlushGPU();
+    }
 }
 
 void RHI::CreateInstance()

@@ -1,8 +1,14 @@
 #pragma once
 #include "../definitions.h"
 
+// 用于控制是否打印未实现函数的信息
 #define PRINT_UNIMPLEMENT
 #undef PRINT_UNIMPLEMENT
+
+/// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
+inline bool IsInGameThread() { return true; }
+/// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
+inline bool IsInRenderingThread() { return true; }
 
 enum class EClearBinding
 {
@@ -12,7 +18,10 @@ enum class EClearBinding
 };
 
 /** Maximum number of miplevels in a texture. */
-enum { MAX_TEXTURE_MIP_COUNT = 15 };
+enum
+{
+	MAX_TEXTURE_MIP_COUNT = 15
+};
 
 struct ClearValueBinding
 {

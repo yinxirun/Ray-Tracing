@@ -185,6 +185,10 @@ public:
         return activeCmdBuffer;
     }
 
+    inline bool HasPendingUploadCmdBuffer() const { return uploadCmdBuffer != nullptr; }
+
+    inline bool HasPendingActiveCmdBuffer() const { return activeCmdBuffer != nullptr; }
+
     CmdBuffer *GetUploadCmdBuffer();
 
     void SubmitUploadCmdBuffer(uint32_t NumSignalSemaphores = 0, VkSemaphore *SignalSemaphores = nullptr);

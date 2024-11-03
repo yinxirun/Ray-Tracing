@@ -8,7 +8,6 @@
 class Device;
 class Viewport;
 class CommandListContext;
-
 class RHI;
 
 extern RHI *globalRHI;
@@ -31,6 +30,9 @@ public:
 
     std::shared_ptr<Viewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
                                              bool bIsFullscreen, EPixelFormat PreferredPixelFormat);
+    // 715
+    virtual void ResizeViewport(Viewport *Viewport, uint32 SizeX, uint32 SizeY,
+                                bool bIsFullscreen, EPixelFormat PreferredPixelFormat);
 
     void InitInstance();
 

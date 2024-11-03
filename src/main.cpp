@@ -98,12 +98,19 @@ int CPU()
 
 #include "gpu/vk/rhi.h"
 
+Viewport *drawingViewport = nullptr;
+void OnSizeChanged(GLFWwindow *window, int width, int height)
+{
+  globalRHI->ResizeViewport(drawingViewport, width, height, false, PF_Unknown);
+}
+
 int main()
 {
   glfwInit();
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
   GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Xi", nullptr, nullptr);
+  glfwSetFramebufferSizeCallback(window, OnSizeChanged);
 
   RHI *rhi = new RHI();
   globalRHI = rhi;
@@ -111,11 +118,12 @@ int main()
   {
     CommandListContext *context = rhi->GetDefaultContext();
     std::shared_ptr<Viewport> viewport = rhi->CreateViewport(window, 800, 600, false, EPixelFormat::PF_B8G8R8A8);
+    drawingViewport = viewport.get();
     while (!glfwWindowShouldClose(window))
     {
+      glfwPollEvents();
       context->RHIBeginDrawingViewport(viewport);
       context->RHIEndDrawingViewport(viewport.get(), false);
-      glfwPollEvents();
     }
   }
 

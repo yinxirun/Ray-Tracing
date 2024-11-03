@@ -7,6 +7,7 @@
 #include <functional>
 #include "../definitions.h"
 #include "gpu/RHI/RHICommandList.h"
+#include "gpu/math/vec.h"
 
 class Device;
 class SwapChain;
@@ -53,7 +54,11 @@ public:
 
     virtual void IssueFrameEvent();
 
+    inline IntVec2 GetSizeXY() const { return IntVec2(sizeX, sizeY); }
+
     bool Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue *queue, Queue *presentQueue, bool bLockToVsync);
+
+    inline bool IsFullscreen() const { return false; }
 
 protected:
     Device *device;
@@ -84,6 +89,8 @@ protected:
     bool TryAcquireImageIndex();
 
     void RecreateSwapchain(void *);
+    void RecreateSwapchainFromRT(EPixelFormat PreferredPixelFormat);
+    void Resize(uint32 InSizeX, uint32 InSizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat);
 
     bool DoCheckedSwapChainJob(std::function<int32(Viewport *)> SwapChainJob);
     bool SupportsStandardSwapchain();
@@ -92,4 +99,5 @@ protected:
     EPixelFormat GetPixelFormatForNonDefaultSwapchain();
 
     friend class BackBuffer;
+    friend class RHI;
 };

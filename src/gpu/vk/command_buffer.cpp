@@ -497,7 +497,6 @@ void CommandBufferManager::FlushResetQueryPools()
 
 void CommandBufferManager::PrepareForNewActiveCommandBuffer()
 {
-	// FScopeLock ScopeLock(&Pool.CS);
 	check(!uploadCmdBuffer);
 
 	for (int32 Index = 0; Index < pool.CmdBuffers.size(); ++Index)

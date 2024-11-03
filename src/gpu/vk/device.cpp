@@ -7,6 +7,8 @@
 #include "descriptor_sets.h"
 #include "util.h"
 
+bool GEnableAsyncCompute = true;
+
 // Mirror GPixelFormats with format information for buffers
 VkFormat GVulkanSRGBFormat[PF_MAX];
 
@@ -129,6 +131,15 @@ void Device::InitGPU()
     bindlessDescriptorManager = new BindlessDescriptorManager(this);
 
     immediateContext = new CommandListContextImmediate(globalRHI, this, gfxQueue);
+
+    if (gfxQueue->GetFamilyIndex() != computeQueue->GetFamilyIndex() && GEnableAsyncCompute)
+    {
+        computeContext = new CommandListContextImmediate(globalRHI, this, computeQueue);
+    }
+    else
+    {
+        computeContext = immediateContext;
+    }
 }
 
 void Device::CreateDevice(std::vector<const char *> &layers, std::vector<const char *> &extensions)
@@ -373,17 +384,16 @@ void Device::SetupPresentQueue(VkSurfaceKHR Surface)
 
 void Device::SubmitCommands(CommandListContext *Context)
 {
-    printf("Have not implement Device::SubmitCommands\n");
-    // CommandBufferManager *CmdMgr = Context->GetCommandBufferManager();
-    // if (CmdMgr->HasPendingUploadCmdBuffer())
-    // {
-    //     CmdMgr->SubmitUploadCmdBuffer();
-    // }
-    // if (CmdMgr->HasPendingActiveCmdBuffer())
-    // {
-    //     CmdMgr->SubmitActiveCmdBuffer();
-    // }
-    // CmdMgr->PrepareForNewActiveCommandBuffer();
+    CommandBufferManager *CmdMgr = Context->GetCommandBufferManager();
+    if (CmdMgr->HasPendingUploadCmdBuffer())
+    {
+        CmdMgr->SubmitUploadCmdBuffer();
+    }
+    if (CmdMgr->HasPendingActiveCmdBuffer())
+    {
+        CmdMgr->SubmitActiveCmdBuffer();
+    }
+    CmdMgr->PrepareForNewActiveCommandBuffer();
 }
 
 void Device::SetupFormats()
