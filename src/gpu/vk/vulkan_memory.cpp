@@ -12,6 +12,80 @@ const uint32 NUM_FRAMES_TO_WAIT_FOR_RESOURCE_DELETE = 2;
 
 namespace VulkanRHI
 {
+    StagingBuffer::StagingBuffer(Device *InDevice) : device(InDevice)
+    {
+    }
+
+    VkBuffer StagingBuffer::GetHandle() const { return buffer; }
+
+    void *StagingBuffer::GetMappedPointer()
+    {
+        void *data;
+        vmaMapMemory(device->GetAllocator(), allocation, &data);
+        return data;
+    }
+
+    uint32 StagingBuffer::GetSize() const { return allocationInfo.size; }
+
+    StagingBuffer::~StagingBuffer() { vmaDestroyBuffer(device->GetAllocator(), buffer, allocation); }
+
+    void StagingBuffer::Destroy()
+    {
+        vmaDestroyBuffer(device->GetAllocator(), buffer, allocation);
+        buffer = VK_NULL_HANDLE;
+    }
+
+    StagingManager::~StagingManager()
+    {
+        check(UsedStagingBuffers.size() == 0);
+    }
+
+    void StagingManager::Deinit()
+    {
+    }
+
+    StagingBuffer *StagingManager::AcquireBuffer(uint32 Size,
+                                                 VkBufferUsageFlags InUsageFlags,
+                                                 VkMemoryPropertyFlagBits InMemoryReadFlags)
+    {
+        const bool IsHostCached = (InMemoryReadFlags == VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+        if (IsHostCached)
+        {
+            printf("Don't support host cache %s %d\n", __FILE__, __LINE__);
+            exit(-1);
+            // Size = AlignArbitrary(Size, (uint32)device->GetLimits().nonCoherentAtomSize);
+        }
+
+        // Add both source and dest flags
+        if ((InUsageFlags & (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT)) != 0)
+        {
+            InUsageFlags |= (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        }
+
+        printf("Notice: Don't support Descriptor Buffer %s %d\n", __FILE__, __LINE__);
+
+        StagingBuffer *stagingBuffer = new StagingBuffer(device);
+        VkBufferCreateInfo StagingBufferCreateInfo;
+        ZeroVulkanStruct(StagingBufferCreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
+        StagingBufferCreateInfo.size = Size;
+        StagingBufferCreateInfo.usage = InUsageFlags;
+
+        VmaAllocationCreateInfo allocCI{};
+        allocCI.usage = VMA_MEMORY_USAGE_AUTO;
+        allocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+        vmaCreateBuffer(device->GetAllocator(), &StagingBufferCreateInfo, &allocCI,
+                        &stagingBuffer->buffer, &stagingBuffer->allocation, &stagingBuffer->allocationInfo);
+
+        return stagingBuffer;
+    }
+
+    // Sets pointer to nullptr
+    void StagingManager::ReleaseBuffer(CmdBuffer *CmdBuffer, StagingBuffer *&StagingBuffer)
+    {
+        delete StagingBuffer;
+        StagingBuffer = nullptr;
+    }
+
     Fence::Fence(Device *InDevice, FenceManager *InOwner, bool bCreateSignaled)
         : state(bCreateSignaled ? Fence::EState::Signaled : Fence::EState::NotReady), owner(InOwner)
     {
@@ -129,7 +203,6 @@ namespace VulkanRHI
     // Sets it to nullptr
     void FenceManager::WaitAndReleaseFence(Fence *&fence, uint64 timeInNanoseconds)
     {
-        // FScopeLock Lock(&FenceLock);
         if (!fence->IsSignaled())
         {
             WaitForFence(fence, timeInNanoseconds);

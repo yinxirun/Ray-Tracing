@@ -115,3 +115,23 @@ inline VkImageLayout GetMergedDepthStencilLayout(VkImageLayout DepthLayout, VkIm
 
 // Transitions an image to the specified layout. This does not update the layout cached internally by the RHI; the calling code must do that explicitly via FVulkanCommandListContext::GetLayoutManager() if necessary.
 void VulkanSetImageLayout(CmdBuffer *CmdBuffer, VkImage Image, VkImageLayout OldLayout, VkImageLayout NewLayout, const VkImageSubresourceRange &SubresourceRange);
+
+namespace VulkanRHI
+{
+	// 571
+	static VkImageAspectFlags GetAspectMaskFromUEFormat(EPixelFormat Format, bool bIncludeStencil, bool bIncludeDepth = true)
+	{
+		switch (Format)
+		{
+		case PF_X24_G8:
+			return VK_IMAGE_ASPECT_STENCIL_BIT;
+		case PF_DepthStencil:
+			return (bIncludeDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : 0) | (bIncludeStencil ? VK_IMAGE_ASPECT_STENCIL_BIT : 0);
+		case PF_ShadowDepth:
+		case PF_D24:
+			return VK_IMAGE_ASPECT_DEPTH_BIT;
+		default:
+			return VK_IMAGE_ASPECT_COLOR_BIT;
+		}
+	}
+}

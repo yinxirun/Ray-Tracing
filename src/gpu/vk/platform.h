@@ -13,6 +13,12 @@ public:
 
     // Ensure the last frame completed on the GPU
 	static bool RequiresWaitingForFrameCompletionEvent() { return true; }
+
+    // Allow platforms to do extra work on present
+	static VkResult Present(VkQueue Queue, VkPresentInfoKHR& PresentInfo);
+
+    // Whether to attempt recreate swapchain when present or acqurire operations fail
+	static bool RecreateSwapchainOnFail() { return true; }
 };
 
 class WindowsPlatform : public GenericPlatform

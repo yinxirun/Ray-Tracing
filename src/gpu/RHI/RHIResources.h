@@ -1,6 +1,7 @@
 #pragma once
 #include "Volk/volk.h"
 #include "gpu/definitions.h"
+#include "gpu/core/pixel_format.h"
 #include "RHIDefinitions.h"
 #include "RHIAccess.h"
 #include "RHIUtilities.h"
@@ -15,7 +16,10 @@ struct RHITextureDesc
     ETextureDimension Dimension = ETextureDimension::Texture2D;
 
     /** Pixel format used to create RHI texture. */
-    VkFormat Format = VK_FORMAT_UNDEFINED;
+    EPixelFormat Format = EPixelFormat::PF_Unknown;
+
+    /** Clear value to use when fast-clearing the texture. */
+    ClearValueBinding ClearValue;
 
     /** Extent of the texture in x and y. */
     VkExtent2D Extent = {1, 1};
@@ -29,6 +33,9 @@ struct RHITextureDesc
     /** Number of mips in the texture mip-map chain. */
     uint8 NumMips = 1;
 
+    /** Number of samples in the texture. >1 for MSAA. */
+    uint8 NumSamples = 1;
+
     /** Texture flags passed on to RHI texture. */
     ETextureCreateFlags Flags = TexCreate_None;
 };
@@ -40,7 +47,7 @@ struct RHITextureCreateDesc : public RHITextureDesc
         return RHITextureCreateDesc(InDebugName, ETextureDimension::Texture2D);
     }
 
-    static RHITextureCreateDesc Create2D(const char *DebugName, int32 SizeX, int32 SizeY, VkFormat Format)
+    static RHITextureCreateDesc Create2D(const char *DebugName, int32 SizeX, int32 SizeY, EPixelFormat Format)
     {
         return Create2D(DebugName).SetExtent(SizeX, SizeY).SetFormat(Format);
     }
@@ -54,7 +61,7 @@ struct RHITextureCreateDesc : public RHITextureDesc
         Extent.height = InExtentY;
         return *this;
     }
-    RHITextureCreateDesc &SetFormat(VkFormat InFormat)
+    RHITextureCreateDesc &SetFormat(EPixelFormat InFormat)
     {
         Format = InFormat;
         return *this;
@@ -62,6 +69,16 @@ struct RHITextureCreateDesc : public RHITextureDesc
     RHITextureCreateDesc &SetFlags(ETextureCreateFlags InFlags)
     {
         Flags = InFlags;
+        return *this;
+    }
+    RHITextureCreateDesc &SetClearValue(ClearValueBinding InClearValue)
+    {
+        ClearValue = InClearValue;
+        return *this;
+    }
+    RHITextureCreateDesc &SetInitialState(ERHIAccess InInitialState)
+    {
+        InitialState = InInitialState;
         return *this;
     }
     RHITextureCreateDesc &DetermineInititialState()
@@ -77,7 +94,8 @@ struct RHITextureCreateDesc : public RHITextureDesc
     /* A friendly name for the resource. */
     const char *DebugName = nullptr;
 
-    void *BulkData = nullptr;
+    uint8 *BulkData = nullptr;
+    size_t BulkDataSize = 0;
 };
 
 class RHIResource

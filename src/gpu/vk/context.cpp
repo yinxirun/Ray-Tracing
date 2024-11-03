@@ -43,12 +43,16 @@ CommandListContext::~CommandListContext()
 
 void CommandListContext::RHIPushEvent(const char *Name, int Color)
 {
+#ifdef PRINT_UNIMPLEMENT
     printf("Have not implement CommandListContext::RHIPushEvent %s %d\n", __FILE__, __LINE__);
+#endif
 }
 
 void CommandListContext::RHIPopEvent()
 {
+#ifdef PRINT_UNIMPLEMENT
     printf("Have not implement CommandListContext::RHIPopEvent %s %d\n", __FILE__, __LINE__);
+#endif
 }
 
 void CommandListContext::RHIBeginDrawingViewport(std::shared_ptr<Viewport> &Viewport)

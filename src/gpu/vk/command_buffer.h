@@ -45,6 +45,8 @@ public:
 
     inline VkCommandBuffer GetHandle() { return CommandBufferHandle; }
 
+    inline volatile uint64 GetFenceSignaledCounter() const { return FenceSignaledCounter; }
+
     inline volatile uint64 GetFenceSignaledCounterC() const { return FenceSignaledCounter; }
 
     inline LayoutManager &GetLayoutManager() { return LayoutManager; }
@@ -197,13 +199,12 @@ public:
     /** Regular SACB() expects not-ended and would rotate the command buffer immediately, but Present has a special logic */
     void SubmitActiveCmdBufferFromPresent(VulkanRHI::Semaphore *SignalSemaphore = nullptr);
 
+    void WaitForCmdBuffer(CmdBuffer *CmdBuffer, float TimeInSecondsToWait = 10.0f);
+
     void FlushResetQueryPools();
 
     // Update the fences of all cmd buffers except SkipCmdBuffer
-    void RefreshFenceStatus(CmdBuffer *SkipCmdBuffer = nullptr)
-    {
-        pool.RefreshFenceStatus(SkipCmdBuffer);
-    }
+    void RefreshFenceStatus(CmdBuffer *SkipCmdBuffer = nullptr) { pool.RefreshFenceStatus(SkipCmdBuffer); }
 
     void PrepareForNewActiveCommandBuffer();
 

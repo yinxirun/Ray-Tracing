@@ -11,6 +11,12 @@ void GenericPlatform::DestroySwapchainKHR(VkDevice Device, VkSwapchainKHR Swapch
     vkDestroySwapchainKHR(Device, Swapchain, Allocator);
 }
 
+// Allow platforms to do extra work on present
+VkResult GenericPlatform::Present(VkQueue Queue, VkPresentInfoKHR &PresentInfo)
+{
+    return vkQueuePresentKHR(Queue, &PresentInfo);
+}
+
 void WindowsPlatform::CreateSurface(void *windowHandle, VkInstance instance, VkSurfaceKHR *outSurface)
 {
     glfwCreateWindowSurface(instance, (GLFWwindow *)windowHandle, nullptr, outSurface);

@@ -7,6 +7,7 @@
 #include "configuration.h"
 #include "vulkan_memory.h"
 #include "gpu/definitions.h"
+#include "util.h"
 
 int32 GVulkanKeepSwapChain = 1;
 
@@ -143,6 +144,15 @@ SwapChain::SwapChain(VkInstance inInstance, Device &inDevice, void *windowHandle
     outImages.resize(numSwapChainImages);
     vkGetSwapchainImagesKHR(device.GetInstanceHandle(), swapChain, &numSwapChainImages, outImages.data());
 
+#if VULKAN_USE_IMAGE_ACQUIRE_FENCES
+    imageAcquiredFences.resize(numSwapChainImages);
+    VulkanRHI::FenceManager &fenceMgr = device.GetFenceManager();
+    for (uint32 bufferIndex = 0; bufferIndex < numSwapChainImages; ++bufferIndex)
+    {
+        imageAcquiredFences[bufferIndex] = device.GetFenceManager().AllocateFence(true);
+    }
+#endif
+
     imageAcquiredSemaphore.resize(numSwapChainImages);
     for (uint32_t bufferIndex = 0; bufferIndex < numSwapChainImages; ++bufferIndex)
     {
@@ -174,11 +184,11 @@ void SwapChain::Destroy(SwapChainRecreateInfo *RecreateInfo)
     swapChain = VK_NULL_HANDLE;
 
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
-    // VulkanRHI::FenceManager& FenceMgr = device.GetFenceManager();
-    // for (int32 Index = 0; Index < imageAcquiredFences.Num(); ++Index)
-    // {
-    // 	FenceMgr.ReleaseFence(ImageAcquiredFences[Index]);
-    // }
+    VulkanRHI::FenceManager& FenceMgr = device.GetFenceManager();
+    for (int32 Index = 0; Index < imageAcquiredFences.size(); ++Index)
+    {
+    	FenceMgr.ReleaseFence(imageAcquiredFences[Index]);
+    }
 #endif
 
     // #todo-rco: Enqueue for deletion as we first need to destroy the cmd buffers and queues otherwise validation fails
@@ -210,93 +220,42 @@ void SwapChain::Destroy(SwapChainRecreateInfo *RecreateInfo)
 
 SwapChain::EStatus SwapChain::Present(Queue *GfxQueue, Queue *PresentQueue, VulkanRHI::Semaphore *BackBufferRenderingDoneSemaphore)
 {
-    //     check(currentImageIndex != -1);
+    check(currentImageIndex != -1);
 
-    // 	//ensure(GfxQueue == PresentQueue);
+    VkPresentInfoKHR Info;
+    ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_PRESENT_INFO_KHR);
+    VkSemaphore Semaphore = VK_NULL_HANDLE;
+    if (BackBufferRenderingDoneSemaphore)
+    {
+        Info.waitSemaphoreCount = 1;
+        Semaphore = BackBufferRenderingDoneSemaphore->GetHandle();
+        Info.pWaitSemaphores = &Semaphore;
+    }
+    Info.swapchainCount = 1;
+    Info.pSwapchains = &swapChain;
+    Info.pImageIndices = (uint32 *)&currentImageIndex;
 
-    // 	VkPresentInfoKHR Info;
-    // 	ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_PRESENT_INFO_KHR);
-    // 	VkSemaphore Semaphore = VK_NULL_HANDLE;
-    // 	if (BackBufferRenderingDoneSemaphore)
-    // 	{
-    // 		Info.waitSemaphoreCount = 1;
-    // 		Semaphore = BackBufferRenderingDoneSemaphore->GetHandle();
-    // 		Info.pWaitSemaphores = &Semaphore;
-    // 	}
-    // 	Info.swapchainCount = 1;
-    // 	Info.pSwapchains = &swapChain;
-    // 	Info.pImageIndices = (uint32*)&currentImageIndex;
+    VkResult PresentResult;
 
-    // 	bool bPlatformHandlesFramePacing = Platform::FramePace(device, windowHandle, swapChain, presentID, Info);
+    PresentResult = Platform::Present(PresentQueue->GetHandle(), Info);
 
-    // 	if (!bPlatformHandlesFramePacing)
-    // 	{
-    // 		const int32 FramePace = (LockToVsync || GVulkanForcePacingWithoutVSync) ? FPlatformRHIFramePacer::GetFramePace() : 0;
+    currentImageIndex = -1;
 
-    // 		//very naive CPU side frame pacer.
-    // 		if (GVulkanCPURHIFramePacer && FramePace > 0)
-    // 		{
-    // 			const double NowCPUTime = (FPlatformTime::Seconds() - GStartTime);
+    if (PresentResult == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        return EStatus::OutOfDate;
+    }
 
-    // 			const double TimeToSleep = (NextPresentTargetTime - NowCPUTime);
-    // 			const double TargetIntervalWithEpsilon = 1.0 / (double)FramePace;
+    if (PresentResult == VK_ERROR_SURFACE_LOST_KHR)
+    {
+        return EStatus::SurfaceLost;
+    }
 
-    // 			if (TimeToSleep > 0.0)
-    // 			{
-    // 				FRenderThreadIdleScope IdleScope(ERenderThreadIdleTypes::WaitingForGPUPresent);
+    if (PresentResult != VK_SUCCESS && PresentResult != VK_SUBOPTIMAL_KHR)
+    {
+        VERIFYVULKANRESULT(PresentResult);
+    }
 
-    // 				QUICK_SCOPE_CYCLE_COUNTER(STAT_StallForEmulatedSyncInterval);
-    // 				FPlatformProcess::SleepNoStats(static_cast<float>(TimeToSleep));
-    // 				if (GPrintVulkanVsyncDebug)
-    // 				{
-    // 					UE_LOG(LogVulkanRHI, Log, TEXT("CurrentID: %i, CPU TimeToSleep: %f, TargetWEps: %f"), PresentID, TimeToSleep * 1000.0, TargetIntervalWithEpsilon * 1000.0);
-    // 				}
-    // 			}
-    // 			else
-    // 			{
-    // 				if (GPrintVulkanVsyncDebug)
-    // 				{
-    // 					UE_LOG(LogVulkanRHI, Log, TEXT("CurrentID: %i, CPU TimeToSleep: %f"), PresentID, TimeToSleep * 1000.0);
-    // 				}
-    // 			}
-    // 			NextPresentTargetTime = FMath::Max(NextPresentTargetTime + TargetIntervalWithEpsilon, NowCPUTime);
-    // 		}
-    // 	}
-    // 	PresentID++;
-
-    // 	{
-    // 		SCOPE_CYCLE_COUNTER(STAT_VulkanQueuePresent);
-
-    // 		VkResult PresentResult;
-    // 		{
-    // 			FRenderThreadIdleScope IdleScope(ERenderThreadIdleTypes::WaitingForGPUPresent);
-    // 			PresentResult = FVulkanPlatform::Present(PresentQueue->GetHandle(), Info);
-    // 		}
-
-    // 		CurrentImageIndex = -1;
-
-    // #if !UE_BUILD_SHIPPING
-    // 		PresentResult = SimulateErrors(PresentResult);
-    // #endif
-
-    // 		if (PresentResult == VK_ERROR_OUT_OF_DATE_KHR)
-    // 		{
-    // 			return EStatus::OutOfDate;
-    // 		}
-
-    // 		if (PresentResult == VK_ERROR_SURFACE_LOST_KHR)
-    // 		{
-    // 			return EStatus::SurfaceLost;
-    // 		}
-
-    // 		if (PresentResult != VK_SUCCESS && PresentResult != VK_SUBOPTIMAL_KHR)
-    // 		{
-    // 			VERIFYVULKANRESULT(PresentResult);
-    // 		}
-    // 	}
-
-    // 	++NumPresentCalls;
-    printf("Have not implement SwapChain::Prensent\n");
     return EStatus::Healthy;
 }
 

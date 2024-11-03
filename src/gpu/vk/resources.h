@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Volk/volk.h"
+#include "device.h"
 #include "gpu/RHI/RHIDefinitions.h"
 #include "gpu/RHI/RHIAccess.h"
 #include "gpu/RHI/RHIUtilities.h"
@@ -8,7 +9,16 @@
 #include "gpu/core/pixel_format.h"
 #include "gpu/core/assertion_macros.h"
 
+#include <vector>
+
+namespace VulkanRHI
+{
+    class StagingBuffer;
+}
+
 class Device;
+class RHICommandListBase;
+class CommandListContext;
 
 // Converts the internal texture dimension to Vulkan view type
 inline VkImageViewType UETextureDimensionToVkImageViewType(ETextureDimension Dimension)
@@ -29,10 +39,13 @@ inline VkImageViewType UETextureDimensionToVkImageViewType(ETextureDimension Dim
         checkNoEntry();
         return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     }
-}
+};
 
-class Resource
+struct CpuReadbackBuffer
 {
+    VkBuffer Buffer;
+    uint32 MipOffsets[MAX_TEXTURE_MIP_COUNT];
+    uint32 MipSize[MAX_TEXTURE_MIP_COUNT];
 };
 
 class View
@@ -93,6 +106,8 @@ public:
 
     bool IsInitialized() const { return (GetViewType() != Null) || invalidatedState.bInitialized; }
 
+    TextureView const &GetTextureView() const { return textureView; }
+
     View *InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat,
                             VkFormat Format, uint32_t FirstMip, uint32_t NumMips, uint32_t ArraySliceIndex, uint32_t NumArraySlices, bool bUseIdentitySwizzle = false,
                             VkImageUsageFlags ImageUsageFlags = 0);
@@ -122,13 +137,21 @@ enum class EImageOwnerType : uint8
 class Texture : public RHITexture
 {
 public:
+    // Regular constructor.
+    Texture(RHICommandListBase *RHICmdList, Device &InDevice, const RHITextureCreateDesc &InCreateDesc, bool bIsTransientResource = false);
+
+    Texture(Device &InDevice, const RHITextureCreateDesc &InCreateDesc)
+        : Texture(nullptr, InDevice, InCreateDesc)
+    {
+    }
+
     // Construct from external resource.
     // FIXME: HUGE HACK: the bUnused argument is there to disambiguate this overload from the one above when passing nullptr, since nullptr is a valid VkImage. Get rid of this code smell when unifying FVulkanSurface and FVulkanTexture.
     Texture(Device &InDevice, const RHITextureCreateDesc &InCreateDesc, VkImage InImage, bool bUnused);
 
     virtual ~Texture();
 
-    // View with all mips/layers
+    /// View with all mips/layers
     View *DefaultView = nullptr;
     // View with all mips/layers, but if it's a Depth/Stencil, only the Depth view
     View *PartialView = nullptr;
@@ -137,6 +160,26 @@ public:
     inline VkImageAspectFlags GetFullAspectMask() const { return FullAspectMask; }
 
     inline bool IsImageOwner() const { return (ImageOwnerType == EImageOwnerType::LocalOwner); }
+
+    struct ImageCreateInfo
+    {
+        VkImageCreateInfo ImageCreateInfo;
+        // only used when HasImageFormatListKHR is supported. Otherise VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT is used.
+        VkImageFormatListCreateInfoKHR ImageFormatListCreateInfo;
+        // used when TexCreate_External is given
+        VkExternalMemoryImageCreateInfoKHR ExternalMemImageCreateInfo;
+        // Array of formats used for mutable formats
+        std::vector<VkFormat> FormatsUsed;
+    };
+
+    // Seperate method for creating VkImageCreateInfo
+    static void GenerateImageCreateInfo(
+        ImageCreateInfo &OutImageCreateInfo,
+        Device &InDevice,
+        const RHITextureDesc &InDesc,
+        VkFormat *OutStorageFormat = nullptr,
+        VkFormat *OutViewFormat = nullptr,
+        bool bForceLinearTexture = false);
 
     void DestroySurface();
 
@@ -177,14 +220,29 @@ public:
         // return EnumHasAllFlags(GPixelFormats[GetDesc().Format].Capabilities, EPixelFormatCapabilities::TextureSample);
     }
 
+    inline VkImageLayout GetDefaultLayout() const { return DefaultLayout; }
+
+    static void InternalLockWrite(CommandListContext &Context, Texture *Surface,
+                                  const VkBufferImageCopy &Region, VulkanRHI::StagingBuffer *StagingBuffer);
+
     Device *device;
     VkImage Image;
     VkImageUsageFlags ImageUsageFlags;
+    VkFormat StorageFormat; // Removes SRGB if requested, used to upload data
+    VkFormat ViewFormat;    // Format for SRVs, render targets
     VkMemoryPropertyFlags MemProps;
     VkMemoryRequirements MemoryRequirements;
 
 private:
-    VkImageAspectFlags FullAspectMask;
+    void SetInitialImageState(CommandListContext &Context, VkImageLayout InitialLayout,
+                              bool bClear, const ClearValueBinding &ClearValueBinding, bool bIsTransientResource);
+    VkImageTiling Tiling;
+    VmaAllocation allocation;
+    VmaAllocationInfo allocationInfo{};
+    VkImageAspectFlags FullAspectMask{};
+    VkImageAspectFlags PartialAspectMask{};
+    CpuReadbackBuffer *cpuReadbackBuffer = nullptr;
+    VkImageLayout DefaultLayout{};
 
 protected:
     EImageOwnerType ImageOwnerType;

@@ -40,6 +40,8 @@ public:
 
     /* VulkanRHI Methond */
 
+    inline VkInstance GetInstance() const { return instance; }
+
 protected:
     uint32_t apiVersion = 0;
     VkInstance instance;

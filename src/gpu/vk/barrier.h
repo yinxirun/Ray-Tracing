@@ -31,6 +31,8 @@ struct PipelineBarrier
     ImageBarrierArrayType ImageBarriers;
     BufferBarrierArrayType BufferBarriers;
 
+    void AddFullImageLayoutTransition(const Texture &Texture, VkImageLayout SrcLayout, VkImageLayout DstLayout);
+
     void AddImageLayoutTransition(VkImage Image, VkImageLayout SrcLayout,
                                   VkImageLayout DstLayout, const VkImageSubresourceRange &SubresourceRange);
 
@@ -101,6 +103,10 @@ struct ImageLayout
         check(SubresourceRange.baseMipLevel < NumMips);
         return (SubresourceRange.levelCount == VK_REMAINING_MIP_LEVELS) ? (NumMips - SubresourceRange.baseMipLevel) : SubresourceRange.levelCount;
     }
+
+    void CollapseSubresLayoutsIfSame();
+
+    void Set(VkImageLayout Layout, const VkImageSubresourceRange &SubresourceRange);
 };
 
 class LayoutManager
@@ -175,8 +181,28 @@ public:
         }
     }
 
+    void SetFullLayout(const Texture &VulkanTexture, VkImageLayout InLayout, bool bOnlyIfNotFound = false)
+    {
+        auto iter = Layouts.find(VulkanTexture.Image);
+        ImageLayout *Layout = iter == Layouts.end() ? nullptr : &iter->second;
+        if (Layout)
+        {
+            if (!bOnlyIfNotFound)
+            {
+                Layout->Set(InLayout, PipelineBarrier::MakeSubresourceRange(VulkanTexture.GetFullAspectMask()));
+            }
+        }
+        else
+        {
+            Layouts.insert(std::pair(VulkanTexture.Image,
+                                     ImageLayout(InLayout, VulkanTexture.GetDesc().NumMips,
+                                                 VulkanTexture.GetNumberOfArrayLevels(),
+                                                 VulkanTexture.GetFullAspectMask())));
+        }
+    }
+
     // Transfers our layouts into the destination
-	void TransferTo(LayoutManager& Destination);
+    void TransferTo(LayoutManager &Destination);
 
 private:
     std::unordered_map<VkImage, ImageLayout> Layouts;

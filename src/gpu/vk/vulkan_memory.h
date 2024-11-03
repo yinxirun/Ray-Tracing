@@ -1,16 +1,21 @@
 #pragma once
 #include "Volk/volk.h"
+#define VK_NO_PROTOTYPES
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
+#include "vma/vk_mem_alloc.h"
 #include "gpu/definitions.h"
 #include <atomic>
 #include <cassert>
 #include <vector>
 class Device;
+class CmdBuffer;
 
 enum class EDelayAcquireImageType
 {
-	None,			// acquire next image on frame start
-	DelayAcquire,	// acquire next image just before presenting, rendering is done to intermediate image which is copied to real backbuffer
-	LazyAcquire,	// acquire next image on first use
+    None,         // acquire next image on frame start
+    DelayAcquire, // acquire next image just before presenting, rendering is done to intermediate image which is copied to real backbuffer
+    LazyAcquire,  // acquire next image on first use
 };
 
 extern EDelayAcquireImageType GVulkanDelayAcquireImage;
@@ -77,6 +82,52 @@ namespace VulkanRHI
         Device *const device;
     };
 
+    class StagingBuffer : public RefCount
+    {
+    public:
+        StagingBuffer(Device *InDevice);
+        VkBuffer GetHandle() const;
+        void *GetMappedPointer();
+        uint32 GetSize() const;
+
+    protected:
+        Device *device;
+        VmaAllocation allocation;
+
+        VkBuffer buffer;
+        VkMemoryPropertyFlagBits MemoryReadFlags;
+        VmaAllocationInfo allocationInfo;
+
+        // Owner maintains lifetime
+        virtual ~StagingBuffer();
+
+        void Destroy();
+
+        friend class StagingManager;
+    };
+
+    class StagingManager
+    {
+    public:
+        StagingManager() : device(nullptr) {}
+        ~StagingManager();
+
+        void Init(Device *InDevice) { device = InDevice; }
+        void Deinit();
+
+        StagingBuffer *AcquireBuffer(uint32 Size,
+                                     VkBufferUsageFlags InUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                     VkMemoryPropertyFlagBits InMemoryReadFlags = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        // Sets pointer to nullptr
+        void ReleaseBuffer(CmdBuffer *CmdBuffer, StagingBuffer *&StagingBuffer);
+
+    protected:
+        Device *device;
+
+        std::vector<StagingBuffer*> UsedStagingBuffers;
+    };
+
     class Fence
     {
     public:
@@ -114,9 +165,9 @@ namespace VulkanRHI
 
         ~FenceManager();
 
-        void Init(Device* InDevice);
-        
-		void Deinit();
+        void Init(Device *InDevice);
+
+        void Deinit();
 
         Fence *AllocateFence(bool bCreateSignaled = false);
 
@@ -130,15 +181,15 @@ namespace VulkanRHI
         }
 
         // Returns false if it timed out
-		bool WaitForFence(Fence* fence, uint64 imeInNanoseconds);
+        bool WaitForFence(Fence *fence, uint64 imeInNanoseconds);
 
         void ResetFence(Fence *);
 
         // Sets it to nullptr
-		void ReleaseFence(Fence*& Fence);
+        void ReleaseFence(Fence *&Fence);
 
-		// Sets it to nullptr
-		void WaitAndReleaseFence(Fence*& Fence, uint64 TimeInNanoseconds);
+        // Sets it to nullptr
+        void WaitAndReleaseFence(Fence *&Fence, uint64 TimeInNanoseconds);
 
     protected:
         Device *device;

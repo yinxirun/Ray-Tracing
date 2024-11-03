@@ -9,6 +9,7 @@
 
 int GVulkanProfileCmdBuffers = 0;
 int GVulkanUseCmdBufferTimingForGPUTime = 0;
+int GVulkanUploadCmdBufferSemaphore = 0;
 
 CmdBuffer::CmdBuffer(Device *InDevice, CommandBufferPool *InCommandBufferPool, bool bInIsUploadOnly)
 	: CurrentStencilRef(0),
@@ -363,8 +364,10 @@ void CommandBufferManager::SubmitUploadCmdBuffer(uint32_t NumSignalSemaphores, V
 	{
 		check(uploadCmdBuffer->IsOutsideRenderPass());
 
-		// VulkanRHI::DebugHeavyWeightBarrier(UploadCmdBuffer->GetHandle(), 4);
+// VulkanRHI::DebugHeavyWeightBarrier(UploadCmdBuffer->GetHandle(), 4);
+#ifdef PRINT_UNIMPLEMENT
 		printf("DebugHeavyWeightBarrier %s %d\n", __FILE__, __LINE__);
+#endif
 
 		uploadCmdBuffer->End();
 
@@ -426,8 +429,9 @@ void CommandBufferManager::SubmitActiveCmdBuffer(std::vector<VulkanRHI::Semaphor
 			// UE_LOG(LogVulkanRHI, Warning, TEXT("Forcing EndRenderPass() for submission"));
 			activeCmdBuffer->EndRenderPass();
 		}
-
+#ifdef PRINT_UNIMPLEMENT
 		printf("DebugHeavyWeightBarrier %s %d\n", __FILE__, __LINE__);
+#endif
 		// VulkanRHI::DebugHeavyWeightBarrier(activeCmdBuffer->GetHandle(), 8);
 
 		activeCmdBuffer->End();
@@ -440,46 +444,55 @@ void CommandBufferManager::SubmitActiveCmdBuffer(std::vector<VulkanRHI::Semaphor
 
 void CommandBufferManager::SubmitActiveCmdBufferFromPresent(VulkanRHI::Semaphore *SignalSemaphore)
 {
-	printf("Have not implemented CommandBufferManager::SubmitActiveCmdBufferFromPresent\n");
-	// if (GVulkanUploadCmdBufferSemaphore)
-	// {
-	// 	// unlike more advanced regular SACB(), this is just a wrapper
-	// 	// around Queue->Submit() to avoid rewriting the logic in Present
-	// 	if (SignalSemaphore)
-	// 	{
-	// 		VkSemaphore SignalThis[2] =
-	// 		{
-	// 			SignalSemaphore->GetHandle(),
-	// 			ActiveCmdBufferSemaphore->GetHandle()
-	// 		};
+	if (GVulkanUploadCmdBufferSemaphore)
+	{
+		printf("ERROR %s %d\n", __FILE__, __LINE__);
+		// // unlike more advanced regular SACB(), this is just a wrapper
+		// // around Queue->Submit() to avoid rewriting the logic in Present
+		// if (SignalSemaphore)
+		// {
+		// 	VkSemaphore SignalThis[2] =
+		// 		{
+		// 			SignalSemaphore->GetHandle(),
+		// 			activeCmdBufferSemaphore->GetHandle()};
 
-	// 		queue->Submit(ActiveCmdBuffer, UE_ARRAY_COUNT(SignalThis), SignalThis);
-	// 	}
-	// 	else
-	// 	{
-	// 		VkSemaphore SignalThis = ActiveCmdBufferSemaphore->GetHandle();
-	// 		queue->Submit(ActiveCmdBuffer, 1, &SignalThis);
-	// 	}
+		// 	queue->Submit(ActiveCmdBuffer, UE_ARRAY_COUNT(SignalThis), SignalThis);
+		// }
+		// else
+		// {
+		// 	VkSemaphore SignalThis = ActiveCmdBufferSemaphore->GetHandle();
+		// 	queue->Submit(ActiveCmdBuffer, 1, &SignalThis);
+		// }
 
-	// 	RenderingCompletedSemaphores.Add(ActiveCmdBufferSemaphore);
-	// 	ActiveCmdBufferSemaphore = nullptr;
-	// }
-	// else
-	// {
-	// 	if (SignalSemaphore)
-	// 	{
-	// 		queue->Submit(ActiveCmdBuffer, SignalSemaphore->GetHandle());
-	// 	}
-	// 	else
-	// 	{
-	// 		queue->Submit(ActiveCmdBuffer);
-	// 	}
-	// }
+		// RenderingCompletedSemaphores.Add(ActiveCmdBufferSemaphore);
+		// ActiveCmdBufferSemaphore = nullptr;
+	}
+	else
+	{
+		if (SignalSemaphore)
+		{
+			queue->Submit(activeCmdBuffer, SignalSemaphore->GetHandle());
+		}
+		else
+		{
+			queue->Submit(activeCmdBuffer);
+		}
+	}
+}
+
+void CommandBufferManager::WaitForCmdBuffer(CmdBuffer *cmdBuffer, float timeInSecondsToWait)
+{
+	check(cmdBuffer->IsSubmitted());
+	bool bSuccess = device->GetFenceManager().WaitForFence(cmdBuffer->fence, (uint64)(timeInSecondsToWait * 1e9));
+	check(bSuccess);
+	cmdBuffer->RefreshFenceStatus();
 }
 
 void CommandBufferManager::FlushResetQueryPools()
 {
+#ifdef PRINT_UNIMPLEMENT
 	printf("Have not implemented CommandBufferManager::FlushResetQueryPools\n");
+#endif
 }
 
 void CommandBufferManager::PrepareForNewActiveCommandBuffer()

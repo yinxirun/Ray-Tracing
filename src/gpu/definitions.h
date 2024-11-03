@@ -15,26 +15,26 @@ typedef uint16_t uint16;
 #define VK_DESCRIPTOR_TYPE_END_RANGE VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT
 
 /*----------------------------------------------------------------------------
-	TList.
+    TList.
 ----------------------------------------------------------------------------*/
 
 //
 // Simple single-linked list template.
 //
-template <class ElementType> class TList
+template <class ElementType>
+class TList
 {
 public:
+    ElementType Element;
+    TList<ElementType> *Next;
 
-	ElementType			Element;
-	TList<ElementType>*	Next;
+    // Constructor.
 
-	// Constructor.
-
-	TList(const ElementType &InElement, TList<ElementType>* InNext = nullptr)
-	{
-		Element = InElement;
-		Next = InNext;
-	}
+    TList(const ElementType &InElement, TList<ElementType> *InNext = nullptr)
+    {
+        Element = InElement;
+        Next = InNext;
+    }
 };
 /*** 尹喜润 ***/
 
@@ -152,38 +152,37 @@ ENUM_CLASS_FLAGS(ETextureCreateFlags);
 #define TexCreate_ResolveTargetable ETextureCreateFlags::ResolveTargetable
 #define TexCreate_DepthStencilTargetable ETextureCreateFlags::DepthStencilTargetable
 #define TexCreate_ShaderResource ETextureCreateFlags::ShaderResource
-#define TexCreate_SRGB                           ETextureCreateFlags::SRGB
-#define TexCreate_CPUWritable                    ETextureCreateFlags::CPUWritable
-#define TexCreate_NoTiling                       ETextureCreateFlags::NoTiling
-#define TexCreate_VideoDecode                    ETextureCreateFlags::VideoDecode
-#define TexCreate_Dynamic                        ETextureCreateFlags::Dynamic
-#define TexCreate_InputAttachmentRead            ETextureCreateFlags::InputAttachmentRead
-#define TexCreate_Foveation                      ETextureCreateFlags::Foveation
-#define TexCreate_3DTiling                       ETextureCreateFlags::Tiling3D
-#define TexCreate_Memoryless                     ETextureCreateFlags::Memoryless
-#define TexCreate_GenerateMipCapable             ETextureCreateFlags::GenerateMipCapable
-#define TexCreate_FastVRAMPartialAlloc           ETextureCreateFlags::FastVRAMPartialAlloc
-#define TexCreate_DisableSRVCreation             ETextureCreateFlags::DisableSRVCreation
-#define TexCreate_DisableDCC                     ETextureCreateFlags::DisableDCC
-#define TexCreate_UAV                            ETextureCreateFlags::UAV
-#define TexCreate_Presentable                    ETextureCreateFlags::Presentable
-#define TexCreate_CPUReadback                    ETextureCreateFlags::CPUReadback
-#define TexCreate_OfflineProcessed               ETextureCreateFlags::OfflineProcessed
-#define TexCreate_FastVRAM                       ETextureCreateFlags::FastVRAM
-#define TexCreate_HideInVisualizeTexture         ETextureCreateFlags::HideInVisualizeTexture
-#define TexCreate_Virtual                        ETextureCreateFlags::Virtual
+#define TexCreate_SRGB ETextureCreateFlags::SRGB
+#define TexCreate_CPUWritable ETextureCreateFlags::CPUWritable
+#define TexCreate_NoTiling ETextureCreateFlags::NoTiling
+#define TexCreate_VideoDecode ETextureCreateFlags::VideoDecode
+#define TexCreate_Dynamic ETextureCreateFlags::Dynamic
+#define TexCreate_InputAttachmentRead ETextureCreateFlags::InputAttachmentRead
+#define TexCreate_Foveation ETextureCreateFlags::Foveation
+#define TexCreate_3DTiling ETextureCreateFlags::Tiling3D
+#define TexCreate_Memoryless ETextureCreateFlags::Memoryless
+#define TexCreate_GenerateMipCapable ETextureCreateFlags::GenerateMipCapable
+#define TexCreate_FastVRAMPartialAlloc ETextureCreateFlags::FastVRAMPartialAlloc
+#define TexCreate_DisableSRVCreation ETextureCreateFlags::DisableSRVCreation
+#define TexCreate_DisableDCC ETextureCreateFlags::DisableDCC
+#define TexCreate_UAV ETextureCreateFlags::UAV
+#define TexCreate_Presentable ETextureCreateFlags::Presentable
+#define TexCreate_CPUReadback ETextureCreateFlags::CPUReadback
+#define TexCreate_OfflineProcessed ETextureCreateFlags::OfflineProcessed
+#define TexCreate_FastVRAM ETextureCreateFlags::FastVRAM
+#define TexCreate_HideInVisualizeTexture ETextureCreateFlags::HideInVisualizeTexture
+#define TexCreate_Virtual ETextureCreateFlags::Virtual
 #define TexCreate_TargetArraySlicesIndependently ETextureCreateFlags::TargetArraySlicesIndependently
-#define TexCreate_Shared                         ETextureCreateFlags::Shared
-#define TexCreate_NoFastClear                    ETextureCreateFlags::NoFastClear
-#define TexCreate_DepthStencilResolveTarget      ETextureCreateFlags::DepthStencilResolveTarget
-#define TexCreate_Streamable                     ETextureCreateFlags::Streamable
-#define TexCreate_NoFastClearFinalize            ETextureCreateFlags::NoFastClearFinalize
-#define TexCreate_ReduceMemoryWithTilingMode     ETextureCreateFlags::ReduceMemoryWithTilingMode
-#define TexCreate_Transient                      ETextureCreateFlags::Transient
-#define TexCreate_AtomicCompatible               ETextureCreateFlags::AtomicCompatible
-#define TexCreate_External                       ETextureCreateFlags::External
-#define TexCreate_MultiGPUGraphIgnore            ETextureCreateFlags::MultiGPUGraphIgnore
-#define TexCreate_ReservedResource               ETextureCreateFlags::ReservedResource
-#define TexCreate_ImmediateCommit                ETextureCreateFlags::ImmediateCommit
-#define TexCreate_Invalid                        ETextureCreateFlags::Invalid
-
+#define TexCreate_Shared ETextureCreateFlags::Shared
+#define TexCreate_NoFastClear ETextureCreateFlags::NoFastClear
+#define TexCreate_DepthStencilResolveTarget ETextureCreateFlags::DepthStencilResolveTarget
+#define TexCreate_Streamable ETextureCreateFlags::Streamable
+#define TexCreate_NoFastClearFinalize ETextureCreateFlags::NoFastClearFinalize
+#define TexCreate_ReduceMemoryWithTilingMode ETextureCreateFlags::ReduceMemoryWithTilingMode
+#define TexCreate_Transient ETextureCreateFlags::Transient
+#define TexCreate_AtomicCompatible ETextureCreateFlags::AtomicCompatible
+#define TexCreate_External ETextureCreateFlags::External
+#define TexCreate_MultiGPUGraphIgnore ETextureCreateFlags::MultiGPUGraphIgnore
+#define TexCreate_ReservedResource ETextureCreateFlags::ReservedResource
+#define TexCreate_ImmediateCommit ETextureCreateFlags::ImmediateCommit
+#define TexCreate_Invalid ETextureCreateFlags::Invalid

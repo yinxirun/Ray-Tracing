@@ -54,8 +54,10 @@ protected:
 	uint32 internalHeight = 0;
 
     VkInstance instance;
+    // 若该image显示完毕，则该信号激活，表示此时image可以被写了。
     std::vector<VulkanRHI::Semaphore *> imageAcquiredSemaphore;
 #if VULKAN_USE_IMAGE_ACQUIRE_FENCES
+    // 若GPU端渲染完毕，此处fence被激活
     std::vector<VulkanRHI::Fence *> imageAcquiredFences;
 #endif
     uint32_t presentID = 0;

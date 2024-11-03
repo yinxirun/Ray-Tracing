@@ -252,6 +252,26 @@ static void MergeDepthStencilLayouts(BarrierArrayType &TargetArray)
     }
 }
 
+void PipelineBarrier::AddFullImageLayoutTransition(const Texture &Texture, VkImageLayout SrcLayout, VkImageLayout DstLayout)
+{
+    const VkPipelineStageFlags SrcStageMask = GetVkStageFlagsForLayout(SrcLayout);
+    const VkPipelineStageFlags DstStageMask = GetVkStageFlagsForLayout(DstLayout);
+
+    const VkAccessFlags SrcAccessFlags = GetVkAccessMaskForLayout(SrcLayout);
+    const VkAccessFlags DstAccessFlags = GetVkAccessMaskForLayout(DstLayout);
+
+    const VkImageSubresourceRange SubresourceRange = MakeSubresourceRange(Texture.GetFullAspectMask());
+    if (Texture.IsDepthOrStencilAspect())
+    {
+        SrcLayout = GetMergedDepthStencilLayout(SrcLayout, SrcLayout);
+        DstLayout = GetMergedDepthStencilLayout(DstLayout, DstLayout);
+    }
+
+    ImageBarriers.push_back({});
+    VkImageMemoryBarrier2 &ImgBarrier = ImageBarriers.back();
+    SetupImageBarrier(ImgBarrier, Texture.Image, SrcStageMask, DstStageMask, SrcAccessFlags, DstAccessFlags, SrcLayout, DstLayout, SubresourceRange);
+}
+
 void PipelineBarrier::AddImageLayoutTransition(VkImage Image, VkImageLayout SrcLayout, VkImageLayout DstLayout, const VkImageSubresourceRange &SubresourceRange)
 {
     const VkPipelineStageFlags SrcStageMask = GetVkStageFlagsForLayout(SrcLayout);
@@ -410,6 +430,77 @@ bool ImageLayout::AreSubresourcesSameLayout(VkImageLayout Layout, const VkImageS
     }
 
     return true;
+}
+
+void ImageLayout::CollapseSubresLayoutsIfSame(){
+    if (SubresLayouts.size() == 0)
+	{
+		return;
+	}
+
+	const VkImageLayout Layout = SubresLayouts[0];
+	for (uint32 i = 1; i < NumPlanes * NumLayers * NumMips; ++i)
+	{
+		if (SubresLayouts[i] != Layout)
+		{
+			return;
+		}
+	}
+
+	MainLayout = Layout;
+	SubresLayouts.clear();
+}
+
+void ImageLayout::Set(VkImageLayout Layout, const VkImageSubresourceRange &SubresourceRange)
+{
+    check((Layout != VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL) &&
+          (Layout != VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL) &&
+          (Layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL) &&
+          (Layout != VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL));
+
+    const uint32 FirstPlane = (SubresourceRange.aspectMask == VK_IMAGE_ASPECT_STENCIL_BIT) ? NumPlanes - 1 : 0;
+    const uint32 LastPlane = (SubresourceRange.aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? NumPlanes : 1;
+
+    const uint32 FirstLayer = SubresourceRange.baseArrayLayer;
+    const uint32 LayerCount = GetSubresRangeLayerCount(SubresourceRange);
+
+    const uint32 FirstMip = SubresourceRange.baseMipLevel;
+    const uint32 MipCount = GetSubresRangeMipCount(SubresourceRange);
+
+    if (FirstPlane == 0 && LastPlane == NumPlanes &&
+        FirstLayer == 0 && LayerCount == NumLayers &&
+        FirstMip == 0 && MipCount == NumMips)
+    {
+        // We're setting the entire resource to the same layout.
+        MainLayout = Layout;
+        SubresLayouts.clear();
+        return;
+    }
+
+    if (SubresLayouts.size() == 0)
+    {
+        const uint32 SubresLayoutCount = NumPlanes * NumLayers * NumMips;
+        SubresLayouts.resize(SubresLayoutCount);
+        for (uint32 i = 0; i < SubresLayoutCount; ++i)
+        {
+            SubresLayouts[i] = MainLayout;
+        }
+    }
+
+    for (uint32 Plane = FirstPlane; Plane < LastPlane; ++Plane)
+    {
+        for (uint32 Layer = FirstLayer; Layer < FirstLayer + LayerCount; ++Layer)
+        {
+            for (uint32 Mip = FirstMip; Mip < FirstMip + MipCount; ++Mip)
+            {
+                SubresLayouts[Plane * (NumLayers * NumMips) + Layer * NumMips + Mip] = Layout;
+            }
+        }
+    }
+
+    // It's possible we've just set all the subresources to the same layout. If that's the case, get rid of the
+    // subresource info and set the main layout appropriatedly.
+    CollapseSubresLayoutsIfSame();
 }
 
 VkImageLayout LayoutManager::GetDefaultLayout(CmdBuffer *CmdBuffer, const Texture &VulkanTexture, ERHIAccess DesiredAccess)

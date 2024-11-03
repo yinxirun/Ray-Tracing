@@ -10,4 +10,17 @@
     inline constexpr Enum operator^(Enum Lhs, Enum Rhs) { return (Enum)((__underlying_type(Enum))Lhs ^ (__underlying_type(Enum))Rhs); } \
     inline constexpr bool operator!(Enum E) { return !(__underlying_type(Enum))E; }                                                     \
     inline constexpr Enum operator~(Enum E) { return (Enum) ~(__underlying_type(Enum))E; }
-    
+
+template <typename Enum>
+constexpr bool EnumHasAnyFlags(Enum Flags, Enum Contains)
+{
+    using UnderlyingType = __underlying_type(Enum);
+    return ((UnderlyingType)Flags & (UnderlyingType)Contains) != 0;
+}
+
+template<typename Enum>
+constexpr bool EnumHasAllFlags(Enum Flags, Enum Contains)
+{
+	using UnderlyingType = __underlying_type(Enum);
+	return ((UnderlyingType)Flags & (UnderlyingType)Contains) == (UnderlyingType)Contains;
+}

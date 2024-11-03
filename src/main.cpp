@@ -111,8 +111,12 @@ int main()
   {
     CommandListContext *context = rhi->GetDefaultContext();
     std::shared_ptr<Viewport> viewport = rhi->CreateViewport(window, 800, 600, false, EPixelFormat::PF_B8G8R8A8);
-    context->RHIBeginDrawingViewport(viewport);
-    context->RHIEndDrawingViewport(viewport.get(), false);
+    while (!glfwWindowShouldClose(window))
+    {
+      context->RHIBeginDrawingViewport(viewport);
+      context->RHIEndDrawingViewport(viewport.get(), false);
+      glfwPollEvents();
+    }
   }
 
   rhi->Shutdown();

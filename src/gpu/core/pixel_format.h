@@ -18,7 +18,11 @@ enum EPixelFormat : uint8_t
     PF_DepthStencil = 11,
     PF_ShadowDepth = 12,
     PF_R32_FLOAT = 13,
-    PF_MAX = 14,
+    PF_D24 = 20,
+    PF_X24_G8 = 44, // Used for creating SRVs to alias a DepthStencil buffer to read Stencil. Don't use for creating textures.
+    PF_R32G32_UINT = 68,
+    PF_R64_UINT = 84,
+    PF_MAX = 92
 };
 
 enum class EPixelFormatCapabilities : uint32

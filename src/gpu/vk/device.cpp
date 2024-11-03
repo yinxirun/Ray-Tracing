@@ -87,13 +87,48 @@ void Device::InitGPU()
 
     CreateDevice(layers, extensions);
 
+    volkLoadDevice(device);
+    VmaVulkanFunctions vulkanFunctions = {};
+    vulkanFunctions.vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
+    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties = vkGetPhysicalDeviceMemoryProperties;
+    vulkanFunctions.vkAllocateMemory = vkAllocateMemory;
+    vulkanFunctions.vkFreeMemory = vkFreeMemory;
+    vulkanFunctions.vkMapMemory = vkMapMemory;
+    vulkanFunctions.vkUnmapMemory = vkUnmapMemory;
+    vulkanFunctions.vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges;
+    vulkanFunctions.vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges;
+    vulkanFunctions.vkBindBufferMemory = vkBindBufferMemory;
+    vulkanFunctions.vkBindImageMemory = vkBindImageMemory;
+    vulkanFunctions.vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements;
+    vulkanFunctions.vkGetImageMemoryRequirements = vkGetImageMemoryRequirements;
+    vulkanFunctions.vkCreateBuffer = vkCreateBuffer;
+    vulkanFunctions.vkDestroyBuffer = vkDestroyBuffer;
+    vulkanFunctions.vkCreateImage = vkCreateImage;
+    vulkanFunctions.vkDestroyImage = vkDestroyImage;
+    vulkanFunctions.vkCmdCopyBuffer = vkCmdCopyBuffer;
+    vulkanFunctions.vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2KHR;
+    vulkanFunctions.vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2KHR;
+    vulkanFunctions.vkBindBufferMemory2KHR = vkBindBufferMemory2KHR;
+    vulkanFunctions.vkBindImageMemory2KHR = vkBindImageMemory2KHR;
+    vulkanFunctions.vkGetPhysicalDeviceMemoryProperties2KHR = vkGetPhysicalDeviceMemoryProperties2KHR;
+
+    VmaAllocatorCreateInfo allocatorCreateInfo = {};
+    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+    allocatorCreateInfo.physicalDevice = gpu;
+    allocatorCreateInfo.device = device;
+    allocatorCreateInfo.instance = RHI::Get().GetInstance();
+    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+    vmaCreateAllocator(&allocatorCreateInfo, &allocator);
+
     SetupFormats();
 
     fenceManager.Init(this);
 
+    stagingManager.Init(this);
+
     bindlessDescriptorManager = new BindlessDescriptorManager(this);
 
-    immediateContext = new CommandListContextImmediate(globalRHI, this, computeQueue);
+    immediateContext = new CommandListContextImmediate(globalRHI, this, gfxQueue);
 }
 
 void Device::CreateDevice(std::vector<const char *> &layers, std::vector<const char *> &extensions)
@@ -227,6 +262,8 @@ void Device::Destroy()
     delete immediateContext;
     immediateContext = nullptr;
 
+    stagingManager.Deinit();
+
     deferredDeletionQueue.Clear();
 
     delete transferQueue;
@@ -235,6 +272,7 @@ void Device::Destroy()
 
     fenceManager.Deinit();
 
+    vmaDestroyAllocator(allocator);
     vkDestroyDevice(device, nullptr);
     device = VK_NULL_HANDLE;
 }
@@ -255,9 +293,23 @@ const VkComponentMapping &Device::GetFormatComponentMapping(EPixelFormat UEForma
     return PixelFormatComponentMapping[UEFormat];
 }
 
+const VkFormatProperties &Device::GetFormatProperties(VkFormat InFormat) const
+{
+    if (InFormat >= 0)
+    {
+        return FormatProperties[InFormat];
+    }
+
+    printf("%s %d\n", __FILE__, __LINE__);
+    exit(-1);
+    return FormatProperties[0];
+}
+
 void Device::NotifyDeletedImage(VkImage Image, bool bRenderTarget)
 {
+#ifdef PRINT_UNIMPLEMENT
     printf("Have not implement Device::NotifyDeletedImage\n");
+#endif
     // if (bRenderTarget)
     // {
     //     // Contexts first, as it may clear the current framebuffer
@@ -336,6 +388,13 @@ void Device::SubmitCommands(CommandListContext *Context)
 
 void Device::SetupFormats()
 {
+    for (uint32 Index = 0; Index < FormatProperties.size(); ++Index)
+    {
+        const VkFormat Format = (VkFormat)Index;
+        FormatProperties[Index] = {};
+        vkGetPhysicalDeviceFormatProperties(gpu, Format, &FormatProperties[Index]);
+    }
+
     // Create shortcuts for the possible component mappings
     const VkComponentMapping ComponentMappingRGBA = {VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A};
 

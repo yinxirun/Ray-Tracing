@@ -16,11 +16,14 @@ public:
 
     inline uint32_t GetFamilyIndex() const { return familyIndex; }
 
-    void Submit(CmdBuffer* CmdBuffer, uint32 NumSignalSemaphores = 0, VkSemaphore* SignalSemaphores = nullptr);
+    void Submit(CmdBuffer *CmdBuffer, uint32 NumSignalSemaphores = 0, VkSemaphore *SignalSemaphores = nullptr);
+
+    inline void Submit(CmdBuffer *CmdBuffer, VkSemaphore SignalSemaphore) { Submit(CmdBuffer, 1, &SignalSemaphore); }
+
+    inline VkQueue GetHandle() const { return queue; }
 
     inline void GetLastSubmittedInfo(CmdBuffer *&OutCmdBuffer, uint64 &OutFenceCounter) const
     {
-        //FScopeLock ScopeLock(&CS);
         OutCmdBuffer = LastSubmittedCmdBuffer;
         OutFenceCounter = LastSubmittedCmdBufferFenceCounter;
     }
@@ -33,11 +36,11 @@ private:
     uint32_t queueIndex;
     VkQueue queue;
 
-    CmdBuffer* LastSubmittedCmdBuffer;
-	uint64 LastSubmittedCmdBufferFenceCounter;
+    CmdBuffer *LastSubmittedCmdBuffer;
+    uint64 LastSubmittedCmdBufferFenceCounter;
 
     // Last known layouts submitted on this queue, used for defrag
     LayoutManager LayoutManager;
 
-    void UpdateLastSubmittedCommandBuffer(CmdBuffer* CmdBuffer);
+    void UpdateLastSubmittedCommandBuffer(CmdBuffer *CmdBuffer);
 };

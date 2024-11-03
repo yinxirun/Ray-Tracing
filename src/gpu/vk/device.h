@@ -1,8 +1,13 @@
 #pragma once
 #include "Volk/volk.h"
+#define VK_NO_PROTOTYPES
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
+#include "vma/vk_mem_alloc.h"
 #include <cstdint>
 #include <cassert>
 #include <vector>
+#include <array>
 #include <iostream>
 #include "common.h"
 #include <cstring>
@@ -130,11 +135,17 @@ public:
     const VkComponentMapping &GetFormatComponentMapping(EPixelFormat UEFormat) const;
 
     inline VkDevice GetInstanceHandle() const { return device; }
+    inline VmaAllocator GetAllocator() const { return allocator; }
+
+    // 382
+    const VkFormatProperties &GetFormatProperties(VkFormat InFormat) const;
 
     inline const VkPhysicalDeviceProperties &GetDeviceProperties() const { return gpuProps; }
     // 398
     inline VulkanRHI::DeferredDeletionQueue2 &GetDeferredDeletionQueue() { return deferredDeletionQueue; }
-
+    // 403
+    inline VulkanRHI::StagingManager &GetStagingManager() { return stagingManager; }
+    // 423
     inline DescriptorPoolsManager &GetDescriptorPoolsManager() { return *descriptorPoolsManager; }
 
     // 428
@@ -156,10 +167,11 @@ public:
 
 private:
     void SubmitCommands(CommandListContext *Context);
-    
+
     VkDevice device;
 
     VulkanRHI::DeferredDeletionQueue2 deferredDeletionQueue;
+    VulkanRHI::StagingManager stagingManager;
     VulkanRHI::FenceManager fenceManager;
 
     // Active on >= SM4
@@ -170,7 +182,9 @@ private:
     VkPhysicalDeviceProperties gpuProps;
 
     PhysicalDeviceFeatures physicalDeviceFeatures;
+
     std::vector<VkQueueFamilyProperties> queueFamilyProps;
+    std::array<VkFormatProperties, 180> FormatProperties;
 
     Queue *gfxQueue;
     Queue *computeQueue;
@@ -184,6 +198,7 @@ private:
     std::vector<CommandListContext *> commandContexts;
 
     RHI *rhi = nullptr;
+    VmaAllocator allocator{VK_NULL_HANDLE};
 
     void SetupFormats();
 };

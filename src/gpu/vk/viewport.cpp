@@ -1,6 +1,7 @@
 #include "viewport.h"
 #include "rhi.h"
 #include <vector>
+#include <memory>
 #include "vulkan_memory.h"
 #include "device.h"
 #include "swap_chain.h"
@@ -12,8 +13,10 @@
 #include "../definitions.h"
 #include "private.h"
 #include "queue.h"
+#include "gpu/RHI/RHICommandList.h"
+#include "gpu/RHI/RHIDefinitions.h"
 
-BackBuffer::BackBuffer(Device &device, Viewport *InViewport, VkFormat Format, uint32_t SizeX, uint32_t SizeY, ETextureCreateFlags UEFlags)
+BackBuffer::BackBuffer(Device &device, Viewport *InViewport, EPixelFormat Format, uint32_t SizeX, uint32_t SizeY, ETextureCreateFlags UEFlags)
     : Texture(device, RHITextureCreateDesc::Create2D("FVulkanBackBuffer", SizeX, SizeY, Format).SetFlags(UEFlags).DetermineInititialState(), VK_NULL_HANDLE, false),
       viewport(InViewport)
 {
@@ -24,6 +27,22 @@ BackBuffer::~BackBuffer()
     check(IsImageOwner() == false);
     // Clear ImageOwnerType so ~FVulkanTexture2D() doesn't try to re-destroy it
     ImageOwnerType = EImageOwnerType::None;
+    ReleaseAcquiredImage();
+}
+
+void BackBuffer::OnGetBackBufferImage(RHICommandListImmediate &RHICmdList)
+{
+    check(viewport);
+    if (GVulkanDelayAcquireImage == EDelayAcquireImageType::None)
+    {
+        CommandListContext &Context = (CommandListContext &)RHICmdList.GetContext();
+        AcquireBackBufferImage(Context);
+    }
+}
+
+void BackBuffer::ReleaseViewport()
+{
+    viewport = nullptr;
     ReleaseAcquiredImage();
 }
 
@@ -39,9 +58,50 @@ void BackBuffer::ReleaseAcquiredImage()
     Image = VK_NULL_HANDLE;
 }
 
+void BackBuffer::AcquireBackBufferImage(CommandListContext &Context)
+{
+    check(viewport);
+
+    if (Image == VK_NULL_HANDLE)
+    {
+        if (viewport->TryAcquireImageIndex())
+        {
+            int32 acquiredImageIndex = viewport->acquiredImageIndex;
+            check(acquiredImageIndex >= 0 && acquiredImageIndex < viewport->textureViews.size());
+
+            View &ImageView = *(viewport->textureViews[acquiredImageIndex]);
+
+            Image = ImageView.GetTextureView().Image;
+            DefaultView = &ImageView;
+            PartialView = &ImageView;
+
+            CommandBufferManager *CmdBufferManager = Context.GetCommandBufferManager();
+            CmdBuffer *CmdBuffer = CmdBufferManager->GetActiveCmdBuffer();
+            check(!CmdBuffer->IsInsideRenderPass());
+
+            // right after acquiring image is in undefined state
+            LayoutManager &LayoutMgr = CmdBuffer->GetLayoutManager();
+            const ImageLayout CustomLayout(VK_IMAGE_LAYOUT_UNDEFINED, 1, 1, VK_IMAGE_ASPECT_COLOR_BIT);
+            LayoutMgr.SetFullLayout(Image, CustomLayout);
+
+            // Wait for semaphore signal before writing to backbuffer image
+            CmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, viewport->acquiredSemaphore);
+        }
+        else
+        {
+            // fallback to a 'dummy' backbuffer
+            check(viewport->renderingBackBuffer);
+            View *DummyView = viewport->renderingBackBuffer->DefaultView;
+            Image = DummyView->GetTextureView().Image;
+            DefaultView = DummyView;
+            PartialView = DummyView;
+        }
+    }
+}
+
 Viewport::Viewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t sizeY, EPixelFormat InPreferredPixelFormat)
-    : device(d), sizeX(sizeX), sizeY(sizeY), swapChain(nullptr), windowHandle(InWindowHandle), pixelFormat(InPreferredPixelFormat),
-      acquiredSemaphore(nullptr)
+    : device(d), sizeX(sizeX), sizeY(sizeY), pixelFormat(InPreferredPixelFormat), acquiredImageIndex(-1),
+      swapChain(nullptr), windowHandle(InWindowHandle), acquiredSemaphore(nullptr)
 {
     RHI::Get().viewports.push_back(this);
     CreateSwapchain(nullptr);
@@ -58,6 +118,14 @@ Viewport::Viewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t siz
 
 Viewport::~Viewport()
 {
+    renderingBackBuffer = nullptr;
+
+    if (RHIBackBuffer)
+    {
+        RHIBackBuffer->ReleaseViewport();
+        RHIBackBuffer = nullptr;
+    }
+
     if (SupportsStandardSwapchain())
     {
         for (auto view : textureViews)
@@ -78,7 +146,9 @@ Viewport::~Viewport()
         swapChain = nullptr;
     }
 
-    // RHI::Get().viewports.remove(this);
+    std::vector<Viewport *> &viewports = RHI::Get().viewports;
+    auto iter = std::find(viewports.begin(), viewports.end(), this);
+    viewports.erase(iter);
 }
 
 inline static void CopyImageToBackBuffer(CommandListContext *context, CmdBuffer *cmdBuffer,
@@ -96,7 +166,9 @@ inline static void CopyImageToBackBuffer(CommandListContext *context, CmdBuffer 
         Barrier.Execute(cmdBuffer);
     }
 
+#ifdef PRINT_UNIMPLEMENT
     printf("Am i really need VulkanRHI::DebugHeavyWeightBarrier?? %s %d\n", __FILE__, __LINE__);
+#endif
     // VulkanRHI::DebugHeavyWeightBarrier(CmdBuffer->GetHandle(), 32);
 
     if (sizeX != windowSizeX || sizeY != windowSizeY)
@@ -150,39 +222,36 @@ inline static void CopyImageToBackBuffer(CommandListContext *context, CmdBuffer 
     }
 }
 
+extern int32 GWaitForIdleOnSubmit;
 void Viewport::WaitForFrameEventCompletion()
 {
-    // if (Platform::RequiresWaitingForFrameCompletionEvent())
-    // {
-    //     //		static FCriticalSection CS;
-    //     //		FScopeLock ScopeLock(&CS);
-    //     if (LastFrameCommandBuffer && LastFrameCommandBuffer->IsSubmitted())
-    //     {
-    //         // If last frame's fence hasn't been signaled already, wait for it here
-    //         if (LastFrameFenceCounter == LastFrameCommandBuffer->GetFenceSignaledCounter())
-    //         {
-    //             if (!GWaitForIdleOnSubmit)
-    //             {
-    //                 // The wait has already happened if GWaitForIdleOnSubmit is set
-    //                 LastFrameCommandBuffer->GetOwner()->GetMgr().WaitForCmdBuffer(LastFrameCommandBuffer);
-    //             }
-    //         }
-    //     }
-    // }
-    printf("Have not implement Viewport::WaitForFrameEventCompletion\n");
+    if (Platform::RequiresWaitingForFrameCompletionEvent())
+    {
+        if (LastFrameCommandBuffer && LastFrameCommandBuffer->IsSubmitted())
+        {
+            // If last frame's fence hasn't been signaled already, wait for it here
+            if (LastFrameFenceCounter == LastFrameCommandBuffer->GetFenceSignaledCounter())
+            {
+                if (!GWaitForIdleOnSubmit)
+                {
+                    // The wait has already happened if GWaitForIdleOnSubmit is set
+                    LastFrameCommandBuffer->GetOwner()->GetMgr().WaitForCmdBuffer(LastFrameCommandBuffer);
+                }
+            }
+        }
+    }
 }
 
 void Viewport::IssueFrameEvent()
 {
-    // if (FVulkanPlatform::RequiresWaitingForFrameCompletionEvent())
-    // {
-    //     // The fence we need to wait on next frame is already there in the command buffer
-    //     // that was just submitted in this frame's Present. Just grab that command buffer's
-    //     // info to use next frame in WaitForFrameEventCompletion.
-    //     Queue *queue = device->GetGraphicsQueue();
-    //     queue->GetLastSubmittedInfo(LastFrameCommandBuffer, LastFrameFenceCounter);
-    // }
-    printf("Have not implement Viewport::WaitForFrameEventCompletion\n");
+    if (Platform::RequiresWaitingForFrameCompletionEvent())
+    {
+        // The fence we need to wait on next frame is already there in the command buffer
+        // that was just submitted in this frame's Present. Just grab that command buffer's
+        // info to use next frame in WaitForFrameEventCompletion.
+        Queue *queue = device->GetGraphicsQueue();
+        queue->GetLastSubmittedInfo(LastFrameCommandBuffer, LastFrameFenceCounter);
+    }
 }
 
 bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue *queue, Queue *presentQueue, bool bLockToVsync)
@@ -195,7 +264,7 @@ bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue 
 
     if (SupportsStandardSwapchain())
     {
-        if (GVulkanDelayAcquireImage == EDelayAcquireImageType::DelayAcquire && RenderingBackBuffer)
+        if (GVulkanDelayAcquireImage == EDelayAcquireImageType::DelayAcquire)
         {
             // swapchain can go out of date, do not crash at this point
             if (TryAcquireImageIndex())
@@ -204,7 +273,7 @@ bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue 
                 uint32 WindowSizeY = std::min(sizeY, swapChain->internalHeight);
 
                 context->RHIPushEvent("CopyImageToBackBuffer", 0);
-                CopyImageToBackBuffer(context, cmdBuffer, *RenderingBackBuffer.get(), backBufferImages[acquiredImageIndex],
+                CopyImageToBackBuffer(context, cmdBuffer, *renderingBackBuffer.get(), backBufferImages[acquiredImageIndex],
                                       sizeX, sizeY, WindowSizeX, WindowSizeY);
                 context->RHIPopEvent();
             }
@@ -237,7 +306,7 @@ bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue 
             else
             {
                 // When we have failed to acquire backbuffer image we fallback to using 'dummy' backbuffer
-                check(RHIBackBuffer != nullptr && RHIBackBuffer->Image == RenderingBackBuffer->Image);
+                check(RHIBackBuffer != nullptr && RHIBackBuffer->Image == renderingBackBuffer->Image);
             }
         }
     }
@@ -255,9 +324,9 @@ bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue 
                 cmdBuffer->AddWaitSemaphore(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, acquiredSemaphore);
             }
 
-            VulkanRHI::Semaphore *SignalSemaphore = (acquiredImageIndex >= 0 ? renderingDoneSemaphores[acquiredImageIndex] : nullptr);
+            VulkanRHI::Semaphore *signalSemaphore = (acquiredImageIndex >= 0 ? renderingDoneSemaphores[acquiredImageIndex] : nullptr);
             // submit through the CommandBufferManager as it will add the proper semaphore
-            ImmediateCmdBufMgr->SubmitActiveCmdBufferFromPresent(SignalSemaphore);
+            ImmediateCmdBufMgr->SubmitActiveCmdBufferFromPresent(signalSemaphore);
         }
         else
         {
@@ -285,11 +354,6 @@ bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue 
         // ImmediateCmdBufMgr->SubmitActiveCmdBufferFromPresent(nullptr);
     }
 
-    // Flush all commands
-    // check(0);
-
-    // #todo-rco: Proper SyncInterval bLockToVsync ? RHIConsoleVariables::SyncInterval : 0
-    int32 SyncInterval = 0;
     bool bNeedNativePresent = true;
 
     bool bResult = false;
@@ -331,8 +395,6 @@ bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue 
     }
 
     acquiredImageIndex = -1;
-
-    ++presentCount;
 
     return bResult;
 }
@@ -381,7 +443,7 @@ void Viewport::CreateSwapchain(struct SwapChainRecreateInfo *recreateInfo)
 
         device->GetImmediateContext().GetCommandBufferManager()->SubmitUploadCmdBuffer();
 
-        RHIBackBuffer = std::make_shared<BackBuffer>(*device, this, UEToVkTextureFormat(pixelFormat, false), sizeX, sizeY, TexCreate_RenderTargetable | TexCreate_ShaderResource | TexCreate_ResolveTargetable);
+        RHIBackBuffer = std::make_shared<BackBuffer>(*device, this, pixelFormat, sizeX, sizeY, TexCreate_RenderTargetable | TexCreate_ShaderResource | TexCreate_ResolveTargetable);
     }
     else
     {
@@ -400,6 +462,28 @@ void Viewport::CreateSwapchain(struct SwapChainRecreateInfo *recreateInfo)
             }
         }
     }
+
+    // We always create a 'dummy' backbuffer to gracefully handle SurfaceLost cases
+    {
+        uint32 BackBufferSizeX = RequiresRenderingBackBuffer() ? sizeX : 1;
+        uint32 BackBufferSizeY = RequiresRenderingBackBuffer() ? sizeY : 1;
+
+        ClearValueBinding clearValue;
+        clearValue.Value.Color[0] = 1;
+        clearValue.Value.Color[1] = 0;
+        clearValue.Value.Color[2] = 0;
+        clearValue.Value.Color[3] = 1;
+        clearValue.ColorBinding = EClearBinding::ENoneBound;
+
+        const RHITextureCreateDesc desc = RHITextureCreateDesc::Create2D("RenderingBackBuffer", BackBufferSizeX, BackBufferSizeY, pixelFormat)
+                                              .SetClearValue(clearValue)
+                                              .SetFlags(ETextureCreateFlags::RenderTargetable | ETextureCreateFlags::ShaderResource | ETextureCreateFlags::ResolveTargetable)
+                                              .SetInitialState(ERHIAccess::Present);
+
+        renderingBackBuffer = std::shared_ptr<Texture>(new Texture(*device, desc));
+    }
+
+    acquiredImageIndex = -1;
 }
 
 void Viewport::DestroySwapchain(struct SwapChainRecreateInfo *RecreateInfo)
@@ -407,9 +491,6 @@ void Viewport::DestroySwapchain(struct SwapChainRecreateInfo *RecreateInfo)
     // Submit all command buffers here
     device->SubmitCommandsAndFlushGPU();
     device->WaitUntilIdle();
-
-    // Intentionally leave RenderingBackBuffer alive, so it can be used a dummy backbuffer while we don't have swapchain images
-    // RenderingBackBuffer = nullptr;
 
     if (RHIBackBuffer)
     {
@@ -457,25 +538,53 @@ bool Viewport::TryAcquireImageIndex()
     return false;
 }
 
-void Viewport::RecreateSwapchain(void *NewNativeWindow)
+void Viewport::RecreateSwapchain(void *newNativeWindow)
 {
-    // FScopeLock LockSwapchain(&RecreatingSwapchain);
-
-    SwapChainRecreateInfo RecreateInfo = {VK_NULL_HANDLE, VK_NULL_HANDLE};
-    DestroySwapchain(&RecreateInfo);
-    windowHandle = NewNativeWindow;
-    CreateSwapchain(&RecreateInfo);
-    check(RecreateInfo.surface == VK_NULL_HANDLE);
-    check(RecreateInfo.swapChain == VK_NULL_HANDLE);
+    SwapChainRecreateInfo recreateInfo = {VK_NULL_HANDLE, VK_NULL_HANDLE};
+    DestroySwapchain(&recreateInfo);
+    windowHandle = newNativeWindow;
+    CreateSwapchain(&recreateInfo);
+    check(recreateInfo.surface == VK_NULL_HANDLE);
+    check(recreateInfo.swapChain == VK_NULL_HANDLE);
 }
 
 bool Viewport::DoCheckedSwapChainJob(std::function<int32(Viewport *)> SwapChainJob)
 {
-    printf("Have not implement Viewport::DoCheckedSwapChainJob\n");
-    return true;
+    int32 AttemptsPending = Platform::RecreateSwapchainOnFail() ? 4 : 0;
+    int32 Status = SwapChainJob(this);
+
+    while (Status < 0 && AttemptsPending > 0)
+    {
+        if (Status == (int32)SwapChain::EStatus::OutOfDate)
+        {
+            printf("Swapchain is out of date! Trying to recreate the swapchain.\n");
+        }
+        else if (Status == (int32)SwapChain::EStatus::SurfaceLost)
+        {
+            printf("Swapchain surface lost! Trying to recreate the swapchain.");
+        }
+        else
+        {
+            check(0);
+        }
+
+        RecreateSwapchain(windowHandle);
+
+        // Swapchain creation pushes some commands - flush the command buffers now to begin with a fresh state
+        device->SubmitCommandsAndFlushGPU();
+        device->WaitUntilIdle();
+
+        Status = SwapChainJob(this);
+
+        --AttemptsPending;
+    }
+
+    return Status >= 0;
 }
 
 bool Viewport::SupportsStandardSwapchain() { return !bRenderOffscreen; }
+
+bool Viewport::RequiresRenderingBackBuffer() { return true; }
 
 EPixelFormat Viewport::GetPixelFormatForNonDefaultSwapchain()
 {
