@@ -12,13 +12,13 @@
 #include "gpu/core/misc/crc.h"
 #include <vector>
 
-extern RHI *globalRHI;
+extern RHI *rhi;
 /// 1 to submit the cmd buffer after end occlusion query batch (default)
 int GSubmitOcclusionBatchCmdBufferCVar = 1;
 
 VkSurfaceTransformFlagBitsKHR CommandListContext::GetSwapchainQCOMRenderPassTransform() const
 {
-    std::vector<Viewport *> &viewports = globalRHI->GetViewports();
+    std::vector<Viewport *> &viewports = rhi->GetViewports();
     if (viewports.size() == 0)
     {
         return VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
@@ -28,7 +28,7 @@ VkSurfaceTransformFlagBitsKHR CommandListContext::GetSwapchainQCOMRenderPassTran
 
 SwapChain *CommandListContext::GetSwapChain() const
 {
-    std::vector<Viewport *> &viewports = globalRHI->GetViewports();
+    std::vector<Viewport *> &viewports = rhi->GetViewports();
     uint32 numViewports = viewports.size();
     if (viewports.size() == 0)
         return nullptr;
@@ -37,7 +37,7 @@ SwapChain *CommandListContext::GetSwapChain() const
 
 bool CommandListContext::IsSwapchainImage(Texture *InTexture) const
 {
-    std::vector<Viewport *> &Viewports = globalRHI->GetViewports();
+    std::vector<Viewport *> &Viewports = rhi->GetViewports();
     uint32 NumViewports = Viewports.size();
 
     for (uint32 i = 0; i < NumViewports; i++)

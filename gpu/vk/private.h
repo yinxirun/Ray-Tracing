@@ -328,6 +328,15 @@ private:
 
 namespace VulkanRHI
 {
+	class StagingBuffer;
+	struct PendingBufferLock
+	{
+		StagingBuffer *stagingBuffer;
+		uint32 Offset;
+		uint32 Size;
+		ResourceLockMode LockMode;
+	};
+
 	// 571
 	static VkImageAspectFlags GetAspectMaskFromUEFormat(PixelFormat Format, bool bIncludeStencil, bool bIncludeDepth = true)
 	{

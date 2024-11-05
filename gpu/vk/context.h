@@ -23,6 +23,11 @@ public:
     CommandListContext(RHI *InRHI, Device *InDevice, Queue *InQueue, CommandListContext *InImmediate);
     virtual ~CommandListContext();
 
+    static inline CommandListContext &GetVulkanContext(CommandContext &CmdContext)
+    {
+        return static_cast<CommandListContext &>(CmdContext.GetLowestLevelContext());
+    }
+
     inline bool IsImmediate() const { return Immediate == nullptr; }
 
     // RHI
@@ -31,6 +36,8 @@ public:
 
     virtual void RHIPushEvent(const char *Name, int Color) final;
     virtual void RHIPopEvent() final;
+
+    virtual void WriteGPUFence(GPUFence *Fence) final override;
 
     virtual void BeginDrawingViewport(std::shared_ptr<Viewport> &Viewport) final override;
     virtual void EndDrawingViewport(Viewport *Viewport, bool bLockToVsync) final override;
@@ -79,6 +86,7 @@ protected:
 
     PendingGfxState *pendingGfxState;
 
+    void PrepareForCPURead();
     void RequestSubmitCurrentCommands();
 
 public:
@@ -101,6 +109,8 @@ private:
         return false;
     }
     void InternalSubmitActiveCmdBuffer();
+
+    friend class Device;
 };
 
 class CommandListContextImmediate : public CommandListContext

@@ -6,7 +6,7 @@
 #include "renderpass.h"
 #include "pending_state.h"
 
-extern RHI *globalRHI;
+extern RHI *rhi;
 
 CommandListContext::CommandListContext(RHI *InRHI, Device *InDevice, Queue *InQueue, CommandListContext *InImmediate)
     : rhi(InRHI), Immediate(InImmediate), device(InDevice), queue(InQueue), bSubmitAtNextSafePoint(false),
@@ -65,7 +65,7 @@ void CommandListContext::RHIPopEvent()
 void CommandListContext::BeginDrawingViewport(std::shared_ptr<Viewport> &Viewport)
 {
     check(Viewport);
-    globalRHI->drawingViewport = Viewport;
+    rhi->drawingViewport = Viewport;
 }
 
 void CommandListContext::EndDrawingViewport(Viewport *Viewport, bool bLockToVsync)
@@ -75,7 +75,7 @@ void CommandListContext::EndDrawingViewport(Viewport *Viewport, bool bLockToVsyn
     check(!cmdBuffer->HasEnded() && !cmdBuffer->IsInsideRenderPass());
 
     Viewport->Present(this, cmdBuffer, queue, device->GetPresentQueue(), bLockToVsync);
-    globalRHI->drawingViewport = nullptr;
+    rhi->drawingViewport = nullptr;
 }
 
 void CommandListContext::BeginFrame()

@@ -15,6 +15,7 @@
 namespace VulkanRHI
 {
     class StagingBuffer;
+    struct PendingBufferLock;
 }
 
 class Device;
@@ -127,9 +128,24 @@ private:
     TextureView textureView;
 };
 
+// 576
+class LinkedView : public View
+{
+protected:
+    LinkedView(Device &Device, VkDescriptorType DescriptorType)
+        : View(Device, DescriptorType) {}
+};
+
 // 542
 class VulkanViewableResource
 {
+public:
+    // @todo convert views owned by the texture into proper
+    // FVulkanView instances, then remove 'virtual' from this class
+    virtual void UpdateLinkedViews();
+
+private:
+    LinkedView *LinkedViews = nullptr;
 };
 
 enum class EImageOwnerType : uint8
@@ -257,7 +273,7 @@ protected:
 };
 
 // 1401
-class VulkanGPUFence : public RHIGPUFence
+class VulkanGPUFence : public GPUFence
 {
 public:
     VulkanGPUFence() {}
@@ -270,7 +286,7 @@ protected:
     CmdBuffer *CmdBuffer = nullptr;
     uint64 FenceSignaledCounter = UINT64_MAX;
 
-    friend class FVulkanCommandListContext;
+    friend class CommandListContext;
 };
 
 // 1068
@@ -278,9 +294,14 @@ class VulkanMultiBuffer : public Buffer, public VulkanRHI::DeviceChild, public V
 {
 public:
     VulkanMultiBuffer(Device *InDevice, BufferDesc const &InBufferDesc,
-                ResourceCreateInfo &CreateInfo, class RHICommandListBase *InRHICmdList = nullptr,
-                const RHITransientHeapAllocation *InTransientHeapAllocation = nullptr);
+                      ResourceCreateInfo &CreateInfo, class RHICommandListBase *InRHICmdList = nullptr,
+                      const RHITransientHeapAllocation *InTransientHeapAllocation = nullptr);
     virtual ~VulkanMultiBuffer();
+
+    void *Lock(RHICommandListBase &RHICmdList, ResourceLockMode LockMode, uint32 Size, uint32 Offset);
+    void *Lock(CommandListContext &Context, ResourceLockMode LockMode, uint32 Size, uint32 Offset);
+    inline void Unlock(RHICommandListBase &RHICmdList) { Unlock(&RHICmdList, nullptr); }
+    inline void Unlock(CommandListContext &Context) { Unlock(nullptr, &Context); }
 
     void ReleaseOwnership();
 
@@ -288,35 +309,43 @@ public:
 
 protected:
     void AdvanceBufferIndex();
+    void UpdateBufferAllocStates(CommandListContext &Context);
+
+    void Unlock(RHICommandListBase *RHICmdList, CommandListContext *Context);
 
     VkBufferUsageFlags usageFlags;
 
-    enum class ELockStatus : uint8
+    enum class LockStatus : uint8
     {
         Unlocked,
         Locked,
         PersistentMapping,
-    } LockStatus = ELockStatus::Unlocked;
+    } lockStatus = LockStatus::Unlocked;
 
     struct BufferAlloc
     {
         VkBuffer handle;
+        VkDeviceSize offset = 0;
         VmaAllocation alloc = VK_NULL_HANDLE;
         VmaAllocationInfo allocInfo{};
         void *HostPtr = nullptr;
         class VulkanGPUFence *Fence = nullptr;
         VkDeviceAddress DeviceAddress = 0;
 
-        enum class EAllocStatus : uint8
+        enum class AllocStatus : uint8
         {
             Available,  // The allocation is ready to be used
             InUse,      // CurrentBufferIndex should point to this allocation
             NeedsFence, // The allocation was just released and needs a fence to make sure previous commands are done with it
             Pending,    // Fence was written, we are waiting on it to know that the alloc can be used again
-        } AllocStatus = EAllocStatus::Available;
+        } allocStatus = AllocStatus::Available;
     };
     std::vector<BufferAlloc> BufferAllocs;
     int32 CurrentBufferIndex = -1;
+    uint32 LockCounter = 0;
+
+    static void InternalUnlock(CommandListContext &Context, VulkanRHI::PendingBufferLock &PendingLock,
+                               VulkanMultiBuffer *MultiBuffer, int32 InDynamicBufferIndex);
 };
 
 static VulkanTexture *ResourceCast(Texture *texture)

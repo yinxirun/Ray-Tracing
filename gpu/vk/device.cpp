@@ -136,11 +136,11 @@ void Device::InitGPU()
 
     bindlessDescriptorManager = new BindlessDescriptorManager(this);
 
-    immediateContext = new CommandListContextImmediate(globalRHI, this, gfxQueue);
+    immediateContext = new CommandListContextImmediate(rhi, this, gfxQueue);
 
     if (gfxQueue->GetFamilyIndex() != computeQueue->GetFamilyIndex() && GEnableAsyncCompute)
     {
-        computeContext = new CommandListContextImmediate(globalRHI, this, computeQueue);
+        computeContext = new CommandListContextImmediate(rhi, this, computeQueue);
     }
     else
     {
@@ -337,6 +337,12 @@ void Device::NotifyDeletedImage(VkImage Image, bool bRenderTarget)
 
     // #todo-jn: Loop through all contexts!  And all queues!
     GetImmediateContext().NotifyDeletedImage(Image);
+}
+
+void Device::PrepareForCPURead()
+{
+	//#todo-rco: Process other contexts first!
+	immediateContext->PrepareForCPURead();
 }
 
 void Device::SubmitCommandsAndFlushGPU()

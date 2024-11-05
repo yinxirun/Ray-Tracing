@@ -27,10 +27,20 @@ namespace VulkanRHI
 
     uint32 StagingBuffer::GetSize() const { return allocationInfo.size; }
 
-    StagingBuffer::~StagingBuffer() { vmaDestroyBuffer(device->GetAllocator(), buffer, allocation); }
+    void StagingBuffer::FlushMappedMemory()
+    {
+        vmaFlushAllocation(device->GetAllocator(), allocation, 0, VK_WHOLE_SIZE);
+    }
+
+    StagingBuffer::~StagingBuffer()
+    {
+        vmaUnmapMemory(device->GetAllocator(), allocation);
+        vmaDestroyBuffer(device->GetAllocator(), buffer, allocation);
+    }
 
     void StagingBuffer::Destroy()
     {
+        vmaUnmapMemory(device->GetAllocator(), allocation);
         vmaDestroyBuffer(device->GetAllocator(), buffer, allocation);
         buffer = VK_NULL_HANDLE;
     }
@@ -51,7 +61,7 @@ namespace VulkanRHI
         const bool IsHostCached = (InMemoryReadFlags == VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
         if (IsHostCached)
         {
-            printf("Don't support host cache %s %d\n", __FILE__, __LINE__);
+            printf("ERROR: Don't support host cache %s %d\n", __FILE__, __LINE__);
             exit(-1);
             // Size = AlignArbitrary(Size, (uint32)device->GetLimits().nonCoherentAtomSize);
         }

@@ -89,6 +89,7 @@ namespace VulkanRHI
         VkBuffer GetHandle() const;
         void *GetMappedPointer();
         uint32 GetSize() const;
+        void FlushMappedMemory();
 
     protected:
         Device *device;

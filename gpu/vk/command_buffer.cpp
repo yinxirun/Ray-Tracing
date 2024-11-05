@@ -14,6 +14,8 @@ int GVulkanProfileCmdBuffers = 0;
 int GVulkanUseCmdBufferTimingForGPUTime = 0;
 int GVulkanUploadCmdBufferSemaphore = 0;
 
+extern int32 GWaitForIdleOnSubmit;
+
 CmdBuffer::CmdBuffer(Device *InDevice, CommandBufferPool *InCommandBufferPool, bool bInIsUploadOnly)
 	: CurrentStencilRef(0),
 	  State(EState::NotAllocated),
@@ -690,7 +692,23 @@ void CommandListContext::DrawIndexedPrimitive(Buffer *IndexBufferRHI, int32 Base
 	// 	}
 }
 
-// 836
+void CommandListContext::PrepareForCPURead()
+{
+	ensure(IsImmediate());
+	CmdBuffer* CmdBuffer = commandBufferManager->GetActiveCmdBuffer();
+	if (CmdBuffer && CmdBuffer->HasBegun())
+	{
+		check(!CmdBuffer->IsInsideRenderPass());
+
+		commandBufferManager->SubmitActiveCmdBuffer();
+		if (!GWaitForIdleOnSubmit)
+		{
+			// The wait has already happened if GWaitForIdleOnSubmit is set
+			commandBufferManager->WaitForCmdBuffer(CmdBuffer);
+		}
+	}
+}
+
 void CommandListContext::RequestSubmitCurrentCommands()
 {
 	if (device->GetComputeQueue() == queue)

@@ -9,9 +9,18 @@ class Buffer;
 
 class ComputeContext
 {
+public:
+    /// Always returns the platform RHI context, even when the validation RHI is active.
+    virtual ComputeContext &GetLowestLevelContext() { return *this; }
+
+    /// Write the fence in the GPU timeline. The fence can then be tested on the CPU to know if the previous GPU commands are completed.
+    virtual void WriteGPUFence(GPUFence *FenceRHI)
+    {
+        check(false);
+    }
 };
 
-class CommandContext
+class CommandContext : public ComputeContext
 {
 public:
     // This method is queued with an RHIThread, otherwise it will flush after it is queued;

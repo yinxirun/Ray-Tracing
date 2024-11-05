@@ -157,6 +157,18 @@ std::shared_ptr<Viewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, 
     return std::shared_ptr<Viewport>(new Viewport(device, WindowHandle, SizeX, SizeY, PreferredPixelFormat));
 }
 
+void *RHI::LockBuffer_BottomOfPipe(RHICommandListBase &RHICmdList, Buffer *BufferRHI, uint32 Offset, uint32 Size, ResourceLockMode LockMode)
+{
+    VulkanMultiBuffer *buffer = static_cast<VulkanMultiBuffer *>(BufferRHI);
+    return buffer->Lock(RHICmdList, LockMode, Size, Offset);
+}
+
+void RHI::UnlockBuffer_BottomOfPipe(RHICommandListBase &RHICmdList, Buffer *BufferRHI)
+{
+    VulkanMultiBuffer *buffer = static_cast<VulkanMultiBuffer *>(BufferRHI);
+    buffer->Unlock(*static_cast<CommandListContext *>(rhi->GetDefaultContext()));
+}
+
 void RHI::InitInstance()
 {
     device->InitGPU();
@@ -259,4 +271,4 @@ void RHI::RemoveDebugLayerCallback()
     DestroyDebugUtilsMessengerEXT(instance, messenger, nullptr);
 }
 
-RHI *globalRHI = nullptr;
+RHI *rhi = nullptr;

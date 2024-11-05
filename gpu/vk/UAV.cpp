@@ -148,3 +148,14 @@ View *View::InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImage
 
     return this;
 }
+
+// 276
+void VulkanViewableResource::UpdateLinkedViews()
+{
+    for (LinkedView *view = LinkedViews; view; /*view = view->Next()*/)
+    {
+        printf("ERROR: Don't support LinkedView %s %d\n", __FILE__, __LINE__);
+        exit(-1);
+        // view->UpdateView();
+    }
+}

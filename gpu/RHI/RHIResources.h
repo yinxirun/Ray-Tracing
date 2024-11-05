@@ -12,6 +12,9 @@
 // 351
 struct ResourceCreateInfo
 {
+    // for CreateTexture calls
+    void *BulkData;
+
     // for CreateBuffer calls
     void *ResourceArray = 0;
 };
@@ -333,11 +336,11 @@ private:
  * The default implementation always returns false for Poll until the next frame from the frame the fence was inserted
  * because not all APIs have a GPU/CPU sync object, we need to fake it.
  */
-class RHIGPUFence : public RHIResource
+class GPUFence : public RHIResource
 {
 public:
-    RHIGPUFence() : RHIResource(RRT_GPUFence) {}
-    virtual ~RHIGPUFence() {}
+    GPUFence() : RHIResource(RRT_GPUFence) {}
+    virtual ~GPUFence() {}
 
     virtual void Clear() = 0;
 

@@ -165,7 +165,9 @@ public:
 
     inline VulkanRHI::FenceManager &GetFenceManager() { return fenceManager; }
 
-    // 471
+    // 469
+    void PrepareForCPURead();
+
     void SubmitCommandsAndFlushGPU();
 
     inline bool SupportsParallelRendering() const { return false; }

@@ -344,3 +344,12 @@ enum
 	MaxSimultaneousRenderTargets = 8,
 	MaxSimultaneousRenderTargets_NumBits = 3,
 };
+
+// 636
+enum ResourceLockMode
+{
+	RLM_ReadOnly,
+	RLM_WriteOnly,
+	RLM_WriteOnly_NoOverwrite,
+	RLM_Num
+};
