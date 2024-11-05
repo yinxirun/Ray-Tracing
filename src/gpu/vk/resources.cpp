@@ -5,13 +5,13 @@
 #include "gpu/core/enum_class_flags.h"
 #include <iostream>
 
-Texture::Texture(Device &InDevice, const RHITextureCreateDesc &InCreateDesc, VkImage InImage, bool bUnused)
-    : RHITexture(InCreateDesc), device(&InDevice), Image(InImage), MemProps(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+VulkanTexture::VulkanTexture(Device &InDevice, const TextureCreateDesc &InCreateDesc, VkImage InImage, bool bUnused)
+    : Texture(InCreateDesc), device(&InDevice), Image(InImage), MemProps(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
       ImageOwnerType(EImageOwnerType::ExternalOwner)
 {
 }
 
-Texture::~Texture()
+VulkanTexture::~VulkanTexture()
 {
     // VULKAN_TRACK_OBJECT_DELETE(FVulkanTexture, this);
     if (ImageOwnerType != EImageOwnerType::Aliased)

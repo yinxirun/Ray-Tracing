@@ -30,6 +30,8 @@ public:
 
     inline LayoutManager &GetLayoutManager() { return LayoutManager; }
 
+    void NotifyDeletedImage(VkImage Image);
+
 private:
     Device *device;
     uint32_t familyIndex;

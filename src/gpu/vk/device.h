@@ -22,6 +22,7 @@ class CommandListContext;
 class DescriptorPoolsManager;
 class BindlessDescriptorManager;
 class Device;
+class RenderPassManager;
 
 extern const std::vector<const char *> deviceExtensions;
 extern const std::vector<const char *> validationLayers;
@@ -88,6 +89,8 @@ namespace VulkanRHI
 
         inline void Clear() { ReleaseResources(true); }
 
+        void OnCmdBufferDeleted(CmdBuffer *CmdBuffer);
+
     private:
         void EnqueueGenericResource(EType Type, uint64 Handle);
         struct Entry
@@ -130,9 +133,11 @@ public:
 
     inline VkPhysicalDevice GetPhysicalHandle() const { return gpu; }
 
+    inline bool HasUnifiedMemory() const { return false; }
+
     bool SupportsBindless() const;
 
-    const VkComponentMapping &GetFormatComponentMapping(EPixelFormat UEFormat) const;
+    const VkComponentMapping &GetFormatComponentMapping(PixelFormat UEFormat) const;
 
     inline VkDevice GetInstanceHandle() const { return device; }
     inline VmaAllocator GetAllocator() const { return allocator; }
@@ -145,6 +150,8 @@ public:
     inline VulkanRHI::DeferredDeletionQueue2 &GetDeferredDeletionQueue() { return deferredDeletionQueue; }
     // 403
     inline VulkanRHI::StagingManager &GetStagingManager() { return stagingManager; }
+    // 413
+    inline RenderPassManager &GetRenderPassManager() { return *renderPassManager; }
     // 423
     inline DescriptorPoolsManager &GetDescriptorPoolsManager() { return *descriptorPoolsManager; }
 
@@ -173,6 +180,7 @@ private:
     VulkanRHI::DeferredDeletionQueue2 deferredDeletionQueue;
     VulkanRHI::StagingManager stagingManager;
     VulkanRHI::FenceManager fenceManager;
+    RenderPassManager *renderPassManager = nullptr;
 
     // Active on >= SM4
     DescriptorPoolsManager *descriptorPoolsManager = nullptr;

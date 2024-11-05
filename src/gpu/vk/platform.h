@@ -12,13 +12,16 @@ public:
     static void DestroySwapchainKHR(VkDevice Device, VkSwapchainKHR Swapchain, const VkAllocationCallbacks *Allocator);
 
     // Ensure the last frame completed on the GPU
-	static bool RequiresWaitingForFrameCompletionEvent() { return true; }
+    static bool RequiresWaitingForFrameCompletionEvent() { return true; }
 
     // Allow platforms to do extra work on present
-	static VkResult Present(VkQueue Queue, VkPresentInfoKHR& PresentInfo);
+    static VkResult Present(VkQueue Queue, VkPresentInfoKHR &PresentInfo);
 
     // Whether to attempt recreate swapchain when present or acqurire operations fail
-	static bool RecreateSwapchainOnFail() { return true; }
+    static bool RecreateSwapchainOnFail() { return true; }
+
+    // Does the platform require depth to be written on stencil clear
+    static bool RequiresDepthWriteOnStencilClear() { return false; }
 };
 
 class WindowsPlatform : public GenericPlatform

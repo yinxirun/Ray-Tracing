@@ -146,7 +146,7 @@ void RHI::Shutdown()
 CommandListContext *RHI::GetDefaultContext() { return &device->GetImmediateContext(); }
 
 std::shared_ptr<Viewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
-                                              bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
+                                              bool bIsFullscreen, PixelFormat PreferredPixelFormat)
 {
     // Use a default pixel format if none was specified
     if (PreferredPixelFormat == PF_Unknown)
@@ -163,7 +163,7 @@ void RHI::InitInstance()
 }
 
 void RHI::ResizeViewport(Viewport *viewport, uint32 sizeX, uint32 sizeY,
-                         bool bIsFullscreen, EPixelFormat preferredPixelFormat)
+                         bool bIsFullscreen, PixelFormat preferredPixelFormat)
 {
     check(IsInGameThread());
 

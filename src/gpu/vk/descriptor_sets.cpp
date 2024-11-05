@@ -124,6 +124,34 @@ void DescriptorPoolSetContainer::Reset()
     }
 }
 
+DescriptorPoolsManager::~DescriptorPoolsManager()
+{
+	for (auto* PoolSet : PoolSets)
+	{
+		delete PoolSet;
+	}
+	PoolSets.clear();
+}
+
+DescriptorPoolSetContainer &DescriptorPoolsManager::AcquirePoolSetContainer()
+{
+    //FScopeLock ScopeLock(&CS);
+
+    for (auto *PoolSet : PoolSets)
+    {
+        if (PoolSet->IsUnused())
+        {
+            PoolSet->SetUsed(true);
+            return *PoolSet;
+        }
+    }
+
+    DescriptorPoolSetContainer *PoolSet = new DescriptorPoolSetContainer(device);
+    PoolSets.push_back(PoolSet);
+
+    return *PoolSet;
+}
+
 void DescriptorPoolsManager::ReleasePoolSet(DescriptorPoolSetContainer &PoolSet)
 {
     PoolSet.Reset();

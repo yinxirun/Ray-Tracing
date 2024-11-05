@@ -252,7 +252,38 @@ static void MergeDepthStencilLayouts(BarrierArrayType &TargetArray)
     }
 }
 
-void PipelineBarrier::AddFullImageLayoutTransition(const Texture &Texture, VkImageLayout SrcLayout, VkImageLayout DstLayout)
+void PipelineBarrier::AddMemoryBarrier(VkAccessFlags InSrcAccessFlags, VkAccessFlags InDstAccessFlags,
+                                       VkPipelineStageFlags InSrcStageMask, VkPipelineStageFlags InDstStageMask)
+{
+    const VkAccessFlags ReadMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_INDEX_READ_BIT |
+                                   VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT |
+                                   VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT |
+                                   VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+                                   VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_MEMORY_READ_BIT;
+
+    if (MemoryBarriers.size() == 0)
+    {
+        MemoryBarriers.push_back(VkMemoryBarrier2{});
+        VkMemoryBarrier2 &NewBarrier = MemoryBarriers.back();
+        ZeroVulkanStruct(NewBarrier, VK_STRUCTURE_TYPE_MEMORY_BARRIER_2);
+    }
+
+    // Mash everything into a single barrier
+    VkMemoryBarrier2 &MemoryBarrier = MemoryBarriers[0];
+
+    // We only need a memory barrier if the previous commands wrote to the buffer. In case of a transition from read, an execution barrier is enough.
+    const bool SrcAccessIsRead = ((InSrcAccessFlags & (~ReadMask)) == 0);
+    if (!SrcAccessIsRead)
+    {
+        MemoryBarrier.srcAccessMask |= InSrcAccessFlags;
+        MemoryBarrier.dstAccessMask |= InDstAccessFlags;
+    }
+
+    MemoryBarrier.srcStageMask |= InSrcStageMask;
+    MemoryBarrier.dstStageMask |= InDstStageMask;
+}
+
+void PipelineBarrier::AddFullImageLayoutTransition(const VulkanTexture &Texture, VkImageLayout SrcLayout, VkImageLayout DstLayout)
 {
     const VkPipelineStageFlags SrcStageMask = GetVkStageFlagsForLayout(SrcLayout);
     const VkPipelineStageFlags DstStageMask = GetVkStageFlagsForLayout(DstLayout);
@@ -432,23 +463,24 @@ bool ImageLayout::AreSubresourcesSameLayout(VkImageLayout Layout, const VkImageS
     return true;
 }
 
-void ImageLayout::CollapseSubresLayoutsIfSame(){
+void ImageLayout::CollapseSubresLayoutsIfSame()
+{
     if (SubresLayouts.size() == 0)
-	{
-		return;
-	}
+    {
+        return;
+    }
 
-	const VkImageLayout Layout = SubresLayouts[0];
-	for (uint32 i = 1; i < NumPlanes * NumLayers * NumMips; ++i)
-	{
-		if (SubresLayouts[i] != Layout)
-		{
-			return;
-		}
-	}
+    const VkImageLayout Layout = SubresLayouts[0];
+    for (uint32 i = 1; i < NumPlanes * NumLayers * NumMips; ++i)
+    {
+        if (SubresLayouts[i] != Layout)
+        {
+            return;
+        }
+    }
 
-	MainLayout = Layout;
-	SubresLayouts.clear();
+    MainLayout = Layout;
+    SubresLayouts.clear();
 }
 
 void ImageLayout::Set(VkImageLayout Layout, const VkImageSubresourceRange &SubresourceRange)
@@ -503,13 +535,17 @@ void ImageLayout::Set(VkImageLayout Layout, const VkImageSubresourceRange &Subre
     CollapseSubresLayoutsIfSame();
 }
 
-VkImageLayout LayoutManager::GetDefaultLayout(CmdBuffer *CmdBuffer, const Texture &VulkanTexture, ERHIAccess DesiredAccess)
+void LayoutManager::NotifyDeletedImage(VkImage Image){
+    Layouts.erase(Image);
+}
+
+VkImageLayout LayoutManager::GetDefaultLayout(CmdBuffer *CmdBuffer, const VulkanTexture &VulkanTexture, Access DesiredAccess)
 {
     switch (DesiredAccess)
     {
-    case ERHIAccess::SRVCompute:
-    case ERHIAccess::SRVGraphics:
-    case ERHIAccess::SRVMask:
+    case Access::SRVCompute:
+    case Access::SRVGraphics:
+    case Access::SRVMask:
     {
         if (VulkanTexture.IsDepthOrStencilAspect())
         {
@@ -533,22 +569,22 @@ VkImageLayout LayoutManager::GetDefaultLayout(CmdBuffer *CmdBuffer, const Textur
         }
     }
 
-    case ERHIAccess::UAVCompute:
-    case ERHIAccess::UAVGraphics:
-    case ERHIAccess::UAVMask:
+    case Access::UAVCompute:
+    case Access::UAVGraphics:
+    case Access::UAVMask:
         return VK_IMAGE_LAYOUT_GENERAL;
 
-    case ERHIAccess::CopySrc:
+    case Access::CopySrc:
         return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    case ERHIAccess::CopyDest:
+    case Access::CopyDest:
         return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
-    case ERHIAccess::DSVRead:
+    case Access::DSVRead:
         return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
-    case ERHIAccess::DSVWrite:
+    case Access::DSVWrite:
         return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
 
-    case ERHIAccess::ShadingRateSource:
+    case Access::ShadingRateSource:
     {
         printf("ERROR: Don't support VSR %s %d\n", __FILE__, __LINE__);
         // if (GRHIVariableRateShadingImageDataType == VRSImage_Palette)
@@ -567,7 +603,7 @@ VkImageLayout LayoutManager::GetDefaultLayout(CmdBuffer *CmdBuffer, const Textur
     }
 }
 
-VkImageLayout LayoutManager::SetExpectedLayout(CmdBuffer *CmdBuffer, const Texture &VulkanTexture, ERHIAccess DesiredAccess)
+VkImageLayout LayoutManager::SetExpectedLayout(CmdBuffer *CmdBuffer, const VulkanTexture &VulkanTexture, Access DesiredAccess)
 {
     const VkImageLayout ExpectedLayout = GetDefaultLayout(CmdBuffer, VulkanTexture, DesiredAccess);
     VkImageLayout PreviousLayout = ExpectedLayout;
@@ -610,7 +646,7 @@ VkImageLayout LayoutManager::SetExpectedLayout(CmdBuffer *CmdBuffer, const Textu
     return PreviousLayout;
 }
 
-VkImageLayout LayoutManager::GetDepthStencilHint(const Texture &VulkanTexture, VkImageAspectFlagBits AspectBit)
+VkImageLayout LayoutManager::GetDepthStencilHint(const VulkanTexture &VulkanTexture, VkImageAspectFlagBits AspectBit)
 {
     check(AspectBit == VK_IMAGE_ASPECT_DEPTH_BIT || AspectBit == VK_IMAGE_ASPECT_STENCIL_BIT);
     auto iter = Layouts.find(VulkanTexture.Image);

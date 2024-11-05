@@ -36,9 +36,10 @@ public:
         SurfaceLost = -2,
     };
 
-    EStatus Present(Queue* GfxQueue, Queue* PresentQueue, VulkanRHI::Semaphore* BackBufferRenderingDoneSemaphore);
+    EStatus Present(Queue *GfxQueue, Queue *PresentQueue, VulkanRHI::Semaphore *BackBufferRenderingDoneSemaphore);
 
 protected:
+    VkSurfaceTransformFlagBitsKHR QCOMRenderPassTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     VkFormat imageFormat = VK_FORMAT_UNDEFINED;
 
     VkSwapchainKHR swapChain;
@@ -51,7 +52,7 @@ protected:
     int32_t semaphoreIndex;
     uint32 numAcquireCalls;
     uint32 internalWidth = 0;
-	uint32 internalHeight = 0;
+    uint32 internalHeight = 0;
 
     VkInstance instance;
     // 若该image显示完毕，则该信号激活，表示此时image可以被写了。

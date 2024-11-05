@@ -6,6 +6,7 @@
 #include "context.h"
 #include "descriptor_sets.h"
 #include "util.h"
+#include "renderpass.h"
 
 bool GEnableAsyncCompute = true;
 
@@ -127,6 +128,11 @@ void Device::InitGPU()
     fenceManager.Init(this);
 
     stagingManager.Init(this);
+
+    renderPassManager = new RenderPassManager(this);
+
+    descriptorPoolsManager = new DescriptorPoolsManager();
+    descriptorPoolsManager->Init(this);
 
     bindlessDescriptorManager = new BindlessDescriptorManager(this);
 
@@ -273,6 +279,9 @@ void Device::Destroy()
     delete immediateContext;
     immediateContext = nullptr;
 
+    delete renderPassManager;
+	renderPassManager = nullptr;
+
     stagingManager.Deinit();
 
     deferredDeletionQueue.Clear();
@@ -298,7 +307,7 @@ void Device::WaitUntilIdle()
 
 bool Device::SupportsBindless() const { return false; }
 
-const VkComponentMapping &Device::GetFormatComponentMapping(EPixelFormat UEFormat) const
+const VkComponentMapping &Device::GetFormatComponentMapping(PixelFormat UEFormat) const
 {
     // check(GPixelFormats[UEFormat].Supported);
     return PixelFormatComponentMapping[UEFormat];
@@ -318,19 +327,16 @@ const VkFormatProperties &Device::GetFormatProperties(VkFormat InFormat) const
 
 void Device::NotifyDeletedImage(VkImage Image, bool bRenderTarget)
 {
-#ifdef PRINT_UNIMPLEMENT
-    printf("Have not implement Device::NotifyDeletedImage\n");
-#endif
-    // if (bRenderTarget)
-    // {
-    //     // Contexts first, as it may clear the current framebuffer
-    //     GetImmediateContext().NotifyDeletedRenderTarget(Image);
-    //     // Delete framebuffers using this image
-    //     GetRenderPassManager().NotifyDeletedRenderTarget(Image);
-    // }
+    if (bRenderTarget)
+    {
+        // Contexts first, as it may clear the current framebuffer
+        GetImmediateContext().NotifyDeletedRenderTarget(Image);
+        // Delete framebuffers using this image
+        GetRenderPassManager().NotifyDeletedRenderTarget(Image);
+    }
 
-    // // #todo-jn: Loop through all contexts!  And all queues!
-    // GetImmediateContext().NotifyDeletedImage(Image);
+    // #todo-jn: Loop through all contexts!  And all queues!
+    GetImmediateContext().NotifyDeletedImage(Image);
 }
 
 void Device::SubmitCommandsAndFlushGPU()

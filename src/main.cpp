@@ -102,6 +102,7 @@ Viewport *drawingViewport = nullptr;
 void OnSizeChanged(GLFWwindow *window, int width, int height)
 {
   globalRHI->ResizeViewport(drawingViewport, width, height, false, PF_Unknown);
+  printf("Resize Viewport. Width: %d Height: %d\n", width, height);
 }
 
 int main()
@@ -117,13 +118,34 @@ int main()
   rhi->Init();
   {
     CommandListContext *context = rhi->GetDefaultContext();
-    std::shared_ptr<Viewport> viewport = rhi->CreateViewport(window, 800, 600, false, EPixelFormat::PF_B8G8R8A8);
+    std::shared_ptr<Viewport> viewport = rhi->CreateViewport(window, 800, 600, false, PixelFormat::PF_B8G8R8A8);
     drawingViewport = viewport.get();
+
+    BufferDesc desc(24, 0, BufferUsageFlags::VertexBuffer);
+    ResourceCreateInfo ci{};
+    auto positionBuffer = rhi->CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
+    auto colorBuffer = rhi->CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
+
+    auto storage = rhi->CreateBuffer(desc, Access::DSVWrite | Access::DSVRead, ci);
+
     while (!glfwWindowShouldClose(window))
     {
       glfwPollEvents();
-      context->RHIBeginDrawingViewport(viewport);
-      context->RHIEndDrawingViewport(viewport.get(), false);
+      context->BeginDrawingViewport(viewport);
+      context->BeginFrame();
+
+      RenderPassInfo renderpassInfo{};
+      RenderPassInfo::ColorEntry entry;
+      entry.ArraySlice = 0;
+      entry.RenderTarget = viewport->GetBackBuffer().get();
+      entry.Action = RenderTargetActions::Clear_Store;
+      renderpassInfo.ColorRenderTargets[0] = entry;
+      context->BeginRenderPass(renderpassInfo, "test");
+
+      context->EndRenderPass();
+
+      context->EndFrame();
+      context->EndDrawingViewport(viewport.get(), false);
     }
   }
 

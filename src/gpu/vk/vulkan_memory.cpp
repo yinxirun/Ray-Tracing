@@ -353,6 +353,18 @@ namespace VulkanRHI
         }
     }
 
+    void DeferredDeletionQueue2::OnCmdBufferDeleted(CmdBuffer *DeletedCmdBuffer)
+    {
+        for (int32 Index = 0; Index < Entries.size(); ++Index)
+        {
+            Entry &entry = Entries[Index];
+            if (entry.CmdBuffer == DeletedCmdBuffer)
+            {
+                entry.CmdBuffer = nullptr;
+            }
+        }
+    }
+
     void DeferredDeletionQueue2::EnqueueGenericResource(EType Type, uint64 Handle)
     {
         Queue *queue = device->GetGraphicsQueue();

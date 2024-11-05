@@ -6,6 +6,9 @@
 #include "util.h"
 #include "context.h"
 #include "queue.h"
+#include "device.h"
+#include "gpu/core/platform_time.h"
+#include "private.h"
 
 int GVulkanProfileCmdBuffers = 0;
 int GVulkanUseCmdBufferTimingForGPUTime = 0;
@@ -20,6 +23,7 @@ CmdBuffer::CmdBuffer(Device *InDevice, CommandBufferPool *InCommandBufferPool, b
 	  bHasScissor(0),
 	  bHasStencilRef(0),
 	  bIsUploadOnly(bInIsUploadOnly ? 1 : 0),
+	  bIsUniformBufferBarrierAdded(0),
 	  device(InDevice),
 	  CommandBufferHandle(VK_NULL_HANDLE),
 	  fence(nullptr),
@@ -171,13 +175,19 @@ void CmdBuffer::End()
 	State = EState::HasEnded;
 }
 
+void CmdBuffer::AcquirePoolSetContainer()
+{
+	check(!CurrentDescriptorPoolSetContainer);
+	CurrentDescriptorPoolSetContainer = &device->GetDescriptorPoolsManager().AcquirePoolSetContainer();
+	ensure(TypedDescriptorPoolSets.size() == 0);
+}
+
 void CmdBuffer::AllocMemory()
 {
 	VkCommandBufferAllocateInfo CreateCmdBufInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
 	CreateCmdBufInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	CreateCmdBufInfo.commandBufferCount = 1;
 	CreateCmdBufInfo.commandPool = commandBufferPool->GetHandle();
-
 	vkAllocateCommandBuffers(device->GetInstanceHandle(), &CreateCmdBufInfo, &CommandBufferHandle);
 }
 
@@ -187,12 +197,89 @@ void CmdBuffer::FreeMemory()
 	CommandBufferHandle = VK_NULL_HANDLE;
 }
 
+void CmdBuffer::BeginRenderPass(const RenderTargetLayout &Layout, class RenderPass *RenderPass,
+								class Framebuffer *Framebuffer, const VkClearValue *AttachmentClearValues)
+{
+	if (bIsUniformBufferBarrierAdded)
+	{
+		EndUniformUpdateBarrier();
+	}
+	// checkf(IsOutsideRenderPass(), TEXT("Can't BeginRP as already inside one! CmdBuffer 0x%p State=%d"), CommandBufferHandle, (int32)State);
+	check(IsOutsideRenderPass());
+
+	VkRenderPassBeginInfo Info;
+	ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO);
+	Info.renderPass = RenderPass->GetHandle();
+	Info.framebuffer = Framebuffer->GetHandle();
+	Info.renderArea = Framebuffer->GetRenderArea();
+	Info.clearValueCount = Layout.GetNumUsedClearValues();
+	Info.pClearValues = AttachmentClearValues;
+
+#if VULKAN_SUPPORTS_QCOM_RENDERPASS_TRANSFORM
+	VkRenderPassTransformBeginInfoQCOM RPTransformBeginInfoQCOM;
+	VkSurfaceTransformFlagBitsKHR QCOMTransform = Layout.GetQCOMRenderPassTransform();
+
+	if (QCOMTransform != VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
+	{
+		ZeroVulkanStruct(RPTransformBeginInfoQCOM, (VkStructureType)VK_STRUCTURE_TYPE_RENDER_PASS_TRANSFORM_BEGIN_INFO_QCOM);
+
+		RPTransformBeginInfoQCOM.transform = QCOMTransform;
+		Info.pNext = &RPTransformBeginInfoQCOM;
+	}
+#endif
+
+	if (false /*device->GetOptionalExtensions().HasKHRRenderPass2*/)
+	{
+		// VkSubpassBeginInfo SubpassInfo;
+		// ZeroVulkanStruct(SubpassInfo, VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO);
+		// SubpassInfo.contents = VK_SUBPASS_CONTENTS_INLINE;
+		// VulkanRHI::vkCmdBeginRenderPass2KHR(CommandBufferHandle, &Info, &SubpassInfo);
+	}
+	else
+	{
+		vkCmdBeginRenderPass(CommandBufferHandle, &Info, VK_SUBPASS_CONTENTS_INLINE);
+	}
+
+	State = EState::IsInsideRenderPass;
+
+	// Acquire a descriptor pool set on a first render pass
+	if (CurrentDescriptorPoolSetContainer == nullptr)
+	{
+		AcquirePoolSetContainer();
+	}
+}
+
 void CmdBuffer::EndRenderPass()
 {
 	if (!IsInsideRenderPass())
 		printf("Can't EndRP as we're NOT inside one! CmdBuffer 0x%p State=%d", CommandBufferHandle, (int32)State);
 	vkCmdEndRenderPass(CommandBufferHandle);
 	State = EState::IsInsideBegin;
+}
+
+void CmdBuffer::BeginUniformUpdateBarrier()
+{
+	if (!bIsUniformBufferBarrierAdded)
+	{
+		VkMemoryBarrier Barrier;
+		ZeroVulkanStruct(Barrier, VK_STRUCTURE_TYPE_MEMORY_BARRIER);
+		Barrier.srcAccessMask = VK_ACCESS_UNIFORM_READ_BIT;
+		Barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		vkCmdPipelineBarrier(GetHandle(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &Barrier, 0, nullptr, 0, nullptr);
+		bIsUniformBufferBarrierAdded = true;
+	}
+}
+void CmdBuffer::EndUniformUpdateBarrier()
+{
+	if (bIsUniformBufferBarrierAdded)
+	{
+		VkMemoryBarrier Barrier;
+		ZeroVulkanStruct(Barrier, VK_STRUCTURE_TYPE_MEMORY_BARRIER);
+		Barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		Barrier.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT;
+		vkCmdPipelineBarrier(GetHandle(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &Barrier, 0, nullptr, 0, nullptr);
+		bIsUniformBufferBarrierAdded = false;
+	}
 }
 
 void CmdBuffer::RefreshFenceStatus()
@@ -276,6 +363,44 @@ void CommandBufferPool::RefreshFenceStatus(CmdBuffer *SkipCmdBuffer)
 			CmdBuffer->RefreshFenceStatus();
 		}
 	}
+}
+
+void CommandBufferPool::FreeUnusedCmdBuffers(Queue *InQueue, bool bTrimMemory)
+{
+#if VULKAN_DELETE_STALE_CMDBUFFERS
+
+	if (bTrimMemory)
+	{
+		vkTrimCommandPool(Device->GetInstanceHandle(), Handle, 0);
+		return;
+	}
+
+	const double CurrentTime = PlatformTime::Seconds();
+
+	// In case Queue stores pointer to a cmdbuffer, do not delete it
+	CmdBuffer *LastSubmittedCmdBuffer = nullptr;
+	uint64 LastSubmittedFenceCounter = 0;
+	InQueue->GetLastSubmittedInfo(LastSubmittedCmdBuffer, LastSubmittedFenceCounter);
+
+	// Deferred deletion queue caches pointers to cmdbuffers
+	VulkanRHI::DeferredDeletionQueue2 &deferredDeletionQueue = Device->GetDeferredDeletionQueue();
+
+	for (int32 Index = CmdBuffers.size() - 1; Index >= 0; --Index)
+	{
+		CmdBuffer *CmdBuffer = CmdBuffers[Index];
+		if (CmdBuffer != LastSubmittedCmdBuffer &&
+			(CmdBuffer->State == CmdBuffer::EState::ReadyForBegin || CmdBuffer->State == CmdBuffer::EState::NeedReset) &&
+			(CurrentTime - CmdBuffer->SubmittedTime) > 10)
+		{
+			deferredDeletionQueue.OnCmdBufferDeleted(CmdBuffer);
+
+			CmdBuffer->FreeMemory();
+			CmdBuffers[Index] = CmdBuffers.back();
+			CmdBuffers.pop_back();
+			FreeCmdBuffers.push_back(CmdBuffer);
+		}
+	}
+#endif
 }
 
 CmdBuffer *CommandBufferPool::Create(bool bIsUploadOnly)
@@ -523,4 +648,69 @@ void CommandBufferManager::PrepareForNewActiveCommandBuffer()
 	// All cmd buffers are being executed still
 	activeCmdBuffer = pool.Create(false);
 	activeCmdBuffer->Begin();
+}
+
+void CommandBufferManager::FreeUnusedCmdBuffers(bool bTrimMemory)
+{
+#ifdef PRINT_UNIMPLEMENT
+	printf("Need to multiple thread %s %d\n", __FILE__, __LINE__);
+#endif
+#if VULKAN_DELETE_STALE_CMDBUFFERS
+
+	pool.FreeUnusedCmdBuffers(queue, bTrimMemory);
+#endif
+}
+
+// 661
+void CommandListContext::DrawIndexedPrimitive(Buffer *IndexBufferRHI, int32 BaseVertexIndex, uint32 FirstInstance,
+											  uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
+{
+	printf("Have not implement CommandListContext::DrawIndexedPrimitive\n");
+	// #if VULKAN_ENABLE_AGGRESSIVE_STATS
+	// 	SCOPE_CYCLE_COUNTER(STAT_VulkanDrawCallTime);
+	// #endif
+	// 	NumInstances = FMath::Max(1U, NumInstances);
+	// 	RHI_DRAW_CALL_STATS(PendingGfxState->PrimitiveType, NumInstances*NumPrimitives);
+	// 	checkf(GRHISupportsFirstInstance || FirstInstance == 0, TEXT("FirstInstance must be 0, see GRHISupportsFirstInstance"));
+
+	// 	CommitGraphicsResourceTables();
+
+	// 	FVulkanResourceMultiBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
+	// 	FVulkanCmdBuffer* Cmd = CommandBufferManager->GetActiveCmdBuffer();
+	// 	VkCommandBuffer CmdBuffer = Cmd->GetHandle();
+	// 	PendingGfxState->PrepareForDraw(Cmd);
+	// 	VulkanRHI::vkCmdBindIndexBuffer(CmdBuffer, IndexBuffer->GetHandle(), IndexBuffer->GetOffset(), IndexBuffer->GetIndexType());
+
+	// 	uint32 NumIndices = GetVertexCountForPrimitiveCount(NumPrimitives, PendingGfxState->PrimitiveType);
+	// 	VulkanRHI::vkCmdDrawIndexed(CmdBuffer, NumIndices, NumInstances, StartIndex, BaseVertexIndex, FirstInstance);
+
+	// 	if (FVulkanPlatform::RegisterGPUWork() && IsImmediate())
+	// 	{
+	// 		GpuProfiler.RegisterGPUWork(NumPrimitives * NumInstances, NumVertices * NumInstances);
+	// 	}
+}
+
+// 836
+void CommandListContext::RequestSubmitCurrentCommands()
+{
+	if (device->GetComputeQueue() == queue)
+	{
+		if (commandBufferManager->HasPendingUploadCmdBuffer())
+		{
+			commandBufferManager->SubmitUploadCmdBuffer();
+		}
+		bSubmitAtNextSafePoint = true;
+		SafePointSubmit();
+	}
+	else
+	{
+		ensure(IsImmediate());
+		bSubmitAtNextSafePoint = true;
+	}
+}
+
+void CommandListContext::InternalSubmitActiveCmdBuffer()
+{
+	commandBufferManager->SubmitActiveCmdBuffer();
+	commandBufferManager->PrepareForNewActiveCommandBuffer();
 }

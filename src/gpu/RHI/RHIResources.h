@@ -1,28 +1,38 @@
 #pragma once
 #include "Volk/volk.h"
+#include "gpu/math/color.h"
+#include "gpu/math/vec.h"
 #include "gpu/definitions.h"
 #include "gpu/core/pixel_format.h"
 #include "RHIDefinitions.h"
 #include "RHIAccess.h"
 #include "RHIUtilities.h"
+#include <array>
+
+// 351
+struct ResourceCreateInfo
+{
+    // for CreateBuffer calls
+    void *ResourceArray = 0;
+};
 
 /** Descriptor used to create a texture resource */
-struct RHITextureDesc
+struct TextureDesc
 {
-    RHITextureDesc() = default;
-    RHITextureDesc(ETextureDimension InDimension) : Dimension(InDimension) {}
+    TextureDesc() = default;
+    TextureDesc(ETextureDimension InDimension) : Dimension(InDimension) {}
 
     /** Texture dimension to use when creating the RHI texture. */
     ETextureDimension Dimension = ETextureDimension::Texture2D;
 
     /** Pixel format used to create RHI texture. */
-    EPixelFormat Format = EPixelFormat::PF_Unknown;
+    PixelFormat Format = PixelFormat::PF_Unknown;
 
     /** Clear value to use when fast-clearing the texture. */
     ClearValueBinding ClearValue;
 
     /** Extent of the texture in x and y. */
-    VkExtent2D Extent = {1, 1};
+    IntVec2 Extent = {1, 1};
 
     /** Depth of the texture if the dimension is 3D. */
     uint16 Depth = 1;
@@ -40,56 +50,56 @@ struct RHITextureDesc
     ETextureCreateFlags Flags = TexCreate_None;
 };
 
-struct RHITextureCreateDesc : public RHITextureDesc
+struct TextureCreateDesc : public TextureDesc
 {
-    static RHITextureCreateDesc Create2D(const char *InDebugName)
+    static TextureCreateDesc Create2D(const char *InDebugName)
     {
-        return RHITextureCreateDesc(InDebugName, ETextureDimension::Texture2D);
+        return TextureCreateDesc(InDebugName, ETextureDimension::Texture2D);
     }
 
-    static RHITextureCreateDesc Create2D(const char *DebugName, int32 SizeX, int32 SizeY, EPixelFormat Format)
+    static TextureCreateDesc Create2D(const char *DebugName, int32 SizeX, int32 SizeY, PixelFormat Format)
     {
         return Create2D(DebugName).SetExtent(SizeX, SizeY).SetFormat(Format);
     }
 
     // Constructor with minimal argument set. Name and dimension are always required.
-    RHITextureCreateDesc(const char *InDebugName, ETextureDimension InDimension) : RHITextureDesc(InDimension), DebugName(InDebugName) {}
+    TextureCreateDesc(const char *InDebugName, ETextureDimension InDimension) : TextureDesc(InDimension), DebugName(InDebugName) {}
 
-    RHITextureCreateDesc &SetExtent(int32 InExtentX, int32 InExtentY)
+    TextureCreateDesc &SetExtent(int32 InExtentX, int32 InExtentY)
     {
-        Extent.width = InExtentX;
-        Extent.height = InExtentY;
+        Extent.x = InExtentX;
+        Extent.y = InExtentY;
         return *this;
     }
-    RHITextureCreateDesc &SetFormat(EPixelFormat InFormat)
+    TextureCreateDesc &SetFormat(PixelFormat InFormat)
     {
         Format = InFormat;
         return *this;
     }
-    RHITextureCreateDesc &SetFlags(ETextureCreateFlags InFlags)
+    TextureCreateDesc &SetFlags(ETextureCreateFlags InFlags)
     {
         Flags = InFlags;
         return *this;
     }
-    RHITextureCreateDesc &SetClearValue(ClearValueBinding InClearValue)
+    TextureCreateDesc &SetClearValue(ClearValueBinding InClearValue)
     {
         ClearValue = InClearValue;
         return *this;
     }
-    RHITextureCreateDesc &SetInitialState(ERHIAccess InInitialState)
+    TextureCreateDesc &SetInitialState(Access InInitialState)
     {
         InitialState = InInitialState;
         return *this;
     }
-    RHITextureCreateDesc &DetermineInititialState()
+    TextureCreateDesc &DetermineInititialState()
     {
-        if (InitialState == ERHIAccess::Unknown)
+        if (InitialState == Access::Unknown)
             InitialState = RHIGetDefaultResourceState(Flags, BulkData != nullptr);
         return *this;
     }
 
     /* The RHI access state that the resource will be created in. */
-    ERHIAccess InitialState = ERHIAccess::Unknown;
+    Access InitialState = Access::Unknown;
 
     /* A friendly name for the resource. */
     const char *DebugName = nullptr;
@@ -101,28 +111,491 @@ struct RHITextureCreateDesc : public RHITextureDesc
 class RHIResource
 {
 public:
-    RHIResource() = default;
+    RHIResource(ERHIResourceType InResourceType = RRT_None);
+
+    const ERHIResourceType ResourceType;
 };
 
 class RHIViewableResource : public RHIResource
 {
 public:
-    RHIViewableResource(ERHIResourceType InResourceType, ERHIAccess InAccess);
+    RHIViewableResource(ERHIResourceType InResourceType, Access InAccess);
+
+    void ReleaseOwnership() { TrackedAccess = Access::Unknown; }
+
+private:
+    Access TrackedAccess;
 };
 
-class RHITexture : public RHIViewableResource
+// 1189
+struct BufferDesc
 {
-public:
-    RHITexture(const RHITextureCreateDesc &InDesc);
+    uint32 Size{};
+    uint32 Stride{};
+    BufferUsageFlags Usage{};
 
+    BufferDesc() = default;
+    BufferDesc(uint32 InSize, uint32 InStride, BufferUsageFlags InUsage)
+        : Size(InSize), Stride(InStride), Usage(InUsage)
+    {
+    }
+
+    static BufferDesc Null()
+    {
+        return BufferDesc(0, 0, BUF_NullResource);
+    }
+
+    bool IsNull() const
+    {
+        if (EnumHasAnyFlags(Usage, BUF_NullResource))
+        {
+            // The null resource descriptor should have its other fields zeroed, and no additional flags.
+            check(Size == 0 && Stride == 0 && Usage == BUF_NullResource);
+            return true;
+        }
+
+        return false;
+    }
+};
+
+class Texture : public RHIViewableResource
+{
+protected:
+    Texture(const TextureCreateDesc &InDesc);
+
+public:
     /**
      * Get the texture description used to create the texture
      * Still virtual because FRHITextureReference can override this function - remove virtual when FRHITextureReference is deprecated
      *
      * @return TextureDesc used to create the texture
      */
-    virtual const RHITextureDesc &GetDesc() const { return TextureDesc; }
+    virtual const TextureDesc &GetDesc() const { return textureDesc; }
+
+    /// Returns access to the platform-specific RHI texture baseclass.  This is designed to provide the RHI with fast access to its base classes in the face of multiple inheritance.
+    /// @return	The pointer to the platform-specific RHI texture baseclass or NULL if it not initialized or not supported for this RHI
+    virtual void *GetTextureBaseRHI() { return nullptr; }
+
+    /** @return Whether the texture has a clear color defined */
+    bool HasClearValue() const
+    {
+        return GetDesc().ClearValue.ColorBinding != ClearBinding::ENoneBound;
+    }
+
+    /** @return the clear color value if set */
+    LinearColor GetClearColor() const
+    {
+        return GetDesc().ClearValue.GetClearColor();
+    }
+
+    /** @return the depth & stencil clear value if set */
+    void GetDepthStencilClearValue(float &OutDepth, uint32 &OutStencil) const
+    {
+        return GetDesc().ClearValue.GetDepthStencil(OutDepth, OutStencil);
+    }
 
 private:
-    RHITextureDesc TextureDesc;
+    TextureDesc textureDesc;
+};
+
+// 416
+class ExclusiveDepthStencil
+{
+public:
+    enum Type
+    {
+        // don't use those directly, use the combined versions below
+        // 4 bits are used for depth and 4 for stencil to make the hex value readable and non overlapping
+        DepthNop = 0x00,
+        DepthRead = 0x01,
+        DepthWrite = 0x02,
+        DepthMask = 0x0f,
+        StencilNop = 0x00,
+        StencilRead = 0x10,
+        StencilWrite = 0x20,
+        StencilMask = 0xf0,
+
+        // use those:
+        DepthNop_StencilNop = DepthNop + StencilNop,
+        DepthRead_StencilNop = DepthRead + StencilNop,
+        DepthWrite_StencilNop = DepthWrite + StencilNop,
+        DepthNop_StencilRead = DepthNop + StencilRead,
+        DepthRead_StencilRead = DepthRead + StencilRead,
+        DepthWrite_StencilRead = DepthWrite + StencilRead,
+        DepthNop_StencilWrite = DepthNop + StencilWrite,
+        DepthRead_StencilWrite = DepthRead + StencilWrite,
+        DepthWrite_StencilWrite = DepthWrite + StencilWrite,
+    };
+
+private:
+    Type Value;
+
+public:
+    // constructor
+    ExclusiveDepthStencil(Type InValue = DepthNop_StencilNop) : Value(InValue) {}
+
+    inline bool IsDepthRead() const
+    {
+        return ExtractDepth() == DepthRead;
+    }
+    inline bool IsStencilRead() const
+    {
+        return ExtractStencil() == StencilRead;
+    }
+
+private:
+    inline Type ExtractDepth() const { return (Type)(Value & DepthMask); }
+    inline Type ExtractStencil() const { return (Type)(Value & StencilMask); }
+};
+
+// 606
+static inline VkAttachmentLoadOp RenderTargetLoadActionToVulkan(RenderTargetLoadAction InLoadAction)
+{
+    VkAttachmentLoadOp OutLoadAction = VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
+
+    switch (InLoadAction)
+    {
+    case RenderTargetLoadAction::ELoad:
+        OutLoadAction = VK_ATTACHMENT_LOAD_OP_LOAD;
+        break;
+    case RenderTargetLoadAction::EClear:
+        OutLoadAction = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        break;
+    case RenderTargetLoadAction::ENoAction:
+        OutLoadAction = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        break;
+    default:
+        break;
+    }
+
+    // Check for missing translation
+    check(OutLoadAction != VK_ATTACHMENT_LOAD_OP_MAX_ENUM);
+    return OutLoadAction;
+}
+static inline VkAttachmentStoreOp RenderTargetStoreActionToVulkan(RenderTargetStoreAction InStoreAction)
+{
+    VkAttachmentStoreOp OutStoreAction = VK_ATTACHMENT_STORE_OP_MAX_ENUM;
+
+    switch (InStoreAction)
+    {
+    case RenderTargetStoreAction::EStore:
+        OutStoreAction = VK_ATTACHMENT_STORE_OP_STORE;
+        break;
+    case RenderTargetStoreAction::ENoAction:
+    case RenderTargetStoreAction::EMultisampleResolve:
+        OutStoreAction = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        break;
+    default:
+        break;
+    }
+
+    // Check for missing translation
+    check(OutStoreAction != VK_ATTACHMENT_STORE_OP_MAX_ENUM);
+    return OutStoreAction;
+}
+
+// 1220
+class Buffer : public RHIViewableResource
+{
+public:
+    /** Initialization constructor. */
+    Buffer(BufferDesc const &InDesc)
+        : RHIViewableResource(RRT_Buffer, Access::Unknown /* TODO (RemoveUnknowns): Use InitialAccess from descriptor after refactor. */),
+          Desc(InDesc)
+    {
+    }
+
+    BufferDesc const &GetDesc() const { return Desc; }
+
+    /** @return The number of bytes in the buffer. */
+    uint32 GetSize() const { return Desc.Size; }
+    /** @return The stride in bytes of the buffer. */
+    uint32 GetStride() const { return Desc.Stride; }
+    /** @return The usage flags used to create the buffer. */
+    BufferUsageFlags GetUsage() const { return Desc.Usage; }
+
+protected:
+    void ReleaseOwnership()
+    {
+        RHIViewableResource::ReleaseOwnership();
+        Desc = BufferDesc::Null();
+    }
+
+private:
+    BufferDesc Desc;
+};
+
+// 1918
+/*
+ * Generic GPU fence class.
+ * Granularity differs depending on backing RHI - ie it may only represent command buffer granularity.
+ * RHI specific fences derive from this to implement real GPU->CPU fencing.
+ * The default implementation always returns false for Poll until the next frame from the frame the fence was inserted
+ * because not all APIs have a GPU/CPU sync object, we need to fake it.
+ */
+class RHIGPUFence : public RHIResource
+{
+public:
+    RHIGPUFence() : RHIResource(RRT_GPUFence) {}
+    virtual ~RHIGPUFence() {}
+
+    virtual void Clear() = 0;
+
+    /**
+     * Poll the fence to see if the GPU has signaled it.
+     * @returns True if and only if the GPU fence has been inserted and the GPU has signaled the fence.
+     */
+    virtual bool Poll() const = 0;
+};
+
+// 3214
+class RHIRenderTargetView
+{
+public:
+    Texture *texture = nullptr;
+    uint32 MipIndex = 0;
+
+    /** Array slice or texture cube face.  Only valid if texture resource was created with TexCreate_TargetArraySlicesIndependently! */
+    uint32 ArraySliceIndex = -1;
+
+    RenderTargetLoadAction LoadAction = RenderTargetLoadAction::ENoAction;
+    RenderTargetStoreAction StoreAction = RenderTargetStoreAction::ENoAction;
+};
+class RHIDepthRenderTargetView
+{
+public:
+    Texture *texture;
+
+    RenderTargetLoadAction DepthLoadAction;
+    RenderTargetStoreAction DepthStoreAction;
+    RenderTargetLoadAction StencilLoadAction;
+
+private:
+    RenderTargetStoreAction StencilStoreAction;
+    ExclusiveDepthStencil DepthStencilAccess;
+
+public:
+    explicit RHIDepthRenderTargetView() : texture(nullptr),
+                                          DepthLoadAction(RenderTargetLoadAction::ENoAction),
+                                          DepthStoreAction(RenderTargetStoreAction::ENoAction),
+                                          StencilLoadAction(RenderTargetLoadAction::ENoAction),
+                                          StencilStoreAction(RenderTargetStoreAction::ENoAction),
+                                          DepthStencilAccess(ExclusiveDepthStencil::DepthNop_StencilNop)
+    {
+        Validate();
+    }
+    explicit RHIDepthRenderTargetView(Texture *InTexture, RenderTargetLoadAction InDepthLoadAction,
+                                      RenderTargetStoreAction InDepthStoreAction,
+                                      RenderTargetLoadAction InStencilLoadAction,
+                                      RenderTargetStoreAction InStencilStoreAction,
+                                      ExclusiveDepthStencil InDepthStencilAccess)
+        : texture(InTexture),
+          DepthLoadAction(InDepthLoadAction),
+          DepthStoreAction(InDepthStoreAction),
+          StencilLoadAction(InStencilLoadAction),
+          StencilStoreAction(InStencilStoreAction),
+          DepthStencilAccess(InDepthStencilAccess)
+    {
+        Validate();
+    }
+    void Validate() const
+    {
+        // VK and Metal MAY leave the attachment in an undefined state if the StoreAction is DontCare. So we can't assume read-only implies it should be DontCare unless we know for sure it will never be used again.
+        // ensureMsgf(DepthStencilAccess.IsDepthWrite() || DepthStoreAction == ERenderTargetStoreAction::ENoAction, TEXT("Depth is read-only, but we are performing a store.  This is a waste on mobile.  If depth can't change, we don't need to store it out again"));
+        /*ensureMsgf(DepthStencilAccess.IsStencilWrite() || StencilStoreAction == ERenderTargetStoreAction::ENoAction, TEXT("Stencil is read-only, but we are performing a store.  This is a waste on mobile.  If stencil can't change, we don't need to store it out again"));*/
+    }
+};
+
+// 3363
+class SetRenderTargetsInfo
+{
+public:
+    // Color Render Targets Info
+    RHIRenderTargetView ColorRenderTarget[MaxSimultaneousRenderTargets];
+    int32 NumColorRenderTargets;
+    bool bClearColor;
+
+    // Color Render Targets Info
+    RHIRenderTargetView ColorResolveRenderTarget[MaxSimultaneousRenderTargets];
+    bool bHasResolveAttachments;
+
+    // Depth/Stencil Render Target Info
+    RHIDepthRenderTargetView DepthStencilRenderTarget;
+    bool bClearDepth;
+    bool bClearStencil;
+
+    Texture *ShadingRateTexture;
+    // EVRSRateCombiner ShadingRateTextureCombiner;
+
+    uint8 MultiViewCount;
+
+    SetRenderTargetsInfo() : NumColorRenderTargets(0), bClearColor(false), bHasResolveAttachments(false),
+                             bClearDepth(false), ShadingRateTexture(nullptr), MultiViewCount(0) {}
+};
+
+// 3687
+// Hints for some RHIs that support subpasses
+enum class SubpassHint : uint8
+{
+    // Regular rendering
+    None,
+    // Render pass has depth reading subpass
+    DepthReadSubpass,
+    // Mobile defferred shading subpass
+    DeferredShadingSubpass,
+    // Mobile MSAA custom resolve subpass. Includes DepthReadSubpass.
+    CustomResolveSubpass,
+};
+
+// 4121
+enum class RenderTargetActions : uint8
+{
+    LoadOpMask = 2,
+
+#define RTACTION_MAKE_MASK(Load, Store) (((uint8)RenderTargetLoadAction::Load << (uint8)LoadOpMask) | (uint8)RenderTargetStoreAction::Store)
+
+    DontLoad_DontStore = RTACTION_MAKE_MASK(ENoAction, ENoAction),
+
+    DontLoad_Store = RTACTION_MAKE_MASK(ENoAction, EStore),
+    Clear_Store = RTACTION_MAKE_MASK(EClear, EStore),
+    Load_Store = RTACTION_MAKE_MASK(ELoad, EStore),
+
+    Clear_DontStore = RTACTION_MAKE_MASK(EClear, ENoAction),
+    Load_DontStore = RTACTION_MAKE_MASK(ELoad, ENoAction),
+    Clear_Resolve = RTACTION_MAKE_MASK(EClear, EMultisampleResolve),
+    Load_Resolve = RTACTION_MAKE_MASK(ELoad, EMultisampleResolve),
+
+#undef RTACTION_MAKE_MASK
+};
+
+// 4146
+inline RenderTargetLoadAction GetLoadAction(RenderTargetActions Action)
+{
+    return (RenderTargetLoadAction)((uint8)Action >> (uint8)RenderTargetActions::LoadOpMask);
+}
+
+inline RenderTargetStoreAction GetStoreAction(RenderTargetActions Action)
+{
+    return (RenderTargetStoreAction)((uint8)Action & ((1 << (uint8)RenderTargetActions::LoadOpMask) - 1));
+}
+
+// 4156
+enum class EDepthStencilTargetActions : uint8
+{
+    DepthMask = 4,
+
+#define RTACTION_MAKE_MASK(Depth, Stencil) (((uint8)RenderTargetActions::Depth << (uint8)DepthMask) | (uint8)RenderTargetActions::Stencil)
+
+    DontLoad_DontStore = RTACTION_MAKE_MASK(DontLoad_DontStore, DontLoad_DontStore),
+    DontLoad_StoreDepthStencil = RTACTION_MAKE_MASK(DontLoad_Store, DontLoad_Store),
+    DontLoad_StoreStencilNotDepth = RTACTION_MAKE_MASK(DontLoad_DontStore, DontLoad_Store),
+    ClearDepthStencil_StoreDepthStencil = RTACTION_MAKE_MASK(Clear_Store, Clear_Store),
+    LoadDepthStencil_StoreDepthStencil = RTACTION_MAKE_MASK(Load_Store, Load_Store),
+    LoadDepthNotStencil_StoreDepthNotStencil = RTACTION_MAKE_MASK(Load_Store, DontLoad_DontStore),
+    LoadDepthNotStencil_DontStore = RTACTION_MAKE_MASK(Load_DontStore, DontLoad_DontStore),
+    LoadDepthStencil_StoreStencilNotDepth = RTACTION_MAKE_MASK(Load_DontStore, Load_Store),
+
+    ClearDepthStencil_DontStoreDepthStencil = RTACTION_MAKE_MASK(Clear_DontStore, Clear_DontStore),
+    LoadDepthStencil_DontStoreDepthStencil = RTACTION_MAKE_MASK(Load_DontStore, Load_DontStore),
+    ClearDepthStencil_StoreDepthNotStencil = RTACTION_MAKE_MASK(Clear_Store, Clear_DontStore),
+    ClearDepthStencil_StoreStencilNotDepth = RTACTION_MAKE_MASK(Clear_DontStore, Clear_Store),
+    ClearDepthStencil_ResolveDepthNotStencil = RTACTION_MAKE_MASK(Clear_Resolve, Clear_DontStore),
+    ClearDepthStencil_ResolveStencilNotDepth = RTACTION_MAKE_MASK(Clear_DontStore, Clear_Resolve),
+    LoadDepthClearStencil_StoreDepthStencil = RTACTION_MAKE_MASK(Load_Store, Clear_Store),
+
+    ClearStencilDontLoadDepth_StoreStencilNotDepth = RTACTION_MAKE_MASK(DontLoad_DontStore, Clear_Store),
+
+#undef RTACTION_MAKE_MASK
+};
+
+// 4189
+inline RenderTargetActions GetDepthActions(EDepthStencilTargetActions Action)
+{
+    return (RenderTargetActions)((uint8)Action >> (uint8)EDepthStencilTargetActions::DepthMask);
+}
+
+inline RenderTargetActions GetStencilActions(EDepthStencilTargetActions Action)
+{
+    return (RenderTargetActions)((uint8)Action & ((1 << (uint8)EDepthStencilTargetActions::DepthMask) - 1));
+}
+
+// 4199
+struct ResolveRect
+{
+    int32 X1;
+    int32 Y1;
+    int32 X2;
+    int32 Y2;
+
+    // e.g. for a a full 256 x 256 area starting at (0, 0) it would be
+    // the values would be 0, 0, 256, 256
+    ResolveRect(int32 InX1 = -1, int32 InY1 = -1, int32 InX2 = -1, int32 InY2 = -1)
+        : X1(InX1), Y1(InY1), X2(InX2), Y2(InY2) {}
+
+    ResolveRect(IntVec2 Min, IntVec2 Max)
+        : X1(Min.x), Y1(Min.y), X2(Max.x), Y2(Max.y) {}
+
+    bool operator==(ResolveRect Other) const
+    {
+        return X1 == Other.X1 && Y1 == Other.Y1 && X2 == Other.X2 && Y2 == Other.Y2;
+    }
+
+    bool operator!=(ResolveRect Other) const { return !(*this == Other); }
+
+    bool IsValid() const
+    {
+        return X1 >= 0 && Y1 >= 0 && X2 - X1 > 0 && Y2 - Y1 > 0;
+    }
+};
+
+// 4238
+struct RenderPassInfo
+{
+    struct ColorEntry
+    {
+        Texture *RenderTarget = nullptr;
+        Texture *ResolveTarget = nullptr;
+        int32 ArraySlice = -1;
+        uint8 MipIndex = 0;
+        RenderTargetActions Action = RenderTargetActions::DontLoad_DontStore;
+    };
+    std::array<ColorEntry, MaxSimultaneousRenderTargets> ColorRenderTargets;
+
+    struct DepthStencilEntry
+    {
+        Texture *DepthStencilTarget = nullptr;
+        Texture *ResolveTarget = nullptr;
+        EDepthStencilTargetActions Action = EDepthStencilTargetActions::DontLoad_DontStore;
+        ExclusiveDepthStencil ExclusiveDepthStencil;
+    };
+    DepthStencilEntry DepthStencilRenderTarget;
+
+    // Controls the area for a multisample resolve or raster UAV (i.e. no fixed-function targets) operation.
+    ResolveRect ResolveRect;
+
+    // Some RHIs require a hint that occlusion queries will be used in this render pass
+    uint32 NumOcclusionQueries = 0;
+
+    // if this renderpass should be multiview, and if so how many views are required
+    uint8 MultiViewCount = 0;
+
+    // Hint for some RHI's that renderpass will have specific sub-passes
+    SubpassHint SubpassHint = SubpassHint::None;
+
+    inline int32 GetNumColorRenderTargets() const
+    {
+        int32 ColorIndex = 0;
+        for (; ColorIndex < MaxSimultaneousRenderTargets; ++ColorIndex)
+        {
+            const ColorEntry &Entry = ColorRenderTargets[ColorIndex];
+            if (!Entry.RenderTarget)
+            {
+                break;
+            }
+        }
+
+        return ColorIndex;
+    }
+
+    void ConvertToRenderTargetsInfo(SetRenderTargetsInfo &OutRTInfo) const;
 };

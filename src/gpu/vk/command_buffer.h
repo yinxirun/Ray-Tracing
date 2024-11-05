@@ -11,6 +11,7 @@ class CommandBufferManager;
 class LayoutManager;
 class CommandBufferPool;
 class DescriptorPoolSetContainer;
+class RenderTargetLayout;
 
 namespace VulkanRHI
 {
@@ -75,16 +76,23 @@ public:
 
     std::vector<VkViewport> CurrentViewports;
     std::vector<VkRect2D> CurrentScissors;
-    uint32_t CurrentStencilRef;
+    uint32 CurrentStencilRef;
     EState State;
-    uint8_t bNeedsDynamicStateSet : 1;
-    uint8_t bHasPipeline : 1;
-    uint8_t bHasViewport : 1;
-    uint8_t bHasScissor : 1;
-    uint8_t bHasStencilRef : 1;
-    uint8_t bIsUploadOnly : 1;
+    uint8 bNeedsDynamicStateSet : 1;
+    uint8 bHasPipeline : 1;
+    uint8 bHasViewport : 1;
+    uint8 bHasScissor : 1;
+    uint8 bHasStencilRef : 1;
+    uint8 bIsUploadOnly : 1;
+    uint8 bIsUniformBufferBarrierAdded : 1;
 
+    // You never want to call Begin/EndRenderPass directly as it will mess up the layout manager.
+    void BeginRenderPass(const RenderTargetLayout &Layout, class RenderPass *RenderPass,
+                         class Framebuffer *Framebuffer, const VkClearValue *AttachmentClearValues);
     void EndRenderPass();
+
+    void BeginUniformUpdateBarrier();
+    void EndUniformUpdateBarrier();
 
     // #todo-rco: Hide this
     DescriptorPoolSetContainer *CurrentDescriptorPoolSetContainer = nullptr;
@@ -101,6 +109,7 @@ public:
 private:
     Device *device;
     VkCommandBuffer CommandBufferHandle;
+    double SubmittedTime = 0.0f;
 
     std::vector<VkPipelineStageFlags> WaitFlags;
     std::vector<VulkanRHI::Semaphore *> WaitSemaphores;
@@ -129,8 +138,9 @@ private:
 
     void *Timing = nullptr;
 
-    void AllocMemory();
+    void AcquirePoolSetContainer();
 
+    void AllocMemory();
     void FreeMemory();
 
     LayoutManager LayoutManager;
@@ -150,6 +160,8 @@ public:
     void RefreshFenceStatus(CmdBuffer *SkipCmdBuffer = nullptr);
 
     VkCommandPool GetHandle() const { return Handle; }
+
+    void FreeUnusedCmdBuffers(Queue *Queue, bool bTrimMemory);
 
     inline CommandBufferManager &GetMgr() { return Mgr; }
 
@@ -214,7 +226,21 @@ public:
 
     inline VkCommandPool GetHandle() const { return pool.GetHandle(); }
 
+    void FreeUnusedCmdBuffers(bool bTrimMemory);
+
     inline CommandListContext *GetCommandListContext() { return context; }
+
+    inline void NotifyDeletedImage(VkImage Image)
+    {
+        if (uploadCmdBuffer)
+        {
+            uploadCmdBuffer->GetLayoutManager().NotifyDeletedImage(Image);
+        }
+        if (activeCmdBuffer)
+        {
+            activeCmdBuffer->GetLayoutManager().NotifyDeletedImage(Image);
+        }
+    }
 
 private:
     Device *device;

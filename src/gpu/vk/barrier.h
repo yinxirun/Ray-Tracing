@@ -7,7 +7,7 @@
 #include <unordered_map>
 
 class CmdBuffer;
-class Texture;
+class VulkanTexture;
 
 namespace std
 {
@@ -31,7 +31,10 @@ struct PipelineBarrier
     ImageBarrierArrayType ImageBarriers;
     BufferBarrierArrayType BufferBarriers;
 
-    void AddFullImageLayoutTransition(const Texture &Texture, VkImageLayout SrcLayout, VkImageLayout DstLayout);
+    void AddMemoryBarrier(VkAccessFlags SrcAccessFlags, VkAccessFlags DstAccessFlags,
+                          VkPipelineStageFlags SrcStageMask, VkPipelineStageFlags DstStageMask);
+
+    void AddFullImageLayoutTransition(const VulkanTexture &Texture, VkImageLayout SrcLayout, VkImageLayout DstLayout);
 
     void AddImageLayoutTransition(VkImage Image, VkImageLayout SrcLayout,
                                   VkImageLayout DstLayout, const VkImageSubresourceRange &SubresourceRange);
@@ -115,12 +118,14 @@ public:
     LayoutManager(bool InWriteOnly, LayoutManager *InFallback)
         : bWriteOnly(InWriteOnly), Fallback(InFallback) {}
 
+    void NotifyDeletedImage(VkImage Image);
+
     // Predetermined layouts for given RHIAccess
-    static VkImageLayout GetDefaultLayout(CmdBuffer *CmdBuffer, const Texture &VulkanTexture, ERHIAccess DesiredAccess);
+    static VkImageLayout GetDefaultLayout(CmdBuffer *CmdBuffer, const VulkanTexture &VulkanTexture, Access DesiredAccess);
 
     // Expected layouts and Hints are workarounds until we can use 'hardcoded layouts' everywhere.
-    static VkImageLayout SetExpectedLayout(CmdBuffer *CmdBuffer, const Texture &VulkanTexture, ERHIAccess DesiredAccess);
-    VkImageLayout GetDepthStencilHint(const Texture &VulkanTexture, VkImageAspectFlagBits AspectBit);
+    static VkImageLayout SetExpectedLayout(CmdBuffer *CmdBuffer, const VulkanTexture &VulkanTexture, Access DesiredAccess);
+    VkImageLayout GetDepthStencilHint(const VulkanTexture &VulkanTexture, VkImageAspectFlagBits AspectBit);
 
     const ImageLayout *GetFullLayout(VkImage Image) const
     {
@@ -134,7 +139,7 @@ public:
         return Layout;
     }
 
-    const ImageLayout *GetFullLayout(const Texture &VulkanTexture, bool bAddIfNotFound = false, VkImageLayout LayoutIfNotFound = VK_IMAGE_LAYOUT_UNDEFINED)
+    const ImageLayout *GetFullLayout(const VulkanTexture &VulkanTexture, bool bAddIfNotFound = false, VkImageLayout LayoutIfNotFound = VK_IMAGE_LAYOUT_UNDEFINED)
     {
         check(!bWriteOnly);
 
@@ -181,7 +186,7 @@ public:
         }
     }
 
-    void SetFullLayout(const Texture &VulkanTexture, VkImageLayout InLayout, bool bOnlyIfNotFound = false)
+    void SetFullLayout(const VulkanTexture &VulkanTexture, VkImageLayout InLayout, bool bOnlyIfNotFound = false)
     {
         auto iter = Layouts.find(VulkanTexture.Image);
         ImageLayout *Layout = iter == Layouts.end() ? nullptr : &iter->second;

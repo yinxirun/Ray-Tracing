@@ -22,10 +22,10 @@ static const VkImageTiling GVulkanViewTypeTilingMode[7] =
 int32 GVulkanDepthStencilForceStorageBit = 0;
 
 // Seperate method for creating VkImageCreateInfo
-void Texture::GenerateImageCreateInfo(
+void VulkanTexture::GenerateImageCreateInfo(
     ImageCreateInfo &OutImageCreateInfo,
     Device &InDevice,
-    const RHITextureDesc &InDesc,
+    const TextureDesc &InDesc,
     VkFormat *OutStorageFormat,
     VkFormat *OutViewFormat,
     bool bForceLinearTexture)
@@ -47,23 +47,23 @@ void Texture::GenerateImageCreateInfo(
     {
     case VK_IMAGE_VIEW_TYPE_1D:
         ImageCreateInfo.imageType = VK_IMAGE_TYPE_1D;
-        check((uint32)InDesc.Extent.width <= DeviceProperties.limits.maxImageDimension1D);
+        check((uint32)InDesc.Extent.x <= DeviceProperties.limits.maxImageDimension1D);
         break;
     case VK_IMAGE_VIEW_TYPE_CUBE:
     case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
-        check(InDesc.Extent.width == InDesc.Extent.height);
-        check((uint32)InDesc.Extent.width <= DeviceProperties.limits.maxImageDimensionCube);
-        check((uint32)InDesc.Extent.height <= DeviceProperties.limits.maxImageDimensionCube);
+        check(InDesc.Extent.x == InDesc.Extent.y);
+        check((uint32)InDesc.Extent.x <= DeviceProperties.limits.maxImageDimensionCube);
+        check((uint32)InDesc.Extent.y <= DeviceProperties.limits.maxImageDimensionCube);
         ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
         break;
     case VK_IMAGE_VIEW_TYPE_2D:
     case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
-        check((uint32)InDesc.Extent.width <= DeviceProperties.limits.maxImageDimension2D);
-        check((uint32)InDesc.Extent.height <= DeviceProperties.limits.maxImageDimension2D);
+        check((uint32)InDesc.Extent.x <= DeviceProperties.limits.maxImageDimension2D);
+        check((uint32)InDesc.Extent.y <= DeviceProperties.limits.maxImageDimension2D);
         ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
         break;
     case VK_IMAGE_VIEW_TYPE_3D:
-        check((uint32)InDesc.Extent.height <= DeviceProperties.limits.maxImageDimension3D);
+        check((uint32)InDesc.Extent.y <= DeviceProperties.limits.maxImageDimension3D);
         ImageCreateInfo.imageType = VK_IMAGE_TYPE_3D;
         break;
     default:
@@ -85,8 +85,8 @@ void Texture::GenerateImageCreateInfo(
         *OutStorageFormat = nonSrgbFormat;
     }
 
-    ImageCreateInfo.extent.width = InDesc.Extent.width;
-    ImageCreateInfo.extent.height = InDesc.Extent.height;
+    ImageCreateInfo.extent.width = InDesc.Extent.x;
+    ImageCreateInfo.extent.height = InDesc.Extent.y;
     ImageCreateInfo.extent.depth = ResourceType == VK_IMAGE_VIEW_TYPE_3D ? InDesc.Depth : 1;
     ImageCreateInfo.mipLevels = InDesc.NumMips;
     const uint32 LayerCount = (ResourceType == VK_IMAGE_VIEW_TYPE_CUBE || ResourceType == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY) ? 6 : 1;
@@ -294,7 +294,7 @@ void Texture::GenerateImageCreateInfo(
     }
 }
 
-void Texture::DestroySurface()
+void VulkanTexture::DestroySurface()
 {
     const bool bIsLocalOwner = (ImageOwnerType == EImageOwnerType::LocalOwner);
     const bool bHasExternalOwner = (ImageOwnerType == EImageOwnerType::ExternalOwner);
@@ -310,7 +310,9 @@ void Texture::DestroySurface()
     else if (bIsLocalOwner || bHasExternalOwner)
     {
         const bool bRenderTarget = EnumHasAnyFlags(GetDesc().Flags, TexCreate_RenderTargetable | TexCreate_DepthStencilTargetable | TexCreate_ResolveTargetable);
-
+#ifdef PRINT_SEPERATOR_RHI_UNIMPLEMENT
+        printf("PRINT_SEPERATOR_RHI_UNIMPLEMENT %s %d\n", __FILE__, __LINE__);
+#endif
         device->NotifyDeletedImage(Image, bRenderTarget);
 
         if (bIsLocalOwner)
@@ -327,24 +329,24 @@ void Texture::DestroySurface()
     }
 }
 
-static VkImageLayout GetInitialLayoutFromRHIAccess(ERHIAccess RHIAccess, bool bIsDepthStencilTarget, bool bSupportReadOnlyOptimal)
+static VkImageLayout GetInitialLayoutFromRHIAccess(Access RHIAccess, bool bIsDepthStencilTarget, bool bSupportReadOnlyOptimal)
 {
-    if (EnumHasAnyFlags(RHIAccess, ERHIAccess::RTV) || RHIAccess == ERHIAccess::Present)
+    if (EnumHasAnyFlags(RHIAccess, Access::RTV) || RHIAccess == Access::Present)
     {
         return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     }
 
-    if (EnumHasAnyFlags(RHIAccess, ERHIAccess::DSVWrite))
+    if (EnumHasAnyFlags(RHIAccess, Access::DSVWrite))
     {
         return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
     }
 
-    if (EnumHasAnyFlags(RHIAccess, ERHIAccess::DSVRead))
+    if (EnumHasAnyFlags(RHIAccess, Access::DSVRead))
     {
         return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
     }
 
-    if (EnumHasAnyFlags(RHIAccess, ERHIAccess::SRVMask))
+    if (EnumHasAnyFlags(RHIAccess, Access::SRVMask))
     {
         if (bIsDepthStencilTarget)
         {
@@ -354,22 +356,22 @@ static VkImageLayout GetInitialLayoutFromRHIAccess(ERHIAccess RHIAccess, bool bI
         return bSupportReadOnlyOptimal ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_GENERAL;
     }
 
-    if (EnumHasAnyFlags(RHIAccess, ERHIAccess::UAVMask))
+    if (EnumHasAnyFlags(RHIAccess, Access::UAVMask))
     {
         return VK_IMAGE_LAYOUT_GENERAL;
     }
 
     switch (RHIAccess)
     {
-    case ERHIAccess::Unknown:
+    case Access::Unknown:
         return VK_IMAGE_LAYOUT_UNDEFINED;
-    case ERHIAccess::Discard:
+    case Access::Discard:
         return VK_IMAGE_LAYOUT_UNDEFINED;
-    case ERHIAccess::CopySrc:
+    case Access::CopySrc:
         return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    case ERHIAccess::CopyDest:
+    case Access::CopyDest:
         return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    case ERHIAccess::ShadingRateSource:
+    case Access::ShadingRateSource:
         printf("Don't support Variable Shading Rate %s %d\n", __FILE__, __LINE__);
     }
 
@@ -377,8 +379,8 @@ static VkImageLayout GetInitialLayoutFromRHIAccess(ERHIAccess RHIAccess, bool bI
     return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-Texture::Texture(RHICommandListBase *RHICmdList, Device &InDevice, const RHITextureCreateDesc &InCreateDesc, bool bIsTransientResource)
-    : RHITexture(InCreateDesc), device(&InDevice), Image(VK_NULL_HANDLE),
+VulkanTexture::VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, const TextureCreateDesc &InCreateDesc, bool bIsTransientResource)
+    : Texture(InCreateDesc), device(&InDevice), Image(VK_NULL_HANDLE),
       StorageFormat(VK_FORMAT_UNDEFINED), ViewFormat(VK_FORMAT_UNDEFINED), MemProps(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 {
     if (EnumHasAnyFlags(InCreateDesc.Flags, TexCreate_CPUReadback))
@@ -392,7 +394,7 @@ Texture::Texture(RHICommandListBase *RHICmdList, Device &InDevice, const RHIText
     ImageOwnerType = EImageOwnerType::LocalOwner;
     ImageCreateInfo ImageCreateInfo;
 
-    Texture::GenerateImageCreateInfo(ImageCreateInfo, InDevice, InCreateDesc, &StorageFormat, &ViewFormat);
+    VulkanTexture::GenerateImageCreateInfo(ImageCreateInfo, InDevice, InCreateDesc, &StorageFormat, &ViewFormat);
 
     FullAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(InCreateDesc.Format, true, true);
     PartialAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(InCreateDesc.Format, false, true);
@@ -453,7 +455,7 @@ Texture::Texture(RHICommandListBase *RHICmdList, Device &InDevice, const RHIText
     }
 
     // InternalLockWrite leaves the image in VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, so make sure the requested resource state is SRV.
-    check(EnumHasAnyFlags(InCreateDesc.InitialState, ERHIAccess::SRVMask));
+    check(EnumHasAnyFlags(InCreateDesc.InitialState, Access::SRVMask));
     DefaultLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     // Transfer bulk data
@@ -467,8 +469,8 @@ Texture::Texture(RHICommandListBase *RHICmdList, Device &InDevice, const RHIText
     VkBufferImageCopy Region{};
     // #todo-rco: Use real Buffer offset when switching to suballocations!
     Region.bufferOffset = 0;
-    Region.bufferRowLength = InCreateDesc.Extent.width;
-    Region.bufferImageHeight = InCreateDesc.Extent.height;
+    Region.bufferRowLength = InCreateDesc.Extent.x;
+    Region.bufferImageHeight = InCreateDesc.Extent.y;
 
     Region.imageSubresource.mipLevel = 0;
     Region.imageSubresource.baseArrayLayer = 0;
@@ -479,11 +481,11 @@ Texture::Texture(RHICommandListBase *RHICmdList, Device &InDevice, const RHIText
     Region.imageExtent.height = Region.bufferImageHeight;
     Region.imageExtent.depth = InCreateDesc.Depth;
 
-    Texture::InternalLockWrite(InDevice.GetImmediateContext(), this, Region, StagingBuffer);
+    VulkanTexture::InternalLockWrite(InDevice.GetImmediateContext(), this, Region, StagingBuffer);
 }
 
-void Texture::InternalLockWrite(CommandListContext &Context, Texture *Surface,
-                                const VkBufferImageCopy &Region, VulkanRHI::StagingBuffer *StagingBuffer)
+void VulkanTexture::InternalLockWrite(CommandListContext &Context, VulkanTexture *Surface,
+                                      const VkBufferImageCopy &Region, VulkanRHI::StagingBuffer *StagingBuffer)
 {
     CmdBuffer *CmdBuffer = Context.GetCommandBufferManager()->GetUploadCmdBuffer();
     ensure(CmdBuffer->IsOutsideRenderPass());
@@ -514,8 +516,8 @@ void Texture::InternalLockWrite(CommandListContext &Context, Texture *Surface,
     Context.GetCommandBufferManager()->SubmitUploadCmdBuffer();
 }
 
-void Texture::SetInitialImageState(CommandListContext &Context, VkImageLayout InitialLayout,
-                                   bool bClear, const ClearValueBinding &ClearValueBinding, bool bIsTransientResource)
+void VulkanTexture::SetInitialImageState(CommandListContext &Context, VkImageLayout InitialLayout,
+                                         bool bClear, const ClearValueBinding &ClearValueBinding, bool bIsTransientResource)
 {
     // Can't use TransferQueue as Vulkan requires that queue to also have Gfx or Compute capabilities...
     // #todo-rco: This function is only used during loading currently, if used for regular RHIClear then use the ActiveCmdBuffer

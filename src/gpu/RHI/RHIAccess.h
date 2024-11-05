@@ -3,7 +3,7 @@
 #include "../definitions.h"
 #include "gpu/core/enum_class_flags.h"
 
-enum class ERHIAccess : uint32
+enum class Access : uint32
 {
     // Used when the previous state of a resource is not known,
     // which implies we have to flush all GPU caches etc.
@@ -72,4 +72,4 @@ enum class ERHIAccess : uint32
     // A mask of all bits representing writable states which may also include readable states.
     WritableMask = WriteOnlyMask | UAVMask | BVHWrite
 };
-ENUM_CLASS_FLAGS(ERHIAccess)
+ENUM_CLASS_FLAGS(Access)

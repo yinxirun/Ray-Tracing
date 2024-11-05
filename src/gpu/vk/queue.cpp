@@ -7,7 +7,7 @@
  * 1: Wait on every submit
  * 2: Wait when submitting an upload buffer
  * 3: Wait when submitting an active buffer (one that has gfx commands)
-*/
+ */
 int32 GWaitForIdleOnSubmit = 0;
 
 void Queue::Submit(CmdBuffer *CmdBuffer, uint32 NumSignalSemaphores, VkSemaphore *SignalSemaphores)
@@ -54,6 +54,11 @@ void Queue::Submit(CmdBuffer *CmdBuffer, uint32 NumSignalSemaphores, VkSemaphore
 
 	// If we're tracking layouts for the queue, merge in the changes recorded in this command buffer's context
 	CmdBuffer->GetLayoutManager().TransferTo(LayoutManager);
+}
+
+void Queue::NotifyDeletedImage(VkImage Image)
+{
+	LayoutManager.NotifyDeletedImage(Image);
 }
 
 void Queue::UpdateLastSubmittedCommandBuffer(CmdBuffer *CmdBuffer)

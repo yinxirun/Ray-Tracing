@@ -1,7 +1,17 @@
 #pragma once
 
+#include <iostream>
+#include <vector>
+#include <memory>
 #include "Volk/volk.h"
 #include "gpu/core/pixel_format.h"
+#include "gpu/RHI/RHIDefinitions.h"
+#include "gpu/RHI/RHIResources.h"
+#include "common.h"
+class CmdBuffer;
+class Device;
+class RenderPass;
+class View;
 
 template <typename BitsType>
 constexpr bool VKHasAllFlags(VkFlags Flags, BitsType Contains)
@@ -17,7 +27,7 @@ constexpr bool VKHasAnyFlags(VkFlags Flags, BitsType Contains)
 
 extern VkFormat GVulkanSRGBFormat[PF_MAX];
 extern VkFormat GPixelFormats[PF_MAX];
-inline VkFormat UEToVkTextureFormat(EPixelFormat UEFormat, const bool bIsSRGB)
+inline VkFormat UEToVkTextureFormat(PixelFormat UEFormat, const bool bIsSRGB)
 {
 	if (bIsSRGB)
 	{
@@ -116,10 +126,210 @@ inline VkImageLayout GetMergedDepthStencilLayout(VkImageLayout DepthLayout, VkIm
 // Transitions an image to the specified layout. This does not update the layout cached internally by the RHI; the calling code must do that explicitly via FVulkanCommandListContext::GetLayoutManager() if necessary.
 void VulkanSetImageLayout(CmdBuffer *CmdBuffer, VkImage Image, VkImageLayout OldLayout, VkImageLayout NewLayout, const VkImageSubresourceRange &SubresourceRange);
 
+// 143
+class RenderTargetLayout
+{
+public:
+	RenderTargetLayout(Device &InDevice, const RenderPassInfo &RPInfo,
+					   VkImageLayout CurrentDepthLayout, VkImageLayout CurrentStencilLayout);
+
+	inline uint32 GetRenderPassCompatibleHash() const
+	{
+		check(bCalculatedHash);
+		return RenderPassCompatibleHash;
+	}
+	inline uint32 GetRenderPassFullHash() const
+	{
+		check(bCalculatedHash);
+		return RenderPassFullHash;
+	}
+
+	inline const VkOffset2D &GetOffset2D() const { return Offset.Offset2D; }
+	inline const VkOffset3D &GetOffset3D() const { return Offset.Offset3D; }
+	inline const VkExtent2D &GetExtent2D() const { return Extent.Extent2D; }
+	inline const VkExtent3D &GetExtent3D() const { return Extent.Extent3D; }
+	inline const VkAttachmentDescription *GetAttachmentDescriptions() const { return Desc; }
+	inline uint32 GetNumColorAttachments() const { return NumColorAttachments; }
+	inline bool GetHasDepthStencil() const { return bHasDepthStencil != 0; }
+	inline bool GetHasResolveAttachments() const { return bHasResolveAttachments != 0; }
+	inline uint32 GetNumAttachmentDescriptions() const { return NumAttachmentDescriptions; }
+	inline uint32 GetNumUsedClearValues() const { return NumUsedClearValues; }
+	inline bool GetIsMultiView() const { return MultiViewCount != 0; }
+	inline uint32 GetMultiViewCount() const { return MultiViewCount; }
+
+	inline const VkAttachmentReference *GetColorAttachmentReferences() const
+	{
+		return NumColorAttachments > 0 ? ColorReferences : nullptr;
+	}
+	inline const VkAttachmentReference *GetResolveAttachmentReferences() const
+	{
+		return bHasResolveAttachments ? ResolveReferences : nullptr;
+	}
+	inline const VkAttachmentReference *GetDepthAttachmentReference() const
+	{
+		return bHasDepthStencil ? &DepthReference : nullptr;
+	}
+	inline const VkAttachmentReferenceStencilLayout *GetStencilAttachmentReference() const
+	{
+		return bHasDepthStencil ? &StencilReference : nullptr;
+	}
+
+	inline const VkAttachmentDescriptionStencilLayout *GetStencilDesc() const { return bHasDepthStencil ? &StencilDesc : nullptr; }
+	inline const SubpassHint GetSubpassHint() const { return SubpassHint; }
+	inline const VkSurfaceTransformFlagBitsKHR GetQCOMRenderPassTransform() const { return QCOMRenderPassTransform; }
+
+protected:
+	VkSurfaceTransformFlagBitsKHR QCOMRenderPassTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	VkAttachmentReference ColorReferences[MaxSimultaneousRenderTargets];
+	VkAttachmentReference DepthReference;
+	VkAttachmentReferenceStencilLayout StencilReference;
+	VkAttachmentReference FragmentDensityReference;
+	VkAttachmentReference ResolveReferences[MaxSimultaneousRenderTargets];
+
+	// Depth goes in the "+1" slot and the Shading Rate texture goes in the "+2" slot.
+	VkAttachmentDescription Desc[MaxSimultaneousRenderTargets * 2 + 2];
+	VkAttachmentDescriptionStencilLayout StencilDesc;
+
+	uint8 NumAttachmentDescriptions;
+	uint8 NumColorAttachments;
+	uint8 NumInputAttachments = 0;
+	uint8 bHasDepthStencil;
+	uint8 bHasResolveAttachments;
+	uint8 bHasFragmentDensityAttachment;
+	uint8 NumSamples;
+	uint8 NumUsedClearValues;
+	SubpassHint SubpassHint = SubpassHint::None;
+	uint8 MultiViewCount;
+
+	// Hash for a compatible RenderPass
+	uint32 RenderPassCompatibleHash = 0;
+	// Hash for the render pass including the load/store operations
+	uint32 RenderPassFullHash = 0;
+
+	union
+	{
+		VkOffset3D Offset3D;
+		VkOffset2D Offset2D;
+	} Offset;
+
+	union
+	{
+		VkExtent3D Extent3D;
+		VkExtent2D Extent2D;
+	} Extent;
+
+	template <typename T>
+	void Memzero(T &t)
+	{
+		memset(&t, 0, sizeof(T));
+	}
+
+	inline void ResetAttachments()
+	{
+		Memzero(ColorReferences);
+		Memzero(DepthReference);
+		Memzero(FragmentDensityReference);
+		Memzero(ResolveReferences);
+		Memzero(Desc);
+		Memzero(Offset);
+		Memzero(Extent);
+
+		ZeroVulkanStruct(StencilReference, VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_STENCIL_LAYOUT);
+		ZeroVulkanStruct(StencilDesc, VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_STENCIL_LAYOUT);
+	}
+
+	RenderTargetLayout()
+	{
+		NumAttachmentDescriptions = 0;
+		NumColorAttachments = 0;
+		bHasDepthStencil = 0;
+		bHasResolveAttachments = 0;
+		bHasFragmentDensityAttachment = 0;
+		NumSamples = 0;
+		NumUsedClearValues = 0;
+		MultiViewCount = 0;
+
+		ResetAttachments();
+	}
+
+	bool bCalculatedHash = false;
+};
+
+// 265
+class Framebuffer
+{
+public:
+	Framebuffer(Device &Device, const SetRenderTargetsInfo &InRTInfo, const RenderTargetLayout &RTLayout,
+				const RenderPass &RenderPass);
+	~Framebuffer();
+
+	bool Matches(const SetRenderTargetsInfo &RTInfo) const;
+
+	void Destroy(Device &Device);
+
+	VkFramebuffer GetHandle() { return framebuffer; }
+
+	std::vector<std::unique_ptr<View>> OwnedTextureViews;
+	std::vector<View const *> AttachmentTextureViews;
+
+	// Copy from the Depth render target partial view
+	View const *PartialDepthTextureView = nullptr;
+
+	bool ContainsRenderTarget(VkImage Image) const
+	{
+		ensure(Image != VK_NULL_HANDLE);
+		for (uint32 Index = 0; Index < NumColorAttachments; ++Index)
+		{
+			if (ColorRenderTargetImages[Index] == Image)
+			{
+				return true;
+			}
+		}
+
+		return (DepthStencilRenderTargetImage == Image);
+	}
+
+	VkRect2D GetRenderArea() const { return RenderArea; }
+
+private:
+	VkFramebuffer framebuffer;
+	VkRect2D RenderArea;
+	// Unadjusted number of color render targets as in FRHISetRenderTargetsInfo
+	uint32 NumColorRenderTargets;
+
+	// Save image off for comparison, in case it gets aliased.
+	uint32 NumColorAttachments;
+	VkImage ColorRenderTargetImages[MaxSimultaneousRenderTargets];
+	VkImage ColorResolveTargetImages[MaxSimultaneousRenderTargets];
+	VkImage DepthStencilRenderTargetImage;
+	VkImage FragmentDensityImage;
+
+	// Predefined set of barriers, when executes ensuring all writes are finished
+	std::vector<VkImageMemoryBarrier> WriteBarriers;
+};
+
+// 343
+class RenderPass
+{
+public:
+	inline const RenderTargetLayout &GetLayout() const { return Layout; }
+	inline VkRenderPass GetHandle() const { return renderPass; }
+	inline uint32 GetNumUsedClearValues() const { return NumUsedClearValues; }
+
+private:
+	friend class RenderPassManager;
+	RenderPass(Device &Device, const RenderTargetLayout &RTLayout);
+	~RenderPass();
+	RenderTargetLayout Layout;
+	VkRenderPass renderPass;
+	uint32 NumUsedClearValues;
+	Device &device;
+};
+
 namespace VulkanRHI
 {
 	// 571
-	static VkImageAspectFlags GetAspectMaskFromUEFormat(EPixelFormat Format, bool bIncludeStencil, bool bIncludeDepth = true)
+	static VkImageAspectFlags GetAspectMaskFromUEFormat(PixelFormat Format, bool bIncludeStencil, bool bIncludeDepth = true)
 	{
 		switch (Format)
 		{
@@ -132,6 +342,20 @@ namespace VulkanRHI
 			return VK_IMAGE_ASPECT_DEPTH_BIT;
 		default:
 			return VK_IMAGE_ASPECT_COLOR_BIT;
+		}
+	}
+
+	static bool VulkanFormatHasStencil(VkFormat Format)
+	{
+		switch (Format)
+		{
+		case VK_FORMAT_D16_UNORM_S8_UINT:
+		case VK_FORMAT_D24_UNORM_S8_UINT:
+		case VK_FORMAT_D32_SFLOAT_S8_UINT:
+		case VK_FORMAT_S8_UINT:
+			return true;
+		default:
+			return false;
 		}
 	}
 }

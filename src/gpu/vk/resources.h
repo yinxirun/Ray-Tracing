@@ -6,6 +6,7 @@
 #include "gpu/RHI/RHIAccess.h"
 #include "gpu/RHI/RHIUtilities.h"
 #include "gpu/RHI/RHIResources.h"
+#include "gpu/RHI/RHITransientResourceAllocator.h"
 #include "gpu/core/pixel_format.h"
 #include "gpu/core/assertion_macros.h"
 
@@ -108,7 +109,7 @@ public:
 
     TextureView const &GetTextureView() const { return textureView; }
 
-    View *InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat,
+    View *InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, PixelFormat UEFormat,
                             VkFormat Format, uint32_t FirstMip, uint32_t NumMips, uint32_t ArraySliceIndex, uint32_t NumArraySlices, bool bUseIdentitySwizzle = false,
                             VkImageUsageFlags ImageUsageFlags = 0);
 
@@ -126,6 +127,11 @@ private:
     TextureView textureView;
 };
 
+// 542
+class VulkanViewableResource
+{
+};
+
 enum class EImageOwnerType : uint8
 {
     None,
@@ -134,32 +140,29 @@ enum class EImageOwnerType : uint8
     Aliased
 };
 
-class Texture : public RHITexture
+class VulkanTexture : public Texture
 {
 public:
     // Regular constructor.
-    Texture(RHICommandListBase *RHICmdList, Device &InDevice, const RHITextureCreateDesc &InCreateDesc, bool bIsTransientResource = false);
+    VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, const TextureCreateDesc &InCreateDesc, bool bIsTransientResource = false);
 
-    Texture(Device &InDevice, const RHITextureCreateDesc &InCreateDesc)
-        : Texture(nullptr, InDevice, InCreateDesc)
+    VulkanTexture(Device &InDevice, const TextureCreateDesc &InCreateDesc)
+        : VulkanTexture(nullptr, InDevice, InCreateDesc)
     {
     }
 
     // Construct from external resource.
     // FIXME: HUGE HACK: the bUnused argument is there to disambiguate this overload from the one above when passing nullptr, since nullptr is a valid VkImage. Get rid of this code smell when unifying FVulkanSurface and FVulkanTexture.
-    Texture(Device &InDevice, const RHITextureCreateDesc &InCreateDesc, VkImage InImage, bool bUnused);
+    VulkanTexture(Device &InDevice, const TextureCreateDesc &InCreateDesc, VkImage InImage, bool bUnused);
 
-    virtual ~Texture();
+    virtual ~VulkanTexture();
 
     /// View with all mips/layers
     View *DefaultView = nullptr;
     // View with all mips/layers, but if it's a Depth/Stencil, only the Depth view
     View *PartialView = nullptr;
 
-    // Full includes Depth+Stencil
-    inline VkImageAspectFlags GetFullAspectMask() const { return FullAspectMask; }
-
-    inline bool IsImageOwner() const { return (ImageOwnerType == EImageOwnerType::LocalOwner); }
+    void *GetTextureBaseRHI() override final { return this; }
 
     struct ImageCreateInfo
     {
@@ -172,11 +175,16 @@ public:
         std::vector<VkFormat> FormatsUsed;
     };
 
+    // Full includes Depth+Stencil
+    inline VkImageAspectFlags GetFullAspectMask() const { return FullAspectMask; }
+
+    inline bool IsImageOwner() const { return (ImageOwnerType == EImageOwnerType::LocalOwner); }
+
     // Seperate method for creating VkImageCreateInfo
     static void GenerateImageCreateInfo(
         ImageCreateInfo &OutImageCreateInfo,
         Device &InDevice,
-        const RHITextureDesc &InDesc,
+        const TextureDesc &InDesc,
         VkFormat *OutStorageFormat = nullptr,
         VkFormat *OutViewFormat = nullptr,
         bool bForceLinearTexture = false);
@@ -222,7 +230,7 @@ public:
 
     inline VkImageLayout GetDefaultLayout() const { return DefaultLayout; }
 
-    static void InternalLockWrite(CommandListContext &Context, Texture *Surface,
+    static void InternalLockWrite(CommandListContext &Context, VulkanTexture *Surface,
                                   const VkBufferImageCopy &Region, VulkanRHI::StagingBuffer *StagingBuffer);
 
     Device *device;
@@ -247,3 +255,71 @@ private:
 protected:
     EImageOwnerType ImageOwnerType;
 };
+
+// 1401
+class VulkanGPUFence : public RHIGPUFence
+{
+public:
+    VulkanGPUFence() {}
+    virtual void Clear() final override;
+    virtual bool Poll() const final override;
+
+    CmdBuffer *GetCmdBuffer() const { return CmdBuffer; }
+
+protected:
+    CmdBuffer *CmdBuffer = nullptr;
+    uint64 FenceSignaledCounter = UINT64_MAX;
+
+    friend class FVulkanCommandListContext;
+};
+
+// 1068
+class VulkanMultiBuffer : public Buffer, public VulkanRHI::DeviceChild, public VulkanViewableResource
+{
+public:
+    VulkanMultiBuffer(Device *InDevice, BufferDesc const &InBufferDesc,
+                ResourceCreateInfo &CreateInfo, class RHICommandListBase *InRHICmdList = nullptr,
+                const RHITransientHeapAllocation *InTransientHeapAllocation = nullptr);
+    virtual ~VulkanMultiBuffer();
+
+    void ReleaseOwnership();
+
+    static VkBufferUsageFlags UEToVKBufferUsageFlags(Device *InDevice, BufferUsageFlags InUEUsage, bool bZeroSize);
+
+protected:
+    void AdvanceBufferIndex();
+
+    VkBufferUsageFlags usageFlags;
+
+    enum class ELockStatus : uint8
+    {
+        Unlocked,
+        Locked,
+        PersistentMapping,
+    } LockStatus = ELockStatus::Unlocked;
+
+    struct BufferAlloc
+    {
+        VkBuffer handle;
+        VmaAllocation alloc = VK_NULL_HANDLE;
+        VmaAllocationInfo allocInfo{};
+        void *HostPtr = nullptr;
+        class VulkanGPUFence *Fence = nullptr;
+        VkDeviceAddress DeviceAddress = 0;
+
+        enum class EAllocStatus : uint8
+        {
+            Available,  // The allocation is ready to be used
+            InUse,      // CurrentBufferIndex should point to this allocation
+            NeedsFence, // The allocation was just released and needs a fence to make sure previous commands are done with it
+            Pending,    // Fence was written, we are waiting on it to know that the alloc can be used again
+        } AllocStatus = EAllocStatus::Available;
+    };
+    std::vector<BufferAlloc> BufferAllocs;
+    int32 CurrentBufferIndex = -1;
+};
+
+static VulkanTexture *ResourceCast(Texture *texture)
+{
+    return static_cast<VulkanTexture *>(texture->GetTextureBaseRHI());
+}

@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <cassert>
 
 /*** 尹喜润 ***/
 typedef uint64_t uint64;

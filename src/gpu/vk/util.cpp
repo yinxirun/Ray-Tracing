@@ -1,4 +1,5 @@
 #include "util.h"
+#include "command_buffer.h"
 #include <iostream>
 
 namespace VulkanRHI
@@ -7,4 +8,16 @@ namespace VulkanRHI
     {
         printf("VerifyVulkanResult %s %s %u\n", VkFunction, Filename, Line);
     }
+}
+
+
+void VulkanGPUFence::Clear()
+{
+    CmdBuffer = nullptr;
+    FenceSignaledCounter = UINT64_MAX;
+}
+
+bool VulkanGPUFence::Poll() const
+{
+    return (CmdBuffer && (FenceSignaledCounter < CmdBuffer->GetFenceSignaledCounter()));
 }

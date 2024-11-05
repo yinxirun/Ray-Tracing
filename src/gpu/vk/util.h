@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Volk/volk.h"
+#include "resources.h"
 
 namespace VulkanRHI
 {
@@ -19,6 +20,15 @@ namespace VulkanRHI
     {                                                                                     \
         const VkResult ScopedResult = VkFunction;                                         \
         if (ScopedResult != VK_SUCCESS)                                                   \
+        {                                                                                 \
+            VulkanRHI::VerifyVulkanResult(ScopedResult, #VkFunction, __FILE__, __LINE__); \
+        }                                                                                 \
+    }
+
+#define VERIFYVULKANRESULT_EXPANDED(VkFunction)                                           \
+    {                                                                                     \
+        const VkResult ScopedResult = VkFunction;                                         \
+        if (ScopedResult < VK_SUCCESS)                                                    \
         {                                                                                 \
             VulkanRHI::VerifyVulkanResult(ScopedResult, #VkFunction, __FILE__, __LINE__); \
         }                                                                                 \

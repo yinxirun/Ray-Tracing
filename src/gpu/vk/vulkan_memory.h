@@ -125,7 +125,7 @@ namespace VulkanRHI
     protected:
         Device *device;
 
-        std::vector<StagingBuffer*> UsedStagingBuffers;
+        std::vector<StagingBuffer *> UsedStagingBuffers;
     };
 
     class Fence

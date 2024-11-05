@@ -22,10 +22,10 @@ namespace VulkanRHI
     class Semaphore;
 }
 
-class BackBuffer : public Texture
+class BackBuffer : public VulkanTexture
 {
 public:
-    BackBuffer(Device &Device, Viewport *InViewport, EPixelFormat Format, uint32_t SizeX, uint32_t SizeY, ETextureCreateFlags Flags);
+    BackBuffer(Device &Device, Viewport *InViewport, PixelFormat Format, uint32_t SizeX, uint32_t SizeY, ETextureCreateFlags Flags);
 
     virtual ~BackBuffer();
 
@@ -46,9 +46,9 @@ public:
     {
         NUM_BUFFERS = 3
     };
-    Viewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t sizeY, EPixelFormat InPreferredPixelFormat);
+    Viewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t sizeY, PixelFormat InPreferredPixelFormat);
     ~Viewport();
-    std::shared_ptr<Texture> GetBackBuffer(RHICommandListImmediate &RHICmdList);
+    std::shared_ptr<Texture> GetBackBuffer(/*RHICommandListImmediate &RHICmdList*/);
 
     virtual void WaitForFrameEventCompletion();
 
@@ -59,6 +59,22 @@ public:
     bool Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue *queue, Queue *presentQueue, bool bLockToVsync);
 
     inline bool IsFullscreen() const { return false; }
+    inline uint32 GetBackBufferImageCount() { return (uint32)backBufferImages.size(); }
+    inline VkImage GetBackBufferImage(uint32 Index)
+    {
+        if (backBufferImages.size() > 0)
+        {
+            return backBufferImages[Index];
+        }
+        else
+        {
+            return VK_NULL_HANDLE;
+        }
+    }
+
+    inline SwapChain *GetSwapChain() { return swapChain; }
+
+    VkSurfaceTransformFlagBitsKHR GetSwapchainQCOMRenderPassTransform() const;
 
 protected:
     Device *device;
@@ -68,11 +84,11 @@ protected:
     std::vector<View *> textureViews;
     std::shared_ptr<BackBuffer> RHIBackBuffer;
     // 'Dummy' back buffer
-    std::shared_ptr<Texture> renderingBackBuffer;
+    std::shared_ptr<VulkanTexture> renderingBackBuffer;
 
     uint32_t sizeX;
     uint32_t sizeY;
-    EPixelFormat pixelFormat;
+    PixelFormat pixelFormat;
     int32 acquiredImageIndex;
     SwapChain *swapChain;
     void *windowHandle;
@@ -89,14 +105,14 @@ protected:
     bool TryAcquireImageIndex();
 
     void RecreateSwapchain(void *);
-    void RecreateSwapchainFromRT(EPixelFormat PreferredPixelFormat);
-    void Resize(uint32 InSizeX, uint32 InSizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat);
+    void RecreateSwapchainFromRT(PixelFormat PreferredPixelFormat);
+    void Resize(uint32 InSizeX, uint32 InSizeY, bool bIsFullscreen, PixelFormat PreferredPixelFormat);
 
     bool DoCheckedSwapChainJob(std::function<int32(Viewport *)> SwapChainJob);
     bool SupportsStandardSwapchain();
     bool RequiresRenderingBackBuffer();
 
-    EPixelFormat GetPixelFormatForNonDefaultSwapchain();
+    PixelFormat GetPixelFormatForNonDefaultSwapchain();
 
     friend class BackBuffer;
     friend class RHI;

@@ -59,7 +59,7 @@ void View::Invalidate()
     invalidatedState.bInitialized = bIsInitialized;
 }
 
-View *View::InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat,
+View *View::InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, PixelFormat UEFormat,
                               VkFormat Format, uint32_t FirstMip, uint32_t NumMips, uint32_t ArraySliceIndex, uint32_t NumArraySlices, bool bUseIdentitySwizzle,
                               VkImageUsageFlags ImageUsageFlags)
 {

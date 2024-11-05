@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include "gpu/definitions.h"
 
-enum EPixelFormat : uint8_t
+enum PixelFormat : uint8_t
 {
     PF_Unknown = 0,
     PF_A32B32G32R32F = 1,
@@ -70,7 +71,7 @@ ENUM_CLASS_FLAGS(EPixelFormatCapabilities);
  * some state in here that is initialized by that module and should not be used by general use programs that don't
  * have RHI (so noted in comments).
  */
-struct FPixelFormatInfo
+struct PixelFormatInfo
 {
     // FPixelFormatInfo() = delete;
     // FPixelFormatInfo(
@@ -84,7 +85,7 @@ struct FPixelFormatInfo
     //     bool InSupported);
 
     const char *Name;
-    EPixelFormat UnrealFormat;
+    PixelFormat UnrealFormat;
     int32 BlockSizeX;
     int32 BlockSizeY;
     int32 BlockSizeZ;

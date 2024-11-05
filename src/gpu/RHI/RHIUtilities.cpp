@@ -1,9 +1,9 @@
 #include "RHIUtilities.h"
 
-ERHIAccess RHIGetDefaultResourceState(ETextureCreateFlags InUsage, bool bInHasInitialData)
+Access RHIGetDefaultResourceState(ETextureCreateFlags InUsage, bool bInHasInitialData)
 {
     // By default assume it can be bound for reading
-    ERHIAccess ResourceState = ERHIAccess::SRVMask;
+    Access ResourceState = Access::SRVMask;
 
     auto EnumHasAnyFlags = [](ETextureCreateFlags usage, ETextureCreateFlags flags) -> bool
     {
@@ -16,27 +16,27 @@ ERHIAccess RHIGetDefaultResourceState(ETextureCreateFlags InUsage, bool bInHasIn
     {
         if (EnumHasAnyFlags(InUsage, TexCreate_RenderTargetable))
         {
-            ResourceState = ERHIAccess::RTV;
+            ResourceState = Access::RTV;
         }
         else if (EnumHasAnyFlags(InUsage, TexCreate_DepthStencilTargetable))
         {
-            ResourceState = ERHIAccess::DSVWrite | ERHIAccess::DSVRead;
+            ResourceState = Access::DSVWrite | Access::DSVRead;
         }
         else if (EnumHasAnyFlags(InUsage, TexCreate_UAV))
         {
-            ResourceState = ERHIAccess::UAVMask;
+            ResourceState = Access::UAVMask;
         }
         else if (EnumHasAnyFlags(InUsage, TexCreate_Presentable))
         {
-            ResourceState = ERHIAccess::Present;
+            ResourceState = Access::Present;
         }
         else if (EnumHasAnyFlags(InUsage, TexCreate_ShaderResource))
         {
-            ResourceState = ERHIAccess::SRVMask;
+            ResourceState = Access::SRVMask;
         }
         else if (EnumHasAnyFlags(InUsage, TexCreate_Foveation))
         {
-            ResourceState = ERHIAccess::ShadingRateSource;
+            ResourceState = Access::ShadingRateSource;
         }
     }
 

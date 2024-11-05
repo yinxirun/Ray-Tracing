@@ -243,6 +243,11 @@ public:
         LastFrameUsed = bUsed ? GFrameNumberRenderThread : LastFrameUsed;
     }
 
+    inline bool IsUnused() const
+    {
+        return !bUsed;
+    }
+
 private:
     Device *device;
     std::map<uint32_t, TypedDescriptorPoolSet *> TypedDescriptorPools;
@@ -254,14 +259,24 @@ private:
 class DescriptorPoolsManager
 {
 public:
+    ~DescriptorPoolsManager();
+    void Init(Device *InDevice)
+    {
+        device = InDevice;
+    }
+    DescriptorPoolSetContainer &AcquirePoolSetContainer();
     void ReleasePoolSet(DescriptorPoolSetContainer &PoolSet);
+
+private:
+    Device *device = nullptr;
+    std::vector<DescriptorPoolSetContainer *> PoolSets;
 };
 
 // Manager for resource descriptors used in bindless rendering.
 class BindlessDescriptorManager : public VulkanRHI::DeviceChild
 {
 public:
-    BindlessDescriptorManager(Device* InDevice);
+    BindlessDescriptorManager(Device *InDevice);
 
     RHIDescriptorHandle ReserveDescriptor(VkDescriptorType DescriptorType);
 
