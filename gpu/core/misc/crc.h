@@ -16,3 +16,5 @@ constexpr T Align(T Val, uint64 Alignment)
 }
 
 uint32 MemCrc32(const void *InData, int32 Length, uint32 CRC = 0);
+
+uint32 MemCrc_DEPRECATED(const void *InData, int32 Length, uint32 CRC = 0);

@@ -5,6 +5,7 @@
 #include "resources.h"
 #include "platform.h"
 #include "rhi.h"
+#include "pending_state.h"
 #include "command_buffer.h"
 #include "viewport.h"
 #include "gpu/RHI/RHIResources.h"
@@ -15,6 +16,19 @@
 extern RHI *rhi;
 /// 1 to submit the cmd buffer after end occlusion query batch (default)
 int GSubmitOcclusionBatchCmdBufferCVar = 1;
+
+RenderPass *CommandListContext::PrepareRenderPassForPSOCreation(const GraphicsPipelineStateInitializer &Initializer)
+{
+    RenderTargetLayout RTLayout(Initializer);
+    return PrepareRenderPassForPSOCreation(RTLayout);
+}
+
+RenderPass *CommandListContext::PrepareRenderPassForPSOCreation(const RenderTargetLayout &RTLayout)
+{
+    RenderPass *RenderPass = nullptr;
+    RenderPass = device->GetRenderPassManager().GetOrCreateRenderPass(RTLayout);
+    return RenderPass;
+}
 
 VkSurfaceTransformFlagBitsKHR CommandListContext::GetSwapchainQCOMRenderPassTransform() const
 {
@@ -324,7 +338,7 @@ void CommandListContext::BeginRenderPass(const RenderPassInfo &InInfo, const cha
 
     if (SafePointSubmit())
     {
-    	CmdBuffer = commandBufferManager->GetActiveCmdBuffer();
+        CmdBuffer = commandBufferManager->GetActiveCmdBuffer();
     }
 
     renderPassInfo = InInfo;
@@ -340,7 +354,7 @@ void CommandListContext::BeginRenderPass(const RenderPassInfo &InInfo, const cha
     VkImageLayout CurrentStencilLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     if (DSTexture)
     {
-        VulkanTexture &vulkanTexture = *dynamic_cast<VulkanTexture*>(DSTexture);
+        VulkanTexture &vulkanTexture = *dynamic_cast<VulkanTexture *>(DSTexture);
         const VkImageAspectFlags AspectFlags = vulkanTexture.GetFullAspectMask();
 
         if (GetDevice()->SupportsParallelRendering())
@@ -459,4 +473,183 @@ void CommandListContext::NextSubpass()
     check(CurrentRenderPass);
     CmdBuffer *cb = commandBufferManager->GetActiveCmdBuffer();
     vkCmdNextSubpass(cb->GetHandle(), VK_SUBPASS_CONTENTS_INLINE);
+}
+
+RenderTargetLayout::RenderTargetLayout(const GraphicsPipelineStateInitializer& Initializer)
+	: NumAttachmentDescriptions(0)
+	, NumColorAttachments(0)
+	, bHasDepthStencil(false)
+	, bHasResolveAttachments(false)
+	, bHasFragmentDensityAttachment(false)
+	, NumSamples(0)
+	, NumUsedClearValues(0)
+	, MultiViewCount(0)
+{
+	ResetAttachments();
+
+	RenderPassCompatibleHashableStruct CompatibleHashInfo;
+	RenderPassFullHashableStruct FullHashInfo;
+
+	bool bFoundClearOp = false;
+	MultiViewCount = Initializer.MultiViewCount;
+	NumSamples = Initializer.NumSamples;
+	for (uint32 Index = 0; Index < Initializer.RenderTargetsEnabled; ++Index)
+	{
+		PixelFormat UEFormat = (PixelFormat)Initializer.RenderTargetFormats[Index];
+		if (UEFormat != PF_Unknown)
+		{
+			// With a CustomResolveSubpass last color attachment is a resolve target
+			bool bCustomResolveAttachment = (Index == (Initializer.RenderTargetsEnabled - 1)) && Initializer.SubpassHint == SubpassHint::CustomResolveSubpass;
+			
+			VkAttachmentDescription& CurrDesc = Desc[NumAttachmentDescriptions];
+			CurrDesc.samples = bCustomResolveAttachment ? VK_SAMPLE_COUNT_1_BIT : static_cast<VkSampleCountFlagBits>(NumSamples);
+			CurrDesc.format = UEToVkTextureFormat(UEFormat, EnumHasAllFlags(Initializer.RenderTargetFlags[Index], TexCreate_SRGB));
+			CurrDesc.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			CurrDesc.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			CurrDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			CurrDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+
+			// If the initial != final we need to change the FullHashInfo and use FinalLayout
+			CurrDesc.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			CurrDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+			ColorReferences[NumColorAttachments].attachment = NumAttachmentDescriptions;
+			ColorReferences[NumColorAttachments].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+			if (CurrDesc.samples > VK_SAMPLE_COUNT_1_BIT)
+			{
+				Desc[NumAttachmentDescriptions + 1] = Desc[NumAttachmentDescriptions];
+				Desc[NumAttachmentDescriptions + 1].samples = VK_SAMPLE_COUNT_1_BIT;
+				Desc[NumAttachmentDescriptions + 1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+				Desc[NumAttachmentDescriptions + 1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+				ResolveReferences[NumColorAttachments].attachment = NumAttachmentDescriptions + 1;
+				ResolveReferences[NumColorAttachments].layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				CompatibleHashInfo.AttachmentsToResolve |= (uint16)(1 << NumColorAttachments);
+				++NumAttachmentDescriptions;
+				bHasResolveAttachments = true;
+			}
+
+			CompatibleHashInfo.Formats[NumColorAttachments] = CurrDesc.format;
+			FullHashInfo.LoadOps[NumColorAttachments] = CurrDesc.loadOp;
+			FullHashInfo.StoreOps[NumColorAttachments] = CurrDesc.storeOp;
+			FullHashInfo.InitialLayout[NumColorAttachments] = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			++CompatibleHashInfo.NumAttachments;
+
+			++NumAttachmentDescriptions;
+			++NumColorAttachments;
+		}
+	}
+
+	if (Initializer.DepthStencilTargetFormat != PF_Unknown)
+	{
+		VkAttachmentDescription& CurrDesc = Desc[NumAttachmentDescriptions];
+		CurrDesc={};
+
+		CurrDesc.samples = static_cast<VkSampleCountFlagBits>(NumSamples);
+		CurrDesc.format = UEToVkTextureFormat(Initializer.DepthStencilTargetFormat, false);
+		CurrDesc.loadOp = RenderTargetLoadActionToVulkan(Initializer.DepthTargetLoadAction);
+		CurrDesc.stencilLoadOp = RenderTargetLoadActionToVulkan(Initializer.StencilTargetLoadAction);
+		if (CurrDesc.loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR || CurrDesc.stencilLoadOp == VK_ATTACHMENT_LOAD_OP_CLEAR)
+		{
+			bFoundClearOp = true;
+		}
+		if (CurrDesc.samples == VK_SAMPLE_COUNT_1_BIT)
+		{
+			CurrDesc.storeOp = RenderTargetStoreActionToVulkan(Initializer.DepthTargetStoreAction);
+			CurrDesc.stencilStoreOp = RenderTargetStoreActionToVulkan(Initializer.StencilTargetStoreAction);
+		}
+		else
+		{
+			// Never want to store MSAA depth/stencil
+			CurrDesc.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			CurrDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		}
+
+		// If the initial != final we need to change the FullHashInfo and use FinalLayout
+		CurrDesc.initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+		CurrDesc.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+		StencilDesc.stencilInitialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+		StencilDesc.stencilFinalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+
+		DepthReference.attachment = NumAttachmentDescriptions;
+		DepthReference.layout = Initializer.DepthStencilAccess.IsDepthWrite() ? VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+		StencilReference.stencilLayout = Initializer.DepthStencilAccess.IsStencilWrite() ? VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+
+		FullHashInfo.LoadOps[MaxSimultaneousRenderTargets] = CurrDesc.loadOp;
+		FullHashInfo.LoadOps[MaxSimultaneousRenderTargets + 1] = CurrDesc.stencilLoadOp;
+		FullHashInfo.StoreOps[MaxSimultaneousRenderTargets] = CurrDesc.storeOp;
+		FullHashInfo.StoreOps[MaxSimultaneousRenderTargets + 1] = CurrDesc.stencilStoreOp;
+		FullHashInfo.InitialLayout[MaxSimultaneousRenderTargets] = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+		FullHashInfo.InitialLayout[MaxSimultaneousRenderTargets + 1] = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+		CompatibleHashInfo.Formats[MaxSimultaneousRenderTargets] = CurrDesc.format;
+
+		++NumAttachmentDescriptions;
+		bHasDepthStencil = true;
+	}
+
+	if (Initializer.bHasFragmentDensityAttachment)
+	{
+        printf("ERROR: Don't support Fragment Density Attachment %s %d\n",__FILE__,__LINE__);
+        exit(-1);
+		// VkAttachmentDescription& CurrDesc = Desc[NumAttachmentDescriptions];
+		// CurrDesc={};
+
+		// const VkImageLayout VRSLayout = GetVRSImageLayout();
+
+		// check(GRHIVariableRateShadingImageFormat != PF_Unknown);
+
+		// CurrDesc.flags = 0;
+		// CurrDesc.format = UEToVkTextureFormat(GRHIVariableRateShadingImageFormat, false);
+		// CurrDesc.samples = VK_SAMPLE_COUNT_1_BIT;
+		// CurrDesc.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		// CurrDesc.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		// CurrDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		// CurrDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		// CurrDesc.initialLayout = VRSLayout;
+		// CurrDesc.finalLayout = VRSLayout;
+
+		// FragmentDensityReference.attachment = NumAttachmentDescriptions;
+		// FragmentDensityReference.layout = VRSLayout;
+
+		// FullHashInfo.LoadOps[MaxSimultaneousRenderTargets + 2] = CurrDesc.stencilLoadOp;
+		// FullHashInfo.StoreOps[MaxSimultaneousRenderTargets + 2] = CurrDesc.stencilStoreOp;
+		// FullHashInfo.InitialLayout[MaxSimultaneousRenderTargets + 2] = VRSLayout;
+		// CompatibleHashInfo.Formats[MaxSimultaneousRenderTargets + 1] = CurrDesc.format;
+
+		// ++NumAttachmentDescriptions;
+		// bHasFragmentDensityAttachment = true;
+	}
+
+	SubpassHint = Initializer.SubpassHint;
+	CompatibleHashInfo.SubpassHint = (uint8)Initializer.SubpassHint;
+
+	CommandListContext& ImmediateContext = RHI::Get().GetDevice()->GetImmediateContext();
+
+	if (RHI::Get().GetDevice()->GetOptionalExtensions().HasQcomRenderPassTransform)
+	{
+        printf("ERROR: Don't support Qcom Render Pass Transform %s %d\n",__FILE__,__LINE__);
+        exit(-1);
+		// VkFormat SwapchainImageFormat = ImmediateContext.GetSwapchainImageFormat();
+		// if (Desc[0].format == SwapchainImageFormat)
+		// {
+		// 	// Potential Swapchain RenderPass
+		// 	QCOMRenderPassTransform = ImmediateContext.GetSwapchainQCOMRenderPassTransform();
+		// }
+		// // TODO: add some checks to detect potential Swapchain pass
+		// else if (SwapchainImageFormat == VK_FORMAT_UNDEFINED)
+		// {
+		// 	// WA: to have compatible RP created with VK_RENDER_PASS_CREATE_TRANSFORM_BIT_QCOM flag
+		// 	QCOMRenderPassTransform = VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR;
+		// }
+	}
+
+	CompatibleHashInfo.QCOMRenderPassTransform = QCOMRenderPassTransform;
+
+	CompatibleHashInfo.NumSamples = NumSamples;
+	CompatibleHashInfo.MultiViewCount = MultiViewCount;
+
+	RenderPassCompatibleHash = MemCrc32(&CompatibleHashInfo, sizeof(CompatibleHashInfo));
+	RenderPassFullHash = MemCrc32(&FullHashInfo, sizeof(FullHashInfo), RenderPassCompatibleHash);
+	NumUsedClearValues = bFoundClearOp ? NumAttachmentDescriptions : 0;
+	bCalculatedHash = true;
 }

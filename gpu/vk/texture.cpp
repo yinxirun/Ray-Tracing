@@ -33,7 +33,7 @@ void VulkanTexture::GenerateImageCreateInfo(
     const VkPhysicalDeviceProperties &DeviceProperties = InDevice.GetDeviceProperties();
     VkFormat TextureFormat = GPixelFormats[InDesc.Format];
 
-    const ETextureCreateFlags UEFlags = InDesc.Flags;
+    const TextureCreateFlags UEFlags = InDesc.Flags;
     if (EnumHasAnyFlags(UEFlags, TexCreate_CPUReadback))
     {
         bForceLinearTexture = true;

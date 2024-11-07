@@ -4,10 +4,15 @@
 #include "gpu/math/vec.h"
 #include "gpu/definitions.h"
 #include "gpu/core/pixel_format.h"
+#include "gpu/core/misc/secure_hash.h"
 #include "RHIDefinitions.h"
 #include "RHIAccess.h"
 #include "RHIUtilities.h"
+#include "RHI.h"
 #include <array>
+#include <vector>
+
+typedef std::vector<VertexElement> VertexDeclarationElementList;
 
 // 351
 struct ResourceCreateInfo
@@ -50,7 +55,7 @@ struct TextureDesc
     uint8 NumSamples = 1;
 
     /** Texture flags passed on to RHI texture. */
-    ETextureCreateFlags Flags = TexCreate_None;
+    TextureCreateFlags Flags = TexCreate_None;
 };
 
 struct TextureCreateDesc : public TextureDesc
@@ -79,7 +84,7 @@ struct TextureCreateDesc : public TextureDesc
         Format = InFormat;
         return *this;
     }
-    TextureCreateDesc &SetFlags(ETextureCreateFlags InFlags)
+    TextureCreateDesc &SetFlags(TextureCreateFlags InFlags)
     {
         Flags = InFlags;
         return *this;
@@ -128,6 +133,26 @@ public:
 
 private:
     Access TrackedAccess;
+};
+
+// 740
+class BoundShaderState : public RHIResource
+{
+public:
+    BoundShaderState() : RHIResource(RRT_BoundShaderState) {}
+};
+
+// 993
+class GraphicsPipelineState : public RHIResource
+{
+public:
+    GraphicsPipelineState() : RHIResource(RRT_GraphicsPipelineState) {}
+
+    inline void SetSortKey(uint64 InSortKey) { SortKey = InSortKey; }
+    inline uint64 GetSortKey() const { return SortKey; }
+
+private:
+    uint64 SortKey = 0;
 };
 
 // 1189
@@ -245,6 +270,14 @@ public:
     {
         return ExtractStencil() == StencilRead;
     }
+    inline bool IsDepthWrite() const
+    {
+        return ExtractDepth() == DepthWrite;
+    }
+    inline bool IsStencilWrite() const
+    {
+        return ExtractStencil() == StencilWrite;
+    }
 
 private:
     inline Type ExtractDepth() const { return (Type)(Value & DepthMask); }
@@ -296,6 +329,112 @@ static inline VkAttachmentStoreOp RenderTargetStoreActionToVulkan(RenderTargetSt
     check(OutStoreAction != VK_ATTACHMENT_STORE_OP_MAX_ENUM);
     return OutStoreAction;
 }
+
+// 678
+//
+// State blocks
+//
+class SamplerState : public RHIResource
+{
+public:
+    SamplerState() : RHIResource(RRT_SamplerState) {}
+    virtual bool IsImmutable() const { return false; }
+};
+
+class RasterizerState : public RHIResource
+{
+public:
+    RasterizerState() : RHIResource(RRT_RasterizerState) {}
+    virtual bool GetInitializer(struct RasterizerStateInitializer &Init) { return false; }
+};
+
+class DepthStencilState : public RHIResource
+{
+public:
+    DepthStencilState() : RHIResource(RRT_DepthStencilState) {}
+    virtual bool GetInitializer(struct DepthStencilStateInitializerRHI &Init) { return false; }
+};
+
+class BlendState : public RHIResource
+{
+public:
+    BlendState() : RHIResource(RRT_BlendState) {}
+    virtual bool GetInitializer(class BlendStateInitializerRHI &Init) { return false; }
+};
+
+// 753
+class VertexDeclaration : public RHIResource
+{
+public:
+    VertexDeclaration() : RHIResource(RRT_VertexDeclaration) {}
+    virtual bool GetInitializer(VertexDeclarationElementList &Init) { return false; }
+    virtual uint32 GetPrecachePSOHash() const { return 0; }
+};
+
+// 762
+class RHIShader : public RHIResource
+{
+public:
+public:
+    void SetHash(SHAHash InHash) { Hash = InHash; }
+    SHAHash GetHash() const { return Hash; }
+
+    RHIShader(ERHIResourceType InResourceType, EShaderFrequency InFrequency)
+        : RHIResource(InResourceType)
+    // , Frequency(InFrequency)
+    // , bNoDerivativeOps(false)
+    // , bHasShaderBundleUsage(false)
+    {
+    }
+
+private:
+    SHAHash Hash;
+};
+
+class RHIGraphicsShader : public RHIShader
+{
+public:
+    explicit RHIGraphicsShader(ERHIResourceType InResourceType, EShaderFrequency InFrequency)
+        : RHIShader(InResourceType, InFrequency) {}
+};
+
+class VertexShader : public RHIGraphicsShader
+{
+public:
+    VertexShader() : RHIGraphicsShader(RRT_VertexShader, SF_Vertex) {}
+};
+
+class RHIMeshShader : public RHIGraphicsShader
+{
+public:
+    RHIMeshShader() : RHIGraphicsShader(RRT_MeshShader, SF_Mesh) {}
+};
+
+class PixelShader : public RHIGraphicsShader
+{
+public:
+    PixelShader() : RHIGraphicsShader(RRT_PixelShader, SF_Pixel) {}
+};
+
+class RHIGeometryShader : public RHIGraphicsShader
+{
+public:
+    RHIGeometryShader() : RHIGraphicsShader(RRT_GeometryShader, SF_Geometry) {}
+};
+
+class RHIComputeShader : public RHIShader
+{
+public:
+    RHIComputeShader() : RHIShader(RRT_ComputeShader, SF_Compute) //, Stats(nullptr)
+    {
+    }
+
+    // inline void SetStats(struct FPipelineStateStats *Ptr) { Stats = Ptr; }
+    //  void UpdateStats();
+
+private:
+    // struct FPipelineStateStats *Stats;
+};
 
 // 1220
 class Buffer : public RHIViewableResource
@@ -436,6 +575,71 @@ public:
                              bClearDepth(false), ShadingRateTexture(nullptr), MultiViewCount(0) {}
 };
 
+// 3551
+struct BoundShaderStateInput
+{
+    inline BoundShaderStateInput() {}
+
+    inline BoundShaderStateInput(
+        VertexDeclaration *InVertexDeclarationRHI, VertexShader *InVertexShaderRHI, PixelShader *InPixelShaderRHI
+#if PLATFORM_SUPPORTS_GEOMETRY_SHADERS
+        ,
+        FRHIGeometryShader *InGeometryShaderRHI
+#endif
+        )
+        : VertexDeclarationRHI(InVertexDeclarationRHI), VertexShaderRHI(InVertexShaderRHI), PixelShaderRHI(InPixelShaderRHI)
+#if PLATFORM_SUPPORTS_GEOMETRY_SHADERS
+          ,
+          GeometryShaderRHI(InGeometryShaderRHI)
+#endif
+    {
+    }
+
+#if PLATFORM_SUPPORTS_MESH_SHADERS
+    inline FBoundShaderStateInput(
+        FRHIMeshShader *InMeshShaderRHI,
+        FRHIAmplificationShader *InAmplificationShader,
+        FRHIPixelShader *InPixelShaderRHI)
+        : PixelShaderRHI(InPixelShaderRHI), MeshShaderRHI(InMeshShaderRHI), AmplificationShaderRHI(InAmplificationShader)
+    {
+    }
+#endif
+
+    VertexShader *GetVertexShader() const { return VertexShaderRHI; }
+    PixelShader *GetPixelShader() const { return PixelShaderRHI; }
+
+#if PLATFORM_SUPPORTS_MESH_SHADERS
+    FRHIMeshShader *GetMeshShader() const { return MeshShaderRHI; }
+    void SetMeshShader(FRHIMeshShader *InMeshShader) { MeshShaderRHI = InMeshShader; }
+    FRHIAmplificationShader *GetAmplificationShader() const { return AmplificationShaderRHI; }
+    void SetAmplificationShader(FRHIAmplificationShader *InAmplificationShader) { AmplificationShaderRHI = InAmplificationShader; }
+#else
+    constexpr RHIMeshShader *GetMeshShader() const { return nullptr; }
+    void SetMeshShader(RHIMeshShader *) {}
+#endif
+
+#if PLATFORM_SUPPORTS_GEOMETRY_SHADERS
+    FRHIGeometryShader *GetGeometryShader() const { return GeometryShaderRHI; }
+    void SetGeometryShader(FRHIGeometryShader *InGeometryShader) { GeometryShaderRHI = InGeometryShader; }
+#else
+    constexpr RHIGeometryShader *GetGeometryShader() const { return nullptr; }
+    void SetGeometryShader(RHIGeometryShader *) {}
+#endif
+
+    VertexDeclaration *VertexDeclarationRHI = nullptr;
+    VertexShader *VertexShaderRHI = nullptr;
+    PixelShader *PixelShaderRHI = nullptr;
+
+private:
+#if PLATFORM_SUPPORTS_MESH_SHADERS
+    FRHIMeshShader *MeshShaderRHI = nullptr;
+    FRHIAmplificationShader *AmplificationShaderRHI = nullptr;
+#endif
+#if PLATFORM_SUPPORTS_GEOMETRY_SHADERS
+    FRHIGeometryShader *GeometryShaderRHI = nullptr;
+#endif
+};
+
 // 3687
 // Hints for some RHIs that support subpasses
 enum class SubpassHint : uint8
@@ -448,6 +652,130 @@ enum class SubpassHint : uint8
     DeferredShadingSubpass,
     // Mobile MSAA custom resolve subpass. Includes DepthReadSubpass.
     CustomResolveSubpass,
+};
+
+// 3703
+enum class ConservativeRasterization : uint8
+{
+    Disabled,
+    Overestimated,
+};
+
+// 3734
+class GraphicsPipelineStateInitializer
+{
+public:
+    // Can't use TEnumByte<EPixelFormat> as it changes the struct to be non trivially constructible, breaking memset
+    using TRenderTargetFormats = std::array<uint8 /*EPixelFormat*/, MaxSimultaneousRenderTargets>;
+    using TRenderTargetFlags = std::array<TextureCreateFlags, MaxSimultaneousRenderTargets>;
+
+    GraphicsPipelineStateInitializer()
+        : BlendState(nullptr), RasterizerState(nullptr), DepthStencilState(nullptr),
+          RenderTargetsEnabled(0), DepthStencilTargetFormat(PF_Unknown), DepthStencilTargetFlag(TexCreate_None),
+          DepthTargetLoadAction(RenderTargetLoadAction::ENoAction), DepthTargetStoreAction(RenderTargetStoreAction::ENoAction),
+          StencilTargetLoadAction(RenderTargetLoadAction::ENoAction), StencilTargetStoreAction(RenderTargetStoreAction::ENoAction),
+          NumSamples(0), SubpassHint(SubpassHint::None), SubpassIndex(0), ConservativeRasterization(ConservativeRasterization::Disabled), bDepthBounds(false), MultiViewCount(0), bHasFragmentDensityAttachment(false),
+          bAllowVariableRateShading(false),
+          ShadingRate(VRSShadingRate::VRSSR_1x1), Flags(0),
+          StatePrecachePSOHash(0)
+    {
+        RenderTargetFormats.fill(static_cast<uint8>(PF_Unknown));
+        RenderTargetFlags.fill(TexCreate_None);
+    }
+
+    // We care about flags that influence RT formats (which is the only thing the underlying API cares about).
+    // In most RHIs, the format is only influenced by TexCreate_SRGB. D3D12 additionally uses TexCreate_Shared in its format selection logic.
+    static constexpr TextureCreateFlags RelevantRenderTargetFlagMask = TextureCreateFlags::SRGB | TextureCreateFlags::Shared;
+
+    // We care about flags that influence DS formats (which is the only thing the underlying API cares about).
+    // D3D12 shares the format choice function with the RT, so preserving all the flags used there out of abundance of caution.
+    static constexpr TextureCreateFlags RelevantDepthStencilFlagMask = TextureCreateFlags::SRGB | TextureCreateFlags::Shared | TextureCreateFlags::DepthStencilTargetable;
+
+    // 	static bool RelevantRenderTargetFlagsEqual(const TRenderTargetFlags& A, const TRenderTargetFlags& B)
+    // 	{
+    // 		for (int32 Index = 0; Index < A.Num(); ++Index)
+    // 		{
+    // 			ETextureCreateFlags FlagsA = A[Index] & RelevantRenderTargetFlagMask;
+    // 			ETextureCreateFlags FlagsB = B[Index] & RelevantRenderTargetFlagMask;
+    // 			if (FlagsA != FlagsB)
+    // 			{
+    // 				return false;
+    // 			}
+    // 		}
+    // 		return true;
+    // 	}
+
+    // 	static bool RelevantDepthStencilFlagsEqual(const ETextureCreateFlags A, const ETextureCreateFlags B)
+    // 	{
+    // 		ETextureCreateFlags FlagsA = (A & RelevantDepthStencilFlagMask);
+    // 		ETextureCreateFlags FlagsB = (B & RelevantDepthStencilFlagMask);
+    // 		return (FlagsA == FlagsB);
+    // 	}
+
+    // 	uint32 ComputeNumValidRenderTargets() const
+    // 	{
+    // 		// Get the count of valid render targets (ignore those at the end of the array with PF_Unknown)
+    // 		if (RenderTargetsEnabled > 0)
+    // 		{
+    // 			int32 LastValidTarget = -1;
+    // 			for (int32 i = (int32)RenderTargetsEnabled - 1; i >= 0; i--)
+    // 			{
+    // 				if (RenderTargetFormats[i] != PF_Unknown)
+    // 				{
+    // 					LastValidTarget = i;
+    // 					break;
+    // 				}
+    // 			}
+    // 			return uint32(LastValidTarget + 1);
+    // 		}
+    // 		return RenderTargetsEnabled;
+    // 	}
+
+    BoundShaderStateInput BoundShaderState;
+    BlendState *BlendState;
+    RasterizerState *RasterizerState;
+    DepthStencilState *DepthStencilState;
+    // ImmutableSamplerState ImmutableSamplerState;
+
+    PrimitiveType PrimitiveType;
+    uint32 RenderTargetsEnabled;
+    TRenderTargetFormats RenderTargetFormats;
+    TRenderTargetFlags RenderTargetFlags;
+    PixelFormat DepthStencilTargetFormat;
+    TextureCreateFlags DepthStencilTargetFlag;
+    RenderTargetLoadAction DepthTargetLoadAction;
+    RenderTargetStoreAction DepthTargetStoreAction;
+    RenderTargetLoadAction StencilTargetLoadAction;
+    RenderTargetStoreAction StencilTargetStoreAction;
+    ExclusiveDepthStencil DepthStencilAccess;
+    uint16 NumSamples;
+    SubpassHint SubpassHint;
+    uint8 SubpassIndex;
+    ConservativeRasterization ConservativeRasterization;
+    bool bDepthBounds;
+    uint8 MultiViewCount;
+    bool bHasFragmentDensityAttachment;
+    bool bAllowVariableRateShading;
+    VRSShadingRate ShadingRate;
+
+    // Note: these flags do NOT affect compilation of this PSO.
+    // The resulting object is invariant with respect to whatever is set here, they are
+    // behavior hints.
+    // They do not participate in equality comparisons or hashing.
+    union
+    {
+        struct
+        {
+            uint16 Reserved : 14;
+            uint16 bPSOPrecache : 1;
+            uint16 bFromPSOFileCache : 1;
+        };
+        uint16 Flags;
+    };
+
+    // Cached hash off all state data provided at creation time (Only contains hash of data which influences the PSO precaching for the current platform)
+    // Created from hashing the state data instead of the pointers which are used during fast runtime cache checking and compares
+    uint64 StatePrecachePSOHash;
 };
 
 // 4121

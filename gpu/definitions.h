@@ -51,7 +51,7 @@ public:
     inline constexpr Enum operator~(Enum E) { return (Enum) ~(__underlying_type(Enum))E; }
 
 /** Flags used for texture creation */
-enum class ETextureCreateFlags : uint64_t
+enum class TextureCreateFlags : uint64_t
 {
     None = 0,
 
@@ -145,45 +145,45 @@ enum class ETextureCreateFlags : uint64_t
     Invalid = 1ull << 40,
 };
 
-ENUM_CLASS_FLAGS(ETextureCreateFlags);
+ENUM_CLASS_FLAGS(TextureCreateFlags);
 
 // Compatibility defines
-#define TexCreate_None ETextureCreateFlags::None
-#define TexCreate_RenderTargetable ETextureCreateFlags::RenderTargetable
-#define TexCreate_ResolveTargetable ETextureCreateFlags::ResolveTargetable
-#define TexCreate_DepthStencilTargetable ETextureCreateFlags::DepthStencilTargetable
-#define TexCreate_ShaderResource ETextureCreateFlags::ShaderResource
-#define TexCreate_SRGB ETextureCreateFlags::SRGB
-#define TexCreate_CPUWritable ETextureCreateFlags::CPUWritable
-#define TexCreate_NoTiling ETextureCreateFlags::NoTiling
-#define TexCreate_VideoDecode ETextureCreateFlags::VideoDecode
-#define TexCreate_Dynamic ETextureCreateFlags::Dynamic
-#define TexCreate_InputAttachmentRead ETextureCreateFlags::InputAttachmentRead
-#define TexCreate_Foveation ETextureCreateFlags::Foveation
-#define TexCreate_3DTiling ETextureCreateFlags::Tiling3D
-#define TexCreate_Memoryless ETextureCreateFlags::Memoryless
-#define TexCreate_GenerateMipCapable ETextureCreateFlags::GenerateMipCapable
-#define TexCreate_FastVRAMPartialAlloc ETextureCreateFlags::FastVRAMPartialAlloc
-#define TexCreate_DisableSRVCreation ETextureCreateFlags::DisableSRVCreation
-#define TexCreate_DisableDCC ETextureCreateFlags::DisableDCC
-#define TexCreate_UAV ETextureCreateFlags::UAV
-#define TexCreate_Presentable ETextureCreateFlags::Presentable
-#define TexCreate_CPUReadback ETextureCreateFlags::CPUReadback
-#define TexCreate_OfflineProcessed ETextureCreateFlags::OfflineProcessed
-#define TexCreate_FastVRAM ETextureCreateFlags::FastVRAM
-#define TexCreate_HideInVisualizeTexture ETextureCreateFlags::HideInVisualizeTexture
-#define TexCreate_Virtual ETextureCreateFlags::Virtual
-#define TexCreate_TargetArraySlicesIndependently ETextureCreateFlags::TargetArraySlicesIndependently
-#define TexCreate_Shared ETextureCreateFlags::Shared
-#define TexCreate_NoFastClear ETextureCreateFlags::NoFastClear
-#define TexCreate_DepthStencilResolveTarget ETextureCreateFlags::DepthStencilResolveTarget
-#define TexCreate_Streamable ETextureCreateFlags::Streamable
-#define TexCreate_NoFastClearFinalize ETextureCreateFlags::NoFastClearFinalize
-#define TexCreate_ReduceMemoryWithTilingMode ETextureCreateFlags::ReduceMemoryWithTilingMode
-#define TexCreate_Transient ETextureCreateFlags::Transient
-#define TexCreate_AtomicCompatible ETextureCreateFlags::AtomicCompatible
-#define TexCreate_External ETextureCreateFlags::External
-#define TexCreate_MultiGPUGraphIgnore ETextureCreateFlags::MultiGPUGraphIgnore
-#define TexCreate_ReservedResource ETextureCreateFlags::ReservedResource
-#define TexCreate_ImmediateCommit ETextureCreateFlags::ImmediateCommit
-#define TexCreate_Invalid ETextureCreateFlags::Invalid
+#define TexCreate_None TextureCreateFlags::None
+#define TexCreate_RenderTargetable TextureCreateFlags::RenderTargetable
+#define TexCreate_ResolveTargetable TextureCreateFlags::ResolveTargetable
+#define TexCreate_DepthStencilTargetable TextureCreateFlags::DepthStencilTargetable
+#define TexCreate_ShaderResource TextureCreateFlags::ShaderResource
+#define TexCreate_SRGB TextureCreateFlags::SRGB
+#define TexCreate_CPUWritable TextureCreateFlags::CPUWritable
+#define TexCreate_NoTiling TextureCreateFlags::NoTiling
+#define TexCreate_VideoDecode TextureCreateFlags::VideoDecode
+#define TexCreate_Dynamic TextureCreateFlags::Dynamic
+#define TexCreate_InputAttachmentRead TextureCreateFlags::InputAttachmentRead
+#define TexCreate_Foveation TextureCreateFlags::Foveation
+#define TexCreate_3DTiling TextureCreateFlags::Tiling3D
+#define TexCreate_Memoryless TextureCreateFlags::Memoryless
+#define TexCreate_GenerateMipCapable TextureCreateFlags::GenerateMipCapable
+#define TexCreate_FastVRAMPartialAlloc TextureCreateFlags::FastVRAMPartialAlloc
+#define TexCreate_DisableSRVCreation TextureCreateFlags::DisableSRVCreation
+#define TexCreate_DisableDCC TextureCreateFlags::DisableDCC
+#define TexCreate_UAV TextureCreateFlags::UAV
+#define TexCreate_Presentable TextureCreateFlags::Presentable
+#define TexCreate_CPUReadback TextureCreateFlags::CPUReadback
+#define TexCreate_OfflineProcessed TextureCreateFlags::OfflineProcessed
+#define TexCreate_FastVRAM TextureCreateFlags::FastVRAM
+#define TexCreate_HideInVisualizeTexture TextureCreateFlags::HideInVisualizeTexture
+#define TexCreate_Virtual TextureCreateFlags::Virtual
+#define TexCreate_TargetArraySlicesIndependently TextureCreateFlags::TargetArraySlicesIndependently
+#define TexCreate_Shared TextureCreateFlags::Shared
+#define TexCreate_NoFastClear TextureCreateFlags::NoFastClear
+#define TexCreate_DepthStencilResolveTarget TextureCreateFlags::DepthStencilResolveTarget
+#define TexCreate_Streamable TextureCreateFlags::Streamable
+#define TexCreate_NoFastClearFinalize TextureCreateFlags::NoFastClearFinalize
+#define TexCreate_ReduceMemoryWithTilingMode TextureCreateFlags::ReduceMemoryWithTilingMode
+#define TexCreate_Transient TextureCreateFlags::Transient
+#define TexCreate_AtomicCompatible TextureCreateFlags::AtomicCompatible
+#define TexCreate_External TextureCreateFlags::External
+#define TexCreate_MultiGPUGraphIgnore TextureCreateFlags::MultiGPUGraphIgnore
+#define TexCreate_ReservedResource TextureCreateFlags::ReservedResource
+#define TexCreate_ImmediateCommit TextureCreateFlags::ImmediateCommit
+#define TexCreate_Invalid TextureCreateFlags::Invalid

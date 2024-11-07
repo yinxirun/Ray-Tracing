@@ -1,9 +1,14 @@
 #pragma once
 #include "vulkan_memory.h"
+#include "pipeline.h"
 #include "gpu/RHI/RHIDefinitions.h"
 #include <iostream>
 
 class CommandListContext;
+class VulkanGraphicsPipelineState;
+class GraphicsPipelineDescriptorState;
+class Framebuffer;
+class VulkanShader;
 
 // All the current gfx pipeline states in use
 class PendingGfxState : public VulkanRHI::DeviceChild
@@ -26,12 +31,17 @@ public:
 
         // CurrentPipeline = nullptr;
         // CurrentState = nullptr;
-        // bDirtyVertexStreams = true;
+        bDirtyVertexStreams = true;
 
         primitiveType = PT_Num;
 
-        // //#todo-rco: Would this cause issues?
-        // //FMemory::Memzero(PendingStreams);
+        // #todo-rco: Would this cause issues?
+        // FMemory::Memzero(PendingStreams);
+    }
+
+    const VulkanShader *GetCurrentShader(EShaderFrequency Frequency) const
+    {
+        return (CurrentPipeline ? CurrentPipeline->GetShader(Frequency) : nullptr);
     }
 
     void SetViewport(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ)
@@ -67,6 +77,17 @@ public:
         scissors[0].extent.height = Height;
     }
 
+    inline void SetStreamSource(uint32 StreamIndex, VkBuffer VertexBuffer, uint32 Offset)
+    {
+        PendingStreams[StreamIndex].Stream = VertexBuffer;
+        PendingStreams[StreamIndex].BufferOffset = Offset;
+        bDirtyVertexStreams = true;
+    }
+
+    void PrepareForDraw(CmdBuffer *CmdBuffer);
+
+    inline void UpdateDynamicStates(CmdBuffer *Cmd) { InternalUpdateDynamicStates(Cmd); }
+
 protected:
     std::vector<VkViewport> viewports;
     std::vector<VkRect2D> scissors;
@@ -74,6 +95,22 @@ protected:
     PrimitiveType primitiveType = PT_Num;
     uint32 StencilRef;
     bool bScissorEnable;
+
+    VulkanGraphicsPipelineState *CurrentPipeline;
+    GraphicsPipelineDescriptorState *CurrentState;
+
+    struct VertexStream
+    {
+        VertexStream() : Stream(VK_NULL_HANDLE), BufferOffset(0) {}
+
+        VkBuffer Stream;
+        uint32 BufferOffset;
+    };
+    VertexStream PendingStreams[MaxVertexElementCount];
+    bool bDirtyVertexStreams;
+
+    void InternalUpdateDynamicStates(CmdBuffer *Cmd);
+    // void UpdateInputAttachments(Framebuffer *Framebuffer);
 
     CommandListContext &context;
     friend class CommandListContext;

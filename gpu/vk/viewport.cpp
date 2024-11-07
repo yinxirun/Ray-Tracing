@@ -17,7 +17,7 @@
 #include "gpu/RHI/RHICommandList.h"
 #include "gpu/RHI/RHIDefinitions.h"
 
-BackBuffer::BackBuffer(Device &device, Viewport *InViewport, PixelFormat Format, uint32_t SizeX, uint32_t SizeY, ETextureCreateFlags UEFlags)
+BackBuffer::BackBuffer(Device &device, Viewport *InViewport, PixelFormat Format, uint32_t SizeX, uint32_t SizeY, TextureCreateFlags UEFlags)
     : VulkanTexture(device, TextureCreateDesc::Create2D("FVulkanBackBuffer", SizeX, SizeY, Format).SetFlags(UEFlags).DetermineInititialState(), VK_NULL_HANDLE, false),
       viewport(InViewport)
 {
@@ -506,7 +506,7 @@ void Viewport::CreateSwapchain(struct SwapChainRecreateInfo *recreateInfo)
 
         const TextureCreateDesc desc = TextureCreateDesc::Create2D("RenderingBackBuffer", BackBufferSizeX, BackBufferSizeY, pixelFormat)
                                            .SetClearValue(clearValue)
-                                           .SetFlags(ETextureCreateFlags::RenderTargetable | ETextureCreateFlags::ShaderResource | ETextureCreateFlags::ResolveTargetable)
+                                           .SetFlags(TextureCreateFlags::RenderTargetable | TextureCreateFlags::ShaderResource | TextureCreateFlags::ResolveTargetable)
                                            .SetInitialState(Access::Present);
 
         renderingBackBuffer = std::shared_ptr<VulkanTexture>(new VulkanTexture(*device, desc));

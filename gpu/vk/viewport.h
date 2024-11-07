@@ -25,7 +25,7 @@ namespace VulkanRHI
 class BackBuffer : public VulkanTexture
 {
 public:
-    BackBuffer(Device &Device, Viewport *InViewport, PixelFormat Format, uint32_t SizeX, uint32_t SizeY, ETextureCreateFlags Flags);
+    BackBuffer(Device &Device, Viewport *InViewport, PixelFormat Format, uint32_t SizeX, uint32_t SizeY, TextureCreateFlags Flags);
 
     virtual ~BackBuffer();
 

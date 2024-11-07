@@ -130,6 +130,7 @@ void VulkanSetImageLayout(CmdBuffer *CmdBuffer, VkImage Image, VkImageLayout Old
 class RenderTargetLayout
 {
 public:
+	RenderTargetLayout(const GraphicsPipelineStateInitializer &Initializer);
 	RenderTargetLayout(Device &InDevice, const RenderPassInfo &RPInfo,
 					   VkImageLayout CurrentDepthLayout, VkImageLayout CurrentStencilLayout);
 

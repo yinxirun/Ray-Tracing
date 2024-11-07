@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "gpu/definitions.h"
 
-enum PixelFormat : uint8_t
+enum PixelFormat : uint8
 {
     PF_Unknown = 0,
     PF_A32B32G32R32F = 1,

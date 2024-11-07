@@ -1,5 +1,7 @@
 #pragma once
 #include "gpu/definitions.h"
+#include "gpu/core/templates/type_hash.h"
+#include <type_traits>
 /**
  * Template to store enumeration values as bytes in a type-safe way.
  * Blueprint enums should either be enum classes (preferred):
@@ -107,3 +109,9 @@ private:
     /** Holds the value as a byte. **/
     uint8 Value;
 };
+
+template<class T>
+uint32 GetTypeHash(const TEnumAsByte<T>& Enum)
+{
+	return GetTypeHash((uint8)Enum.GetValue());
+}

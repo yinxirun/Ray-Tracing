@@ -1,11 +1,11 @@
 #include "RHIUtilities.h"
 
-Access RHIGetDefaultResourceState(ETextureCreateFlags InUsage, bool bInHasInitialData)
+Access RHIGetDefaultResourceState(TextureCreateFlags InUsage, bool bInHasInitialData)
 {
     // By default assume it can be bound for reading
     Access ResourceState = Access::SRVMask;
 
-    auto EnumHasAnyFlags = [](ETextureCreateFlags usage, ETextureCreateFlags flags) -> bool
+    auto EnumHasAnyFlags = [](TextureCreateFlags usage, TextureCreateFlags flags) -> bool
     {
         uint64 u = (uint64)usage;
         uint64 f = (uint64)flags;

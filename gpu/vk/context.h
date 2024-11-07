@@ -30,6 +30,10 @@ public:
 
     inline bool IsImmediate() const { return Immediate == nullptr; }
 
+    template <class ShaderType>
+    void SetResourcesFromTables(const ShaderType *RESTRICT);
+    void CommitGraphicsResourceTables();
+
     // RHI
     virtual void DrawIndexedPrimitive(Buffer *IndexBuffer, int32 BaseVertexIndex, uint32 FirstInstance,
                                       uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances) final override;
@@ -39,11 +43,13 @@ public:
 
     virtual void WriteGPUFence(GPUFence *Fence) final override;
 
-    virtual void BeginDrawingViewport(std::shared_ptr<Viewport> &Viewport) final override;
-    virtual void EndDrawingViewport(Viewport *Viewport, bool bLockToVsync) final override;
+    void BeginDrawingViewport(std::shared_ptr<Viewport> &Viewport) final override;
+    void EndDrawingViewport(Viewport *Viewport, bool bLockToVsync) final override;
 
-    virtual void BeginFrame() final override;
-    virtual void EndFrame() final override;
+    void BeginFrame() final override;
+    void EndFrame() final override;
+
+    void SetStreamSource(uint32 StreamIndex, Buffer *VertexBuffer, uint32 Offset) final override;
 
     virtual void BeginRenderPass(const RenderPassInfo &InInfo, const char *InName) final override;
     virtual void EndRenderPass() final override;
@@ -66,6 +72,10 @@ public:
         commandBufferManager->NotifyDeletedImage(Image);
         queue->NotifyDeletedImage(Image);
     }
+
+    inline RenderPass *GetCurrentRenderPass() { return CurrentRenderPass; }
+
+    inline Framebuffer *GetCurrentFramebuffer() { return CurrentFramebuffer; }
 
     inline Queue *GetQueue() { return queue; }
 
@@ -93,6 +103,9 @@ public:
     bool IsSwapchainImage(Texture *InTexture) const;
     VkSurfaceTransformFlagBitsKHR GetSwapchainQCOMRenderPassTransform() const;
     SwapChain *GetSwapChain() const;
+
+    RenderPass* PrepareRenderPassForPSOCreation(const GraphicsPipelineStateInitializer& Initializer);
+	RenderPass* PrepareRenderPassForPSOCreation(const RenderTargetLayout& Initializer);
 
 private:
     inline bool SafePointSubmit()

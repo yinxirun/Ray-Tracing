@@ -19,6 +19,189 @@ inline bool IsInGameThread() { return true; }
 /// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
 inline bool IsInRenderingThread() { return true; }
 
+// 180
+enum class ERHIZBuffer
+{
+	// Before changing this, make sure all math & shader assumptions are correct! Also wrap your C++ assumptions with
+	//		static_assert(ERHIZBuffer::IsInvertedZBuffer(), ...);
+	// Shader-wise, make sure to update Definitions.usf, HAS_INVERTED_Z_BUFFER
+	FarPlane = 0,
+	NearPlane = 1,
+
+	// 'bool' for knowing if the API is using Inverted Z buffer
+	IsInverted = (int32)((int32)ERHIZBuffer::FarPlane < (int32)ERHIZBuffer::NearPlane),
+};
+
+// 239
+enum ERasterizerFillMode
+{
+	FM_Point,
+	FM_Wireframe,
+	FM_Solid,
+
+	ERasterizerFillMode_Num,
+	ERasterizerFillMode_NumBits = 2,
+};
+static_assert(ERasterizerFillMode_Num <= (1 << ERasterizerFillMode_NumBits), "ERasterizerFillMode_Num will not fit on ERasterizerFillMode_NumBits");
+
+enum ERasterizerCullMode
+{
+	CM_None,
+	CM_CW,
+	CM_CCW,
+
+	ERasterizerCullMode_Num,
+	ERasterizerCullMode_NumBits = 2,
+};
+static_assert(ERasterizerCullMode_Num <= (1 << ERasterizerCullMode_NumBits), "ERasterizerCullMode_Num will not fit on ERasterizerCullMode_NumBits");
+
+enum class ERasterizerDepthClipMode : uint8
+{
+	DepthClip,
+	DepthClamp,
+
+	Num,
+	NumBits = 1,
+};
+static_assert(uint32(ERasterizerDepthClipMode::Num) <= (1U << uint32(ERasterizerDepthClipMode::NumBits)), "ERasterizerDepthClipMode::Num will not fit on ERasterizerDepthClipMode::NumBits");
+
+enum EColorWriteMask
+{
+	CW_RED = 0x01,
+	CW_GREEN = 0x02,
+	CW_BLUE = 0x04,
+	CW_ALPHA = 0x08,
+
+	CW_NONE = 0,
+	CW_RGB = CW_RED | CW_GREEN | CW_BLUE,
+	CW_RGBA = CW_RED | CW_GREEN | CW_BLUE | CW_ALPHA,
+	CW_RG = CW_RED | CW_GREEN,
+	CW_BA = CW_BLUE | CW_ALPHA,
+
+	EColorWriteMask_NumBits = 4,
+};
+
+enum ECompareFunction
+{
+	CF_Less,
+	CF_LessEqual,
+	CF_Greater,
+	CF_GreaterEqual,
+	CF_Equal,
+	CF_NotEqual,
+	CF_Never,
+	CF_Always,
+
+	ECompareFunction_Num,
+	ECompareFunction_NumBits = 3,
+
+	// Utility enumerations
+	CF_DepthNearOrEqual = (((int32)ERHIZBuffer::IsInverted != 0) ? CF_GreaterEqual : CF_LessEqual),
+	CF_DepthNear = (((int32)ERHIZBuffer::IsInverted != 0) ? CF_Greater : CF_Less),
+	CF_DepthFartherOrEqual = (((int32)ERHIZBuffer::IsInverted != 0) ? CF_LessEqual : CF_GreaterEqual),
+	CF_DepthFarther = (((int32)ERHIZBuffer::IsInverted != 0) ? CF_Less : CF_Greater),
+};
+static_assert(ECompareFunction_Num <= (1 << ECompareFunction_NumBits), "ECompareFunction_Num will not fit on ECompareFunction_NumBits");
+
+enum EStencilMask
+{
+	SM_Default,
+	SM_255,
+	SM_1,
+	SM_2,
+	SM_4,
+	SM_8,
+	SM_16,
+	SM_32,
+	SM_64,
+	SM_128,
+	SM_Count
+};
+
+enum EStencilOp
+{
+	SO_Keep,
+	SO_Zero,
+	SO_Replace,
+	SO_SaturatedIncrement,
+	SO_SaturatedDecrement,
+	SO_Invert,
+	SO_Increment,
+	SO_Decrement,
+
+	EStencilOp_Num,
+	EStencilOp_NumBits = 3,
+};
+static_assert(EStencilOp_Num <= (1 << EStencilOp_NumBits), "EStencilOp_Num will not fit on EStencilOp_NumBits");
+
+// 340
+enum EBlendOperation
+{
+	BO_Add,
+	BO_Subtract,
+	BO_Min,
+	BO_Max,
+	BO_ReverseSubtract,
+
+	EBlendOperation_Num,
+	EBlendOperation_NumBits = 3,
+};
+static_assert(EBlendOperation_Num <= (1 << EBlendOperation_NumBits), "EBlendOperation_Num will not fit on EBlendOperation_NumBits");
+
+enum EBlendFactor
+{
+	BF_Zero,
+	BF_One,
+	BF_SourceColor,
+	BF_InverseSourceColor,
+	BF_SourceAlpha,
+	BF_InverseSourceAlpha,
+	BF_DestAlpha,
+	BF_InverseDestAlpha,
+	BF_DestColor,
+	BF_InverseDestColor,
+	BF_ConstantBlendFactor,
+	BF_InverseConstantBlendFactor,
+	BF_Source1Color,
+	BF_InverseSource1Color,
+	BF_Source1Alpha,
+	BF_InverseSource1Alpha,
+
+	EBlendFactor_Num,
+	EBlendFactor_NumBits = 4,
+};
+static_assert(EBlendFactor_Num <= (1 << EBlendFactor_NumBits), "EBlendFactor_Num will not fit on EBlendFactor_NumBits");
+
+//377
+enum EVertexElementType
+{
+	VET_None,
+	VET_Float1,
+	VET_Float2,
+	VET_Float3,
+	VET_Float4,
+	VET_PackedNormal,	// FPackedNormal
+	VET_UByte4,
+	VET_UByte4N,
+	VET_Color,
+	VET_Short2,
+	VET_Short4,
+	VET_Short2N,		// 16 bit word normalized to (value/32767.0,value/32767.0,0,0,1)
+	VET_Half2,			// 16 bit float using 1 bit sign, 5 bit exponent, 10 bit mantissa 
+	VET_Half4,
+	VET_Short4N,		// 4 X 16 bit word, normalized 
+	VET_UShort2,
+	VET_UShort4,
+	VET_UShort2N,		// 16 bit word normalized to (value/65535.0,value/65535.0,0,0,1)
+	VET_UShort4N,		// 4 X 16 bit word unsigned, normalized 
+	VET_URGB10A2N,		// 10 bit r, g, b and 2 bit a normalized to (value/1023.0f, value/1023.0f, value/1023.0f, value/3.0f)
+	VET_UInt,
+	VET_MAX,
+
+	VET_NumBits = 5,
+};
+static_assert(VET_MAX <= (1 << VET_NumBits), "VET_MAX will not fit on VET_NumBits");
+
 // 673
 enum PrimitiveType
 {
@@ -50,6 +233,27 @@ enum PrimitiveType
 };
 static_assert(PT_Num <= (1 << 8), "PrimitiveType doesn't fit in a byte");
 static_assert(PT_Num <= (1 << PT_NumBits), "PT_NumBits is too small");
+
+//704
+enum EVRSAxisShadingRate : uint8
+{
+	VRSASR_1X = 0x0,
+	VRSASR_2X = 0x1,
+	VRSASR_4X = 0x2,
+};
+
+enum VRSShadingRate : uint8
+{
+	VRSSR_1x1  = (VRSASR_1X << 2) + VRSASR_1X,
+	VRSSR_1x2  = (VRSASR_1X << 2) + VRSASR_2X,
+	VRSSR_2x1  = (VRSASR_2X << 2) + VRSASR_1X,
+	VRSSR_2x2  = (VRSASR_2X << 2) + VRSASR_2X,
+	VRSSR_2x4  = (VRSASR_2X << 2) + VRSASR_4X,
+	VRSSR_4x2  = (VRSASR_4X << 2) + VRSASR_2X,
+	VRSSR_4x4  = (VRSASR_4X << 2) + VRSASR_4X,
+	
+	VRSSR_Last  = VRSSR_4x4
+};
 
 // 740
 /// Resource usage flags - for vertex and index buffers.
@@ -344,6 +548,41 @@ enum
 	MaxSimultaneousRenderTargets = 8,
 	MaxSimultaneousRenderTargets_NumBits = 3,
 };
+
+// 88
+enum EShaderFrequency : uint8
+{
+	SF_Vertex = 0,
+	SF_Mesh = 1,
+	SF_Amplification = 2,
+	SF_Pixel = 3,
+	SF_Geometry = 4,
+	SF_Compute = 5,
+	SF_RayGen = 6,
+	SF_RayMiss = 7,
+	SF_RayHitGroup = 8,
+	SF_RayCallable = 9,
+
+	SF_NumFrequencies = 10,
+
+	// Number of standard shader frequencies for graphics pipeline (excluding compute)
+	SF_NumGraphicsFrequencies = 5,
+
+	// Number of standard shader frequencies (including compute)
+	SF_NumStandardFrequencies = 6,
+
+	SF_NumBits = 4,
+};
+static_assert(SF_NumFrequencies <= (1 << SF_NumBits), "SF_NumFrequencies will not fit on SF_NumBits");
+
+// 158
+/** The maximum number of vertex elements which can be used by a vertex declaration. */
+enum
+{
+	MaxVertexElementCount = 17,
+	MaxVertexElementCount_NumBits = 5,
+};
+static_assert(MaxVertexElementCount <= (1 << MaxVertexElementCount_NumBits), "MaxVertexElementCount will not fit on MaxVertexElementCount_NumBits");
 
 // 636
 enum ResourceLockMode

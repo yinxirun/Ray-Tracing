@@ -22,6 +22,8 @@ public:
 
     // Does the platform require depth to be written on stencil clear
     static bool RequiresDepthWriteOnStencilClear() { return false; }
+
+    static bool RegisterGPUWork() { return true; }
 };
 
 class WindowsPlatform : public GenericPlatform

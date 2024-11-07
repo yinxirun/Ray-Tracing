@@ -2,6 +2,7 @@
 
 #include "Volk/volk.h"
 #include "resources.h"
+#include <string>
 
 namespace VulkanRHI
 {
@@ -33,3 +34,5 @@ namespace VulkanRHI
             VulkanRHI::VerifyVulkanResult(ScopedResult, #VkFunction, __FILE__, __LINE__); \
         }                                                                                 \
     }
+
+    

@@ -13,6 +13,7 @@
 #include <cstring>
 #include "vulkan_memory.h"
 #include "gpu/core/pixel_format.h"
+#include "resources.h"
 
 class Queue;
 class RHI;
@@ -23,9 +24,51 @@ class DescriptorPoolsManager;
 class BindlessDescriptorManager;
 class Device;
 class RenderPassManager;
+class PipelineStateCacheManager;
 
 extern const std::vector<const char *> deviceExtensions;
 extern const std::vector<const char *> validationLayers;
+
+struct OptionalVulkanDeviceExtensions
+{
+    union
+    {
+        struct
+        {
+            // Optional Extensions
+
+            // Vendor specific
+            uint64 HasQcomRenderPassTransform : 1;
+
+            // Promoted to 1.1
+
+            // Promoted to 1.2
+            uint64 HasKHRRenderPass2 : 1;
+
+            // Promoted to 1.3
+        };
+        uint64 Packed;
+    };
+
+    OptionalVulkanDeviceExtensions()
+    {
+        static_assert(sizeof(Packed) == sizeof(OptionalVulkanDeviceExtensions), "More bits needed for Packed!");
+        Packed = 0;
+    }
+
+#if VULKAN_RHI_RAYTRACING
+    inline bool HasRaytracingExtensions() const
+    {
+        return HasAccelerationStructure &&
+               (HasRayTracingPipeline || HasRayQuery) &&
+               HasEXTDescriptorIndexing &&
+               HasBufferDeviceAddress &&
+               HasDeferredHostOperations &&
+               HasSPIRV_14 &&
+               HasShaderFloatControls;
+    }
+#endif
+};
 
 class PhysicalDeviceFeatures
 {
@@ -157,6 +200,8 @@ public:
 
     // 428
     inline BindlessDescriptorManager *GetBindlessDescriptorManager() { return bindlessDescriptorManager; }
+    // 438
+    inline VulkanShaderFactory &GetShaderFactory() { return ShaderFactory; }
 
     inline CommandListContextImmediate &GetImmediateContext() { return *immediateContext; }
 
@@ -169,6 +214,8 @@ public:
     void PrepareForCPURead();
 
     void SubmitCommandsAndFlushGPU();
+
+    inline const OptionalVulkanDeviceExtensions &GetOptionalExtensions() const { return OptionalDeviceExtensions; }
 
     inline bool SupportsParallelRendering() const { return false; }
 
@@ -187,6 +234,8 @@ private:
     // Active on >= SM4
     DescriptorPoolsManager *descriptorPoolsManager = nullptr;
     BindlessDescriptorManager *bindlessDescriptorManager = nullptr;
+
+    VulkanShaderFactory ShaderFactory;
 
     VkPhysicalDevice gpu;
     VkPhysicalDeviceProperties gpuProps;
@@ -210,5 +259,11 @@ private:
     RHI *rhi = nullptr;
     VmaAllocator allocator{VK_NULL_HANDLE};
 
+    OptionalVulkanDeviceExtensions OptionalDeviceExtensions;
+
     void SetupFormats();
+
+    PipelineStateCacheManager *PipelineStateCache;
+
+    friend class RHI;
 };

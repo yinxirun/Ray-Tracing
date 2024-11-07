@@ -7,8 +7,10 @@
 #include "context.h"
 #include "queue.h"
 #include "device.h"
+#include "pending_state.h"
 #include "gpu/core/platform_time.h"
 #include "private.h"
+#include "gpu/RHI/RHIGlobals.h"
 
 int GVulkanProfileCmdBuffers = 0;
 int GVulkanUseCmdBufferTimingForGPUTime = 0;
@@ -663,39 +665,10 @@ void CommandBufferManager::FreeUnusedCmdBuffers(bool bTrimMemory)
 #endif
 }
 
-// 661
-void CommandListContext::DrawIndexedPrimitive(Buffer *IndexBufferRHI, int32 BaseVertexIndex, uint32 FirstInstance,
-											  uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
-{
-	printf("Have not implement CommandListContext::DrawIndexedPrimitive\n");
-	// #if VULKAN_ENABLE_AGGRESSIVE_STATS
-	// 	SCOPE_CYCLE_COUNTER(STAT_VulkanDrawCallTime);
-	// #endif
-	// 	NumInstances = FMath::Max(1U, NumInstances);
-	// 	RHI_DRAW_CALL_STATS(PendingGfxState->PrimitiveType, NumInstances*NumPrimitives);
-	// 	checkf(GRHISupportsFirstInstance || FirstInstance == 0, TEXT("FirstInstance must be 0, see GRHISupportsFirstInstance"));
-
-	// 	CommitGraphicsResourceTables();
-
-	// 	FVulkanResourceMultiBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
-	// 	FVulkanCmdBuffer* Cmd = CommandBufferManager->GetActiveCmdBuffer();
-	// 	VkCommandBuffer CmdBuffer = Cmd->GetHandle();
-	// 	PendingGfxState->PrepareForDraw(Cmd);
-	// 	VulkanRHI::vkCmdBindIndexBuffer(CmdBuffer, IndexBuffer->GetHandle(), IndexBuffer->GetOffset(), IndexBuffer->GetIndexType());
-
-	// 	uint32 NumIndices = GetVertexCountForPrimitiveCount(NumPrimitives, PendingGfxState->PrimitiveType);
-	// 	VulkanRHI::vkCmdDrawIndexed(CmdBuffer, NumIndices, NumInstances, StartIndex, BaseVertexIndex, FirstInstance);
-
-	// 	if (FVulkanPlatform::RegisterGPUWork() && IsImmediate())
-	// 	{
-	// 		GpuProfiler.RegisterGPUWork(NumPrimitives * NumInstances, NumVertices * NumInstances);
-	// 	}
-}
-
 void CommandListContext::PrepareForCPURead()
 {
 	ensure(IsImmediate());
-	CmdBuffer* CmdBuffer = commandBufferManager->GetActiveCmdBuffer();
+	CmdBuffer *CmdBuffer = commandBufferManager->GetActiveCmdBuffer();
 	if (CmdBuffer && CmdBuffer->HasBegun())
 	{
 		check(!CmdBuffer->IsInsideRenderPass());
