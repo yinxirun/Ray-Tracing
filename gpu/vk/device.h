@@ -192,6 +192,7 @@ public:
     const VkFormatProperties &GetFormatProperties(VkFormat InFormat) const;
 
     inline const VkPhysicalDeviceProperties &GetDeviceProperties() const { return gpuProps; }
+    inline const VkPhysicalDeviceLimits &GetLimits() const { return gpuProps.limits; }
     // 398
     inline VulkanRHI::DeferredDeletionQueue2 &GetDeferredDeletionQueue() { return deferredDeletionQueue; }
     // 403

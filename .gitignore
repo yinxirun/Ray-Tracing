@@ -6,3 +6,4 @@ build/
 *.exe
 *.xml
 *.dll
+!/glfw3.dll

@@ -4,7 +4,7 @@
 #include "../definitions.h"
 #include "configuration.h"
 #include "util.h"
-#include "rhi.h"
+#include "private.h"
 
 View::View(Device &InDevice, VkDescriptorType InDescriptorType) : device(InDevice)
 {

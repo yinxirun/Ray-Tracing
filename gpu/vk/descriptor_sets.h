@@ -137,10 +137,13 @@ public:
     void ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSetStage,
                                  const ShaderHeader &CodeHeader, UniformBufferGatherInfo &OutUBGatherInfo) const;
 
+    const std::vector<SetLayout> &GetLayouts() const { return setLayouts; }
+
     template <bool bIsCompute>
     void FinalizeBindings(const Device &device, const UniformBufferGatherInfo &UBGatherInfo, const std::vector<SamplerState *> &ImmutableSamplers);
 
-    const std::vector<SetLayout> &GetLayouts() const { return setLayouts; }
+    /// UE的哈希表容器是通过GetTypeHash获得散列值的。在UE中，想要作为TMap的键，就必须支持这个函数。
+    friend uint32 GetTypeHash(const DescriptorSetsLayoutInfo &In) { return In.hash; }
 
     inline bool operator==(const DescriptorSetsLayoutInfo &In) const
     {
@@ -195,10 +198,12 @@ public:
     }
 
 protected:
-    std::unordered_map<VkDescriptorType, uint32_t> layoutTypes;
+    // 每种类型descriptor各使用了多少个
+    std::unordered_map<VkDescriptorType, uint32> layoutTypes;
     std::vector<SetLayout> setLayouts;
     uint32_t hash = 0;
     uint32_t typesUsageID = ~0;
+    void CompileTypesUsageID();
     VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_MAX_ENUM;
     DescriptorSetRemappingInfo RemappingInfo;
 };
@@ -208,12 +213,30 @@ namespace std
     template <>
     struct hash<DescriptorSetsLayoutInfo>
     {
-        size_t operator()(const DescriptorSetsLayoutInfo& v) const
+        size_t operator()(const DescriptorSetsLayoutInfo &v) const
         {
-            return 0;
+            return GetTypeHash(v);
+        }
+    };
+
+    template <>
+    struct hash<DescriptorSetsLayoutInfo::SetLayout>
+    {
+        size_t operator()(const DescriptorSetsLayoutInfo::SetLayout &v) const
+        {
+            return GetTypeHash(v);
         }
     };
 }
+
+// 443
+struct DescriptorSetLayoutEntry
+{
+    VkDescriptorSetLayout Handle = 0;
+    uint32 HandleId = 0;
+};
+
+using DescriptorSetLayoutMap = std::unordered_map<DescriptorSetsLayoutInfo::SetLayout, DescriptorSetLayoutEntry>;
 
 // The actual run-time descriptor set layouts
 class DescriptorSetsLayout : public DescriptorSetsLayoutInfo
@@ -222,11 +245,18 @@ public:
     DescriptorSetsLayout(Device *InDevice);
     ~DescriptorSetsLayout();
 
+    // Can be called only once, the idea is that the Layout remains fixed.
+    void Compile(DescriptorSetLayoutMap &DSetLayoutMap);
+
+    inline const std::vector<VkDescriptorSetLayout> &GetHandles() const { return layoutHandles; }
+
 private:
     Device *device;
     std::vector<VkDescriptorSetLayout> layoutHandles;
     std::vector<uint32_t> layoutHandleIds;
     VkDescriptorSetAllocateInfo descriptorSetAllocateInfo;
+
+    VkDescriptorSetAllocateInfo DescriptorSetAllocateInfo;
 };
 
 class DescriptorPool
@@ -352,7 +382,7 @@ public:
 
     virtual bool IsGfxLayout() const = 0;
 
-    inline const DescriptorSetsLayout &GetDescriptorSetsLayout() const { return DescriptorSetLayout; }
+    inline const DescriptorSetsLayout &GetDescriptorSetsLayout() const { return descriptorSetsLayout; }
 
     inline VkPipelineLayout GetPipelineLayout() const
     {
@@ -366,7 +396,7 @@ public:
 
     inline uint32 GetDescriptorSetLayoutHash() const
     {
-        printf("Have not implement %s\n", __FILE__);
+        printf("Have not implement %s %d\n", __FILE__, __LINE__);
         return -1;
         // return DescriptorSetLayout.GetHash();
     }
@@ -374,7 +404,7 @@ public:
     // 	void PatchSpirvBindings(FVulkanShader::FSpirvCode& SpirvCode, EShaderFrequency Frequency, const FVulkanShaderHeader& CodeHeader) const;
 
 protected:
-    DescriptorSetsLayout DescriptorSetLayout;
+    DescriptorSetsLayout descriptorSetsLayout;
     VkPipelineLayout PipelineLayout;
 
     // 	template <bool bIsCompute>
@@ -394,7 +424,7 @@ protected:
     // 		DescriptorSetLayout.ProcessBindingsForStage(StageFlags, DescSet, CodeHeader, OutUBGatherInfo);
     // 	}
 
-    // 	void Compile(FVulkanDescriptorSetLayoutMap& DSetLayoutMap);
+    void Compile(DescriptorSetLayoutMap &DSetLayoutMap);
 
     // 	friend class FVulkanComputePipeline;
     // 	friend class FVulkanGfxPipeline;

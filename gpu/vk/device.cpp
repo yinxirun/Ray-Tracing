@@ -1,3 +1,5 @@
+#define VOLK_IMPLEMENTATION
+#define VMA_IMPLEMENTATION
 #include "device.h"
 #include "common.h"
 #include "queue.h"

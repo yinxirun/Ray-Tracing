@@ -113,7 +113,7 @@ Device *ShaderModule::device = nullptr;
 
 // 670
 VulkanLayout::VulkanLayout(Device *InDevice)
-    : VulkanRHI::DeviceChild(InDevice), DescriptorSetLayout(InDevice), PipelineLayout(VK_NULL_HANDLE)
+    : VulkanRHI::DeviceChild(InDevice), descriptorSetsLayout(InDevice), PipelineLayout(VK_NULL_HANDLE)
 {
 }
 
@@ -123,6 +123,25 @@ VulkanLayout::~VulkanLayout()
     {
         device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::DeferredDeletionQueue2::EType::PipelineLayout, PipelineLayout);
         PipelineLayout = VK_NULL_HANDLE;
+    }
+}
+
+void VulkanLayout::Compile(DescriptorSetLayoutMap &DSetLayoutMap)
+{
+    check(PipelineLayout == VK_NULL_HANDLE);
+
+    descriptorSetsLayout.Compile(DSetLayoutMap);
+
+    if (!device->SupportsBindless())
+    {
+        VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo;
+        ZeroVulkanStruct(PipelineLayoutCreateInfo, VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
+
+        const std::vector<VkDescriptorSetLayout> &LayoutHandles = descriptorSetsLayout.GetHandles();
+        PipelineLayoutCreateInfo.setLayoutCount = LayoutHandles.size();
+        PipelineLayoutCreateInfo.pSetLayouts = LayoutHandles.data();
+        // PipelineLayoutCreateInfo.pushConstantRangeCount = 0;
+        VERIFYVULKANRESULT(vkCreatePipelineLayout(device->GetInstanceHandle(), &PipelineLayoutCreateInfo, VULKAN_CPU_ALLOCATOR, &PipelineLayout));
     }
 }
 

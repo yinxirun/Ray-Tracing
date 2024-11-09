@@ -3,6 +3,7 @@
 #include "gpu/core/containers/enum_as_byte.h"
 #include "resources.h"
 #include "private.h"
+#include "descriptor_sets.h"
 #include <memory>
 
 #define VULKAN_USE_SHADERKEYS 1
@@ -433,7 +434,7 @@ private:
 
     // 	static FString ShaderHashesToString(FVulkanShader* Shaders[ShaderStage::NumStages]);
 
-    VulkanLayout* FindOrAddLayout(const DescriptorSetsLayoutInfo& DescriptorSetLayoutInfo, bool bGfxLayout);
+    VulkanLayout *FindOrAddLayout(const DescriptorSetsLayoutInfo &DescriptorSetLayoutInfo, bool bGfxLayout);
     // 	FVulkanComputePipeline* CreateComputePipelineFromShader(FVulkanComputeShader* Shader);
 
     /** LRU Related functions */
@@ -497,8 +498,8 @@ private:
     // 	TSet<FGuid> CompiledPSOCaches;
 
     // 	FCriticalSection LayoutMapCS;
-    std::unordered_map<DescriptorSetsLayoutInfo, VulkanLayout*> LayoutMap;
-    // 	FVulkanDescriptorSetLayoutMap DSetLayoutMap;
+    std::unordered_map<DescriptorSetsLayoutInfo, VulkanLayout *> LayoutMap;
+    DescriptorSetLayoutMap DSetLayoutMap;
 
     // 	FCriticalSection GraphicsPSOLockedCS;
     // 	TMap<FVulkanPSOKey, FVulkanRHIGraphicsPipelineState*> GraphicsPSOLockedMap;

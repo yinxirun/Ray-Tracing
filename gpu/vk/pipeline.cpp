@@ -623,15 +623,15 @@ VulkanLayout *PipelineStateCacheManager::FindOrAddLayout(const DescriptorSetsLay
         /* Layout = new FVulkanComputeLayout(Device); */
     }
 
-    /*     Layout->DescriptorSetLayout.CopyFrom(DescriptorSetLayoutInfo);
-        Layout->Compile(DSetLayoutMap);
+    Layout->descriptorSetsLayout.CopyFrom(DescriptorSetLayoutInfo);
+    Layout->Compile(DSetLayoutMap);
+    /*
+           if (GfxLayout)
+           {
+               GfxLayout->GfxPipelineDescriptorInfo.Initialize(GfxLayout->GetDescriptorSetsLayout().RemappingInfo);
+           }
 
-        if (GfxLayout)
-        {
-            GfxLayout->GfxPipelineDescriptorInfo.Initialize(GfxLayout->GetDescriptorSetsLayout().RemappingInfo);
-        }
-
-        LayoutMap.insert(std::pair(DescriptorSetLayoutInfo, Layout)); */
+           LayoutMap.insert(std::pair(DescriptorSetLayoutInfo, Layout)); */
     return Layout;
 }
 

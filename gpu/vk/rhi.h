@@ -142,5 +142,3 @@ protected:
     void SetupDebugLayerCallback();
     void RemoveDebugLayerCallback();
 };
-
-inline bool UseVulkanDescriptorCache() { return false; }

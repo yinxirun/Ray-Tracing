@@ -458,3 +458,5 @@ static inline VkFormat UEToVkBufferFormat(VertexElementType Type)
 	check(!"Undefined vertex-element format conversion");
 	return VK_FORMAT_UNDEFINED;
 }
+
+inline bool UseVulkanDescriptorCache() { return false; }
