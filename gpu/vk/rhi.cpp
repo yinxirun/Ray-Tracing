@@ -424,5 +424,3 @@ void RHI::RemoveDebugLayerCallback()
 {
     DestroyDebugUtilsMessengerEXT(instance, messenger, nullptr);
 }
-
-RHI *rhi = nullptr;

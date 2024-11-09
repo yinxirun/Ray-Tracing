@@ -1,0 +1,43 @@
+#pragma once
+
+#include "gpu/vk/rhi.h"
+
+extern RHI *rhi;
+
+__forceinline CommandListContext *GetDefaultContext() { return rhi->GetDefaultContext(); }
+
+__forceinline std::shared_ptr<Viewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
+                                                       bool bIsFullscreen, PixelFormat PreferredPixelFormat)
+{
+    return rhi->CreateViewport(WindowHandle, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
+}
+
+__forceinline std::shared_ptr<Buffer> CreateBuffer(BufferDesc const &Desc, Access ResourceState, ResourceCreateInfo &CreateInfo)
+{
+    return rhi->CreateBuffer(Desc, ResourceState, CreateInfo);
+}
+
+__forceinline void *LockBuffer_BottomOfPipe(RHICommandListBase &RHICmdList, Buffer *BufferRHI, uint32 Offset, uint32 Size, ResourceLockMode LockMode)
+{
+    return rhi->LockBuffer_BottomOfPipe(RHICmdList, BufferRHI, Offset, Size, LockMode);
+}
+
+__forceinline void UnlockBuffer_BottomOfPipe(RHICommandListBase &RHICmdList, Buffer *BufferRHI)
+{
+    return rhi->UnlockBuffer_BottomOfPipe(RHICmdList, BufferRHI);
+}
+
+__forceinline VertexShader *CreateVertexShader(std::vector<uint8> Code)
+{
+    return rhi->CreateVertexShader(Code);
+}
+
+__forceinline PixelShader *CreatePixelShader(std::vector<uint8> Code)
+{
+    return rhi->CreatePixelShader(Code);
+}
+
+__forceinline std::shared_ptr<GraphicsPipelineState> CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
+{
+    return rhi->CreateGraphicsPipelineState(Initializer);
+}

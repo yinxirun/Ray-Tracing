@@ -625,13 +625,13 @@ VulkanLayout *PipelineStateCacheManager::FindOrAddLayout(const DescriptorSetsLay
 
     Layout->descriptorSetsLayout.CopyFrom(DescriptorSetLayoutInfo);
     Layout->Compile(DSetLayoutMap);
-    /*
-           if (GfxLayout)
-           {
-               GfxLayout->GfxPipelineDescriptorInfo.Initialize(GfxLayout->GetDescriptorSetsLayout().RemappingInfo);
-           }
 
-           LayoutMap.insert(std::pair(DescriptorSetLayoutInfo, Layout)); */
+    if (GfxLayout)
+    {
+        GfxLayout->GfxPipelineDescriptorInfo.Initialize(GfxLayout->GetDescriptorSetsLayout().RemappingInfo);
+    }
+
+    LayoutMap.insert(std::pair(DescriptorSetLayoutInfo, Layout));
     return Layout;
 }
 

@@ -79,4 +79,11 @@ struct ShaderHeader
 
     // Mostly relevant for Vertex Shaders
     uint32 InOutMask;
+
+    ShaderHeader() = default;
+    enum EInit
+    {
+        EZero
+    };
+    ShaderHeader(EInit) : InOutMask(0) {}
 };

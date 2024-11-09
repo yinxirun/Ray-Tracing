@@ -49,6 +49,8 @@ class VulkanGfxPipelineDescriptorInfo
 public:
     inline bool IsInitialized() const { return bInitialized; }
 
+    void Initialize(const DescriptorSetRemappingInfo& InRemappingInfo);
+
 protected:
     bool bInitialized;
 };
@@ -206,6 +208,9 @@ protected:
     void CompileTypesUsageID();
     VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_MAX_ENUM;
     DescriptorSetRemappingInfo RemappingInfo;
+
+    friend class PipelineStateCacheManager;
+    friend class VulkanLayout;
 };
 
 namespace std
