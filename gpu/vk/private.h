@@ -1,8 +1,8 @@
 #pragma once
 
-#include <iostream>
 #include <vector>
 #include <memory>
+#include <iostream>
 #include "Volk/volk.h"
 #include "gpu/core/pixel_format.h"
 #include "gpu/RHI/RHIDefinitions.h"
@@ -125,6 +125,39 @@ inline VkImageLayout GetMergedDepthStencilLayout(VkImageLayout DepthLayout, VkIm
 
 // Transitions an image to the specified layout. This does not update the layout cached internally by the RHI; the calling code must do that explicitly via FVulkanCommandListContext::GetLayoutManager() if necessary.
 void VulkanSetImageLayout(CmdBuffer *CmdBuffer, VkImage Image, VkImageLayout OldLayout, VkImageLayout NewLayout, const VkImageSubresourceRange &SubresourceRange);
+
+// 90
+inline VkShaderStageFlagBits UEFrequencyToVKStageBit(EShaderFrequency InStage)
+{
+	switch (InStage)
+	{
+	case SF_Vertex:
+		return VK_SHADER_STAGE_VERTEX_BIT;
+	case SF_Pixel:
+		return VK_SHADER_STAGE_FRAGMENT_BIT;
+	case SF_Geometry:
+		return VK_SHADER_STAGE_GEOMETRY_BIT;
+	case SF_Compute:
+		return VK_SHADER_STAGE_COMPUTE_BIT;
+
+#if VULKAN_RHI_RAYTRACING
+	case SF_RayGen:
+		return VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+	case SF_RayMiss:
+		return VK_SHADER_STAGE_MISS_BIT_KHR;
+	case SF_RayHitGroup:
+		return VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR; // vkrt todo: How to handle VK_SHADER_STAGE_ANY_HIT_BIT_KHR?
+	case SF_RayCallable:
+		return VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+#endif // VULKAN_RHI_RAYTRACING
+
+	default:
+		check(false);
+		break;
+	}
+
+	return VK_SHADER_STAGE_ALL;
+}
 
 // 143
 class RenderTargetLayout
@@ -254,6 +287,9 @@ protected:
 	}
 
 	bool bCalculatedHash = false;
+
+	friend class PipelineStateCacheManager;
+	friend struct GfxPipelineDesc;
 };
 
 // 265
@@ -368,4 +404,57 @@ namespace VulkanRHI
 			return false;
 		}
 	}
+}
+
+// 658
+static inline VkFormat UEToVkBufferFormat(VertexElementType Type)
+{
+	switch (Type)
+	{
+	case VET_Float1:
+		return VK_FORMAT_R32_SFLOAT;
+	case VET_Float2:
+		return VK_FORMAT_R32G32_SFLOAT;
+	case VET_Float3:
+		return VK_FORMAT_R32G32B32_SFLOAT;
+	case VET_PackedNormal:
+		return VK_FORMAT_R8G8B8A8_SNORM;
+	case VET_UByte4:
+		return VK_FORMAT_R8G8B8A8_UINT;
+	case VET_UByte4N:
+		return VK_FORMAT_R8G8B8A8_UNORM;
+	case VET_Color:
+		return VK_FORMAT_B8G8R8A8_UNORM;
+	case VET_Short2:
+		return VK_FORMAT_R16G16_SINT;
+	case VET_Short4:
+		return VK_FORMAT_R16G16B16A16_SINT;
+	case VET_Short2N:
+		return VK_FORMAT_R16G16_SNORM;
+	case VET_Half2:
+		return VK_FORMAT_R16G16_SFLOAT;
+	case VET_Half4:
+		return VK_FORMAT_R16G16B16A16_SFLOAT;
+	case VET_Short4N: // 4 X 16 bit word: normalized
+		return VK_FORMAT_R16G16B16A16_SNORM;
+	case VET_UShort2:
+		return VK_FORMAT_R16G16_UINT;
+	case VET_UShort4:
+		return VK_FORMAT_R16G16B16A16_UINT;
+	case VET_UShort2N: // 16 bit word normalized to (value/65535.0:value/65535.0:0:0:1)
+		return VK_FORMAT_R16G16_UNORM;
+	case VET_UShort4N: // 4 X 16 bit word unsigned: normalized
+		return VK_FORMAT_R16G16B16A16_UNORM;
+	case VET_Float4:
+		return VK_FORMAT_R32G32B32A32_SFLOAT;
+	case VET_URGB10A2N:
+		return VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+	case VET_UInt:
+		return VK_FORMAT_R32_UINT;
+	default:
+		break;
+	}
+
+	check(!"Undefined vertex-element format conversion");
+	return VK_FORMAT_UNDEFINED;
 }

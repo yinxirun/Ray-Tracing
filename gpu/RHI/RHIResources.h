@@ -9,8 +9,10 @@
 #include "RHIAccess.h"
 #include "RHIUtilities.h"
 #include "RHI.h"
+#include "RHIImmutableSamplerState.h"
 #include <array>
 #include <vector>
+#include <atomic>
 
 typedef std::vector<VertexElement> VertexDeclarationElementList;
 
@@ -121,6 +123,30 @@ class RHIResource
 public:
     RHIResource(ERHIResourceType InResourceType = RRT_None);
 
+    virtual ~RHIResource();
+
+    __forceinline uint32 AddRef()
+    {
+        numRefs.fetch_add(1);
+        uint32_t newValue = numRefs.load();
+        assert(newValue > 0);
+        return (uint32_t)newValue;
+    }
+
+    __forceinline uint32 Release()
+    {
+        numRefs.fetch_sub(1);
+        uint32_t newValue = numRefs.load();
+        if (newValue == 0)
+        {
+            delete this;
+        }
+        assert(newValue >= 0);
+        return (uint32)newValue;
+    }
+
+private:
+    std::atomic<uint32> numRefs{0};
     const ERHIResourceType ResourceType;
 };
 
@@ -712,30 +738,30 @@ public:
     // 		return (FlagsA == FlagsB);
     // 	}
 
-    // 	uint32 ComputeNumValidRenderTargets() const
-    // 	{
-    // 		// Get the count of valid render targets (ignore those at the end of the array with PF_Unknown)
-    // 		if (RenderTargetsEnabled > 0)
-    // 		{
-    // 			int32 LastValidTarget = -1;
-    // 			for (int32 i = (int32)RenderTargetsEnabled - 1; i >= 0; i--)
-    // 			{
-    // 				if (RenderTargetFormats[i] != PF_Unknown)
-    // 				{
-    // 					LastValidTarget = i;
-    // 					break;
-    // 				}
-    // 			}
-    // 			return uint32(LastValidTarget + 1);
-    // 		}
-    // 		return RenderTargetsEnabled;
-    // 	}
+    uint32 ComputeNumValidRenderTargets() const
+    {
+        // Get the count of valid render targets (ignore those at the end of the array with PF_Unknown)
+        if (RenderTargetsEnabled > 0)
+        {
+            int32 LastValidTarget = -1;
+            for (int32 i = (int32)RenderTargetsEnabled - 1; i >= 0; i--)
+            {
+                if (RenderTargetFormats[i] != PF_Unknown)
+                {
+                    LastValidTarget = i;
+                    break;
+                }
+            }
+            return uint32(LastValidTarget + 1);
+        }
+        return RenderTargetsEnabled;
+    }
 
     BoundShaderStateInput BoundShaderState;
     BlendState *BlendState;
     RasterizerState *RasterizerState;
     DepthStencilState *DepthStencilState;
-    // ImmutableSamplerState ImmutableSamplerState;
+    ImmutableSamplerState ImmutableSamplerState;
 
     PrimitiveType PrimitiveType;
     uint32 RenderTargetsEnabled;

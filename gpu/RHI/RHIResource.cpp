@@ -1,7 +1,13 @@
 #include "RHIResources.h"
 #include "RHIDefinitions.h"
+#include <atomic>
 
 RHIResource::RHIResource(ERHIResourceType InResourceType) : ResourceType(InResourceType) {}
+
+RHIResource::~RHIResource()
+{
+    assert(numRefs.load() == 0);
+}
 
 RHIViewableResource::RHIViewableResource(ERHIResourceType InResourceType, Access InAccess)
     : RHIResource(InResourceType), TrackedAccess(InAccess)

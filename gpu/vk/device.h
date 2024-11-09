@@ -12,6 +12,7 @@
 #include "common.h"
 #include <cstring>
 #include "vulkan_memory.h"
+
 #include "gpu/core/pixel_format.h"
 #include "resources.h"
 
@@ -25,6 +26,7 @@ class BindlessDescriptorManager;
 class Device;
 class RenderPassManager;
 class PipelineStateCacheManager;
+class VulkanShaderFactory;
 
 extern const std::vector<const char *> deviceExtensions;
 extern const std::vector<const char *> validationLayers;
@@ -44,6 +46,7 @@ struct OptionalVulkanDeviceExtensions
 
             // Promoted to 1.2
             uint64 HasKHRRenderPass2 : 1;
+            uint64 HasEXTSubgroupSizeControl : 1;
 
             // Promoted to 1.3
         };

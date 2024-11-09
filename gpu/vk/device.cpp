@@ -7,6 +7,8 @@
 #include "descriptor_sets.h"
 #include "util.h"
 #include "renderpass.h"
+#include "resources.h"
+#include "pipeline.h"
 
 bool GEnableAsyncCompute = true;
 
@@ -47,7 +49,7 @@ void PhysicalDeviceFeatures::Query(VkPhysicalDevice PhysicalDevice, uint32_t API
 
 Device::Device(RHI *rhi, VkPhysicalDevice Gpu)
     : device(VK_NULL_HANDLE), deferredDeletionQueue(this), gpu(Gpu), gfxQueue(nullptr), computeQueue(nullptr),
-      transferQueue(nullptr), presentQueue(nullptr), computeContext(nullptr)
+      transferQueue(nullptr), presentQueue(nullptr), computeContext(nullptr), PipelineStateCache(nullptr)
 {
     this->rhi = rhi;
     {
@@ -136,6 +138,8 @@ void Device::InitGPU()
 
     bindlessDescriptorManager = new BindlessDescriptorManager(this);
 
+    PipelineStateCache = new PipelineStateCacheManager(this);
+
     immediateContext = new CommandListContextImmediate(rhi, this, gfxQueue);
 
     if (gfxQueue->GetFamilyIndex() != computeQueue->GetFamilyIndex() && GEnableAsyncCompute)
@@ -146,6 +150,9 @@ void Device::InitGPU()
     {
         computeContext = immediateContext;
     }
+
+    std::vector<std::string> cacheFilename;
+    PipelineStateCache->InitAndLoad(cacheFilename);
 }
 
 void Device::CreateDevice(std::vector<const char *> &layers, std::vector<const char *> &extensions)
@@ -280,8 +287,10 @@ void Device::Destroy()
     immediateContext = nullptr;
 
     delete renderPassManager;
-	renderPassManager = nullptr;
+    renderPassManager = nullptr;
 
+    delete PipelineStateCache;
+    PipelineStateCache = nullptr;
     stagingManager.Deinit();
 
     deferredDeletionQueue.Clear();
@@ -341,8 +350,8 @@ void Device::NotifyDeletedImage(VkImage Image, bool bRenderTarget)
 
 void Device::PrepareForCPURead()
 {
-	//#todo-rco: Process other contexts first!
-	immediateContext->PrepareForCPURead();
+    // #todo-rco: Process other contexts first!
+    immediateContext->PrepareForCPURead();
 }
 
 void Device::SubmitCommandsAndFlushGPU()

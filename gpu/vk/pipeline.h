@@ -5,8 +5,67 @@
 #include "private.h"
 #include <memory>
 
+#define VULKAN_USE_SHADERKEYS 1
+
+class VulkanGraphicsPipelineState;
+class VulkanGfxLayout;
+class Device;
+class DescriptorSetsLayoutInfo;
+
 class VulkanPSOKey
 {
+};
+
+template <typename TVulkanShader>
+static inline uint64 GetShaderKey(RHIGraphicsShader *ShaderType)
+{
+    TVulkanShader *vulkanShader = static_cast<TVulkanShader *>(ShaderType);
+    VulkanShader *BaseVulkanShader = static_cast<VulkanShader *>(vulkanShader);
+    return BaseVulkanShader ? BaseVulkanShader->GetShaderKey() : 0;
+}
+
+inline uint64 GetShaderKeyForGfxStage(const BoundShaderStateInput &BSI, ShaderStage::EStage Stage)
+{
+    switch (Stage)
+    {
+    case ShaderStage::Vertex:
+        return GetShaderKey<VulkanVertexShader>(BSI.VertexShaderRHI);
+    case ShaderStage::Pixel:
+        return GetShaderKey<VulkanPixelShader>(BSI.PixelShaderRHI);
+#if VULKAN_SUPPORTS_GEOMETRY_SHADERS
+    case ShaderStage::Geometry:
+        return GetShaderKey<FVulkanGeometryShader>(BSI.GetGeometryShader());
+#endif
+#if RHI_RAYTRACING
+    case ShaderStage::RayGen:
+    case ShaderStage::RayHitGroup:
+    case ShaderStage::RayMiss:
+    case ShaderStage::RayCallable:
+        return 0; // VKRT todo
+#endif
+    default:
+        check(0);
+    }
+
+    return 0;
+}
+
+// 111
+struct DescriptorSetLayoutBinding
+{
+    uint32 Binding;
+    uint8 DescriptorType;
+    uint8 StageFlags;
+
+    void ReadFrom(const VkDescriptorSetLayoutBinding &InState);
+    void WriteInto(VkDescriptorSetLayoutBinding &OutState) const;
+
+    bool operator==(const DescriptorSetLayoutBinding &In) const
+    {
+        return Binding == In.Binding &&
+               DescriptorType == In.DescriptorType &&
+               StageFlags == In.StageFlags;
+    }
 };
 
 struct GfxPipelineDesc
@@ -27,10 +86,8 @@ struct GfxPipelineDesc
         uint8 SrcAlphaBlendFactor;
         uint8 DstAlphaBlendFactor;
         uint8 ColorWriteMask;
-
-        // 		void ReadFrom(const VkPipelineColorBlendAttachmentState& InState);
-        // 		void WriteInto(VkPipelineColorBlendAttachmentState& OutState) const;
-
+        void ReadFrom(const VkPipelineColorBlendAttachmentState &InState);
+        void WriteInto(VkPipelineColorBlendAttachmentState &OutState) const;
         bool operator==(const BlendAttachment &In) const
         {
             return bBlend == In.bBlend &&
@@ -45,17 +102,15 @@ struct GfxPipelineDesc
     };
     std::vector<BlendAttachment> ColorAttachmentStates;
 
-    // 	TArray<TArray<FDescriptorSetLayoutBinding>> DescriptorSetLayoutBindings;
+    std::vector<std::vector<DescriptorSetLayoutBinding>> DescriptorSetLayoutBindings;
 
     struct VertexBinding
     {
         uint32 Stride;
         uint16 Binding;
         uint16 InputRate;
-
-        // 		void ReadFrom(const VkVertexInputBindingDescription& InState);
-        // 		void WriteInto(VkVertexInputBindingDescription& OutState) const;
-
+        void ReadFrom(const VkVertexInputBindingDescription &InState);
+        void WriteInto(VkVertexInputBindingDescription &OutState) const;
         bool operator==(const VertexBinding &In) const
         {
             return Stride == In.Stride &&
@@ -71,10 +126,8 @@ struct GfxPipelineDesc
         uint32 Binding;
         uint32 Format;
         uint32 Offset;
-
-        // void ReadFrom(const VkVertexInputAttributeDescription& InState);
-        // void WriteInto(VkVertexInputAttributeDescription& OutState) const;
-
+        void ReadFrom(const VkVertexInputAttributeDescription &InState);
+        void WriteInto(VkVertexInputAttributeDescription &OutState) const;
         bool operator==(const VertexAttribute &In) const
         {
             return Location == In.Location &&
@@ -92,8 +145,8 @@ struct GfxPipelineDesc
         float DepthBiasSlopeScale;
         float DepthBiasConstantFactor;
 
-        // void ReadFrom(const VkPipelineRasterizationStateCreateInfo& InState);
-        // void WriteInto(VkPipelineRasterizationStateCreateInfo& OutState) const;
+        void ReadFrom(const VkPipelineRasterizationStateCreateInfo &InState);
+        void WriteInto(VkPipelineRasterizationStateCreateInfo &OutState) const;
 
         bool operator==(const Rasterizer &In) const
         {
@@ -127,8 +180,8 @@ struct GfxPipelineDesc
         uint32 BackWriteMask;
         uint32 BackReference;
 
-        // void ReadFrom(const VkPipelineDepthStencilStateCreateInfo& InState);
-        // void WriteInto(VkPipelineDepthStencilStateCreateInfo& OutState) const;
+        void ReadFrom(const VkPipelineDepthStencilStateCreateInfo &InState);
+        void WriteInto(VkPipelineDepthStencilStateCreateInfo &OutState) const;
 
         bool operator==(const FDepthStencil &In) const
         {
@@ -155,12 +208,12 @@ struct GfxPipelineDesc
     };
     FDepthStencil DepthStencil;
 
-    // #if VULKAN_USE_SHADERKEYS
-    // 	uint64 ShaderKeys[ShaderStage::NumStages];
-    // 	uint64 ShaderKeyShared;
-    // #else
-    // 	FVulkanShaderHashes ShaderHashes;
-    // #endif
+#if VULKAN_USE_SHADERKEYS
+    uint64 ShaderKeys[ShaderStage::NumStages];
+    uint64 ShaderKeyShared;
+#else
+    FVulkanShaderHashes ShaderHashes;
+#endif
 
     struct FRenderTargets
     {
@@ -169,8 +222,8 @@ struct GfxPipelineDesc
             uint32 Attachment;
             uint64 Layout;
 
-            // void ReadFrom(const VkAttachmentReference &InState);
-            // void WriteInto(VkAttachmentReference &OutState) const;
+            void ReadFrom(const VkAttachmentReference &InState);
+            void WriteInto(VkAttachmentReference &OutState) const;
             bool operator==(const FAttachmentRef &In) const
             {
                 return Attachment == In.Attachment && Layout == In.Layout;
@@ -220,8 +273,8 @@ struct GfxPipelineDesc
                        FinalLayout == In.FinalLayout;
             }
 
-            // void ReadFrom(const VkAttachmentDescription &InState);
-            // void WriteInto(VkAttachmentDescription &OutState) const;
+            void ReadFrom(const VkAttachmentDescription &InState);
+            void WriteInto(VkAttachmentDescription &OutState) const;
         };
 
         struct FStencilAttachmentDesc
@@ -235,8 +288,8 @@ struct GfxPipelineDesc
                        FinalLayout == In.FinalLayout;
             }
 
-            // void ReadFrom(const VkAttachmentDescriptionStencilLayout &InState);
-            // void WriteInto(VkAttachmentDescriptionStencilLayout &OutState) const;
+            void ReadFrom(const VkAttachmentDescriptionStencilLayout &InState);
+            void WriteInto(VkAttachmentDescriptionStencilLayout &OutState) const;
         };
 
         std::vector<FAttachmentDesc> Descriptions;
@@ -251,8 +304,8 @@ struct GfxPipelineDesc
         uint32 RenderPassCompatibleHash;
         IntVec3 Extent3D;
 
-        // void ReadFrom(const FVulkanRenderTargetLayout &InState);
-        // void WriteInto(FVulkanRenderTargetLayout& OutState) const;
+        void ReadFrom(const RenderTargetLayout &InState);
+        void WriteInto(RenderTargetLayout &OutState) const;
 
         bool operator==(const FRenderTargets &In) const
         {
@@ -277,10 +330,10 @@ struct GfxPipelineDesc
 
     uint8 SubpassIndex;
 
-    // 	uint8 UseAlphaToCoverage;
+    uint8 UseAlphaToCoverage;
 
-    // 	EVRSShadingRate ShadingRate = EVRSShadingRate::VRSSR_1x1;
-    // 	EVRSRateCombiner Combiner = EVRSRateCombiner::VRSRB_Passthrough;
+    VRSShadingRate ShadingRate = VRSShadingRate::VRSSR_1x1;
+    VRSRateCombiner Combiner = VRSRateCombiner::VRSRB_Passthrough;
 
     bool operator==(const GfxPipelineDesc &In) const
     {
@@ -345,14 +398,14 @@ struct GfxPipelineDesc
 
 class PipelineStateCacheManager
 {
-    // public:
-
-    // 	// Array of potential cache locations; first entries have highest priority. Only one cache file is loaded. If unsuccessful, tries next entry in the array.
-    // 	void InitAndLoad(const TArray<FString>& CacheFilenames);
+public:
+    // Array of potential cache locations; first entries have highest priority. Only one cache file is loaded. If unsuccessful, tries next entry in the array.
+    void InitAndLoad(const std::vector<std::string> &CacheFilenames);
     // 	void Save(const FString& CacheFilename);
 
-    // 	FVulkanPipelineStateCacheManager(FVulkanDevice* InParent);
-    // 	~FVulkanPipelineStateCacheManager();
+    PipelineStateCacheManager(Device *InParent);
+
+    ~PipelineStateCacheManager();
 
     // 	void RebuildCache();
 
@@ -366,7 +419,7 @@ private:
     // 	void OnShaderPipelineCacheOpened(FString const& Name, EShaderPlatform Platform, uint32 Count, const FGuid& VersionGuid, FShaderPipelineCache::FShaderCachePrecompileContext& ShaderCachePrecompileContext);
     // 	void OnShaderPipelineCachePrecompilationComplete(uint32 Count, double Seconds, const FShaderPipelineCache::FShaderCachePrecompileContext& ShaderCachePrecompileContext);
 
-    // 	void CreateGfxEntry(const FGraphicsPipelineStateInitializer& PSOInitializer, FVulkanDescriptorSetsLayoutInfo& DescriptorSetLayoutInfo, FGfxPipelineDesc* Desc);
+    void CreateGfxEntry(const GraphicsPipelineStateInitializer &PSOInitializer, DescriptorSetsLayoutInfo &DescriptorSetLayoutInfo, GfxPipelineDesc *Desc);
     // 	bool Load(const TArray<FString>& CacheFilenames, FPipelineCache& Cache);
     // 	void SavePSOCache(const FString& CacheFilename, FPipelineCache& Cache);
     // 	void DestroyCache();
@@ -374,17 +427,18 @@ private:
     std::shared_ptr<GraphicsPipelineState> CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
     // 	FVulkanComputePipeline* RHICreateComputePipelineState(FRHIComputeShader* ComputeShaderRHI);
     // 	void NotifyDeletedGraphicsPSO(FRHIGraphicsPipelineState* PSO);
-    // 	bool CreateGfxPipelineFromEntry(FVulkanRHIGraphicsPipelineState* PSO, FVulkanShader* Shaders[ShaderStage::NumStages], bool bPrecompile);
+    bool CreateGfxPipelineFromEntry(VulkanGraphicsPipelineState *PSO, VulkanShader *Shaders[ShaderStage::NumStages], bool bPrecompile);
 
-    // 	VkResult CreateVKPipeline(FVulkanRHIGraphicsPipelineState* PSO, FVulkanShader* Shaders[ShaderStage::NumStages], const VkGraphicsPipelineCreateInfo& PipelineInfo, bool bIsPrecompileJob);
+    VkResult CreateVKPipeline(VulkanGraphicsPipelineState *PSO, VulkanShader *Shaders[ShaderStage::NumStages], const VkGraphicsPipelineCreateInfo &PipelineInfo, bool bIsPrecompileJob);
+
     // 	static FString ShaderHashesToString(FVulkanShader* Shaders[ShaderStage::NumStages]);
 
-    // 	FVulkanLayout* FindOrAddLayout(const FVulkanDescriptorSetsLayoutInfo& DescriptorSetLayoutInfo, bool bGfxLayout);
+    VulkanLayout* FindOrAddLayout(const DescriptorSetsLayoutInfo& DescriptorSetLayoutInfo, bool bGfxLayout);
     // 	FVulkanComputePipeline* CreateComputePipelineFromShader(FVulkanComputeShader* Shader);
 
-    // 	/** LRU Related functions */
+    /** LRU Related functions */
     // 	void TickLRU();
-    // 	bool LRUEvictImmediately();
+    bool LRUEvictImmediately();
     // 	void LRUTrim(uint32 nSpaceNeeded);
     // 	void LRUAdd(FVulkanRHIGraphicsPipelineState* PSO);
     // 	void LRUTouch(FVulkanRHIGraphicsPipelineState* PSO);
@@ -396,7 +450,7 @@ private:
     // 	void LRUCheckNotInside(FVulkanRHIGraphicsPipelineState* PSO);
 
     Device *device;
-    // 	bool bEvictImmediately;
+    bool bEvictImmediately;
     // 	FString CompiledPSOCacheTopFolderPath;
     // 	FString CompiledPSOCacheFolderName;
     // 	FDelegateHandle OnShaderPipelineCacheOpenedDelegate;
@@ -405,43 +459,45 @@ private:
     // 	FRWLock ComputePipelineLock;
     // 	TMap<uint64, FVulkanComputePipeline*> ComputePipelineEntries;
 
-    // 	template<typename TType>
-    // 	class FScopedRWAccessor
-    // 	{
-    // 		bool bWriteAccess;
-    // 		TType& ProtectedObj;
-    // 		FRWLock& RWLock;
-    // 	public:
-    // 		FScopedRWAccessor(bool bWriteAccessIn, TType& ProtectedObjIn, FRWLock& RWLockIn) : bWriteAccess(bWriteAccessIn), ProtectedObj(ProtectedObjIn), RWLock(RWLockIn) { bWriteAccess ? RWLock.WriteLock() : RWLock.ReadLock(); }
-    // 		~FScopedRWAccessor() { bWriteAccess ? RWLock.WriteUnlock() : RWLock.ReadUnlock(); }
-    // 		TType& Get() { return ProtectedObj; }
-    // 	};
+    // template <typename TType>
+    // class FScopedRWAccessor
+    // {
+    //     bool bWriteAccess;
+    //     TType &ProtectedObj;
+    //     FRWLock &RWLock;
 
-    // 	using FScopedPipelineCache = FScopedRWAccessor<VkPipelineCache>;
+    // public:
+    //     FScopedRWAccessor(bool bWriteAccessIn, TType &ProtectedObjIn, FRWLock &RWLockIn) : bWriteAccess(bWriteAccessIn), ProtectedObj(ProtectedObjIn), RWLock(RWLockIn) { bWriteAccess ? RWLock.WriteLock() : RWLock.ReadLock(); }
+    //     ~FScopedRWAccessor() { bWriteAccess ? RWLock.WriteUnlock() : RWLock.ReadUnlock(); }
+    //     TType &Get() { return ProtectedObj; }
+    // };
 
-    // 	enum class EPipelineCacheAccess : uint8
-    // 	{
-    // 		Shared,			// 'read' access, or for use when the API does its own synchronization.
-    // 		Exclusive		// 'write' access, excludes all other usage for the duration.
-    // 	};
-    // 	class FPipelineCache
-    // 	{
-    // 		VkPipelineCache PipelineCache = VK_NULL_HANDLE;
-    // 		FRWLock PipelineCacheLock;
-    // 	public:
-    // 		FScopedPipelineCache Get(EPipelineCacheAccess PipelineAccessType) { return FScopedPipelineCache(PipelineAccessType == EPipelineCacheAccess::Exclusive, PipelineCache, PipelineCacheLock); }
-    // 	};
+    // using FScopedPipelineCache = FScopedRWAccessor<VkPipelineCache>;
+
+    // enum class EPipelineCacheAccess : uint8
+    // {
+    //     Shared,   // 'read' access, or for use when the API does its own synchronization.
+    //     Exclusive // 'write' access, excludes all other usage for the duration.
+    // };
+    // class FPipelineCache
+    // {
+    //     VkPipelineCache PipelineCache = VK_NULL_HANDLE;
+    //     FRWLock PipelineCacheLock;
+
+    // public:
+    //     FScopedPipelineCache Get(EPipelineCacheAccess PipelineAccessType) { return FScopedPipelineCache(PipelineAccessType == EPipelineCacheAccess::Exclusive, PipelineCache, PipelineCacheLock); }
+    // };
     // 	FPipelineCache GlobalPSOCache;		// contains all PSO caches opened during the program run as well as PSO objects created on the fly
 
     // 	FPipelineCache CurrentPrecompilingPSOCache;
-    // 	// if true, we will link to the PSOFC, loading later, when we have that guid and only if the guid matches, saving only if there is no match, and only saving after the PSOFC is done.
-    // 	bool bPrecompilingCacheLoadedFromFile;
+    // if true, we will link to the PSOFC, loading later, when we have that guid and only if the guid matches, saving only if there is no match, and only saving after the PSOFC is done.
+    bool bPrecompilingCacheLoadedFromFile;
     // 	FGuid CurrentPrecompilingPSOCacheGuid;
 
     // 	TSet<FGuid> CompiledPSOCaches;
 
     // 	FCriticalSection LayoutMapCS;
-    // 	TMap<FVulkanDescriptorSetsLayoutInfo, FVulkanLayout*> LayoutMap;
+    std::unordered_map<DescriptorSetsLayoutInfo, VulkanLayout*> LayoutMap;
     // 	FVulkanDescriptorSetLayoutMap DSetLayoutMap;
 
     // 	FCriticalSection GraphicsPSOLockedCS;
@@ -449,11 +505,11 @@ private:
 
     // 	FCriticalSection LRUCS;
     // 	FVulkanRHIGraphicsPipelineStateLRU LRU;
-    // 	uint32 LRUUsedPipelineSize = 0;
-    // 	uint32 LRUUsedPipelineCount = 0;
-    // 	uint32 LRUUsedPipelineMax = 0;
+    uint32 LRUUsedPipelineSize = 0;
+    uint32 LRUUsedPipelineCount = 0;
+    uint32 LRUUsedPipelineMax = 0;
     // 	TMap<uint64, FVulkanPipelineSize> LRU2SizeList;	// key: Shader hash (FShaderHash), value: pipeline size
-    // 	bool bUseLRU = true;
+    bool bUseLRU = false;
     friend class RHI;
     // 	friend class FVulkanCommandListContext;
     // 	friend class FVulkanRHIGraphicsPipelineState;
@@ -522,7 +578,7 @@ public:
     }
 
     // void DeleteVkPipeline(bool bImmediate);
-    // void GetOrCreateShaderModules(std::shared_ptr<VulkanShaderModule> (&ShaderModulesOUT)[ShaderStage::NumStages], VulkanShader *const *Shaders);
+    void GetOrCreateShaderModules(std::shared_ptr<ShaderModule> (&ShaderModulesOUT)[ShaderStage::NumStages], VulkanShader *const *Shaders);
     // VulkanShader::SpirvCode GetPatchedSpirvCode(VulkanShader *Shader);
     // void PurgeShaderModules(VulkanShader *const *Shaders);
 

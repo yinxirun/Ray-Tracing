@@ -93,8 +93,9 @@ int main()
             VertexDeclarationElementList elements;
             elements.push_back(VertexElement(0, 0, VET_Float4, 0, 12));
             graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
-            graphicsPSOInit.BoundShaderState.VertexShaderRHI = 0;
-            graphicsPSOInit.BoundShaderState.PixelShaderRHI = 0;
+            graphicsPSOInit.BoundShaderState.VertexShaderRHI = rhi->CreateVertexShader(readFile("gpu/shaders/a.vert.spv"));
+            graphicsPSOInit.BoundShaderState.PixelShaderRHI = rhi->CreatePixelShader(readFile("gpu/shaders/a.frag.spv"));
+            auto pso = rhi->CreateGraphicsPipelineState(graphicsPSOInit);
 
             RenderPassInfo renderpassInfo{};
             RenderPassInfo::ColorEntry entry;

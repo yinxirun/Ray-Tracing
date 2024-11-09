@@ -3,13 +3,14 @@
 #include <vector>
 #include <unordered_map>
 #include <cstdint>
-#include "../definitions.h"
 #include <list>
+
+#include "device.h"
+#include "../definitions.h"
 #include "Volk/volk.h"
 #include "gpu/RHI/RHIDefinitions.h"
 #include "vulkan_memory.h"
-
-class Device;
+#include "gpu/core/misc/crc.h"
 
 namespace VulkanRHI
 {
@@ -17,6 +18,7 @@ namespace VulkanRHI
 }
 
 int memcmp(const void *a, const void *b, int length);
+
 namespace std
 {
     template <>
@@ -28,6 +30,42 @@ namespace std
         }
     };
 }
+
+// 49
+/// Information for remapping descriptor sets when combining layouts
+struct DescriptorSetRemappingInfo
+{
+    inline bool operator==(const DescriptorSetRemappingInfo &In) const { return true; }
+    inline bool operator!=(const DescriptorSetRemappingInfo &In) const
+    {
+        return !(*this == In);
+    }
+};
+
+// 781
+//  Smaller data structure for runtime information about descriptor sets and bindings for a pipeline
+class VulkanGfxPipelineDescriptorInfo
+{
+public:
+    inline bool IsInitialized() const { return bInitialized; }
+
+protected:
+    bool bInitialized;
+};
+
+struct UniformBufferGatherInfo
+{
+    UniformBufferGatherInfo()
+    {
+        memset(CodeHeaders, 0, sizeof(ShaderHeader *) * ShaderStage::NumStages);
+    }
+
+    // These maps are used to find UBs that are used on multiple stages
+    std::unordered_map<uint32, VkShaderStageFlags> UBLayoutsToUsedStageMap;
+    std::unordered_map<uint32, VkShaderStageFlags> CommonUBLayoutsToStageMap;
+
+    const ShaderHeader *CodeHeaders[ShaderStage::NumStages];
+};
 
 // Information for the layout of descriptor sets; does not hold runtime objects
 class DescriptorSetsLayoutInfo
@@ -61,26 +99,7 @@ public:
 
         inline void GenerateHash()
         {
-            int length = sizeof(VkDescriptorSetLayoutBinding) * LayoutBindings.size();
-            const uint8_t *data = reinterpret_cast<const uint8_t *>(LayoutBindings.data());
-            uint32_t crc = 0xFFFFFFFF;
-            while (length--)
-            {
-                crc ^= *data++;
-                for (int i = 0; i < 8; i++)
-                {
-                    if (crc & 1)
-                    {
-                        crc = (crc >> 1) ^ 0xEDB88320; // 0xEDB88320 是 CRC32 多项式
-                    }
-                    else
-                    {
-                        crc >>= 1;
-                    }
-                }
-            }
-            Hash = crc ^ 0xFFFFFFFF;
-            // Hash = FCrc::MemCrc32(LayoutBindings.data(), sizeof(VkDescriptorSetLayoutBinding) * LayoutBindings.size());
+            Hash = MemCrc32(LayoutBindings.data(), sizeof(VkDescriptorSetLayoutBinding) * LayoutBindings.size());
         }
 
         friend uint32_t GetTypeHash(const SetLayout &In)
@@ -115,6 +134,14 @@ public:
         }
     };
 
+    void ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSetStage,
+                                 const ShaderHeader &CodeHeader, UniformBufferGatherInfo &OutUBGatherInfo) const;
+
+    template <bool bIsCompute>
+    void FinalizeBindings(const Device &device, const UniformBufferGatherInfo &UBGatherInfo, const std::vector<SamplerState *> &ImmutableSamplers);
+
+    const std::vector<SetLayout> &GetLayouts() const { return setLayouts; }
+
     inline bool operator==(const DescriptorSetsLayoutInfo &In) const
     {
         if (In.hash != hash)
@@ -137,7 +164,7 @@ public:
             return false;
         }
 
-        for (int32_t Index = 0; Index < In.setLayouts.size(); ++Index)
+        for (int32 Index = 0; Index < In.setLayouts.size(); ++Index)
         {
             if (In.setLayouts[Index] != setLayouts[Index])
             {
@@ -145,15 +172,27 @@ public:
             }
         }
 
-        // if (RemappingInfo != In.RemappingInfo)
-        // {
-        //     return false;
-        // }
+        if (RemappingInfo != In.RemappingInfo)
+        {
+            return false;
+        }
 
         return true;
     }
 
-    const std::vector<SetLayout> &GetLayouts() const { return setLayouts; }
+    void CopyFrom(const DescriptorSetsLayoutInfo &Info)
+    {
+        layoutTypes = Info.layoutTypes;
+        hash = Info.hash;
+        typesUsageID = Info.typesUsageID;
+        setLayouts = Info.setLayouts;
+        RemappingInfo = Info.RemappingInfo;
+    }
+
+    inline bool HasInputAttachments() const
+    {
+        return GetTypesUsed(VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) > 0;
+    }
 
 protected:
     std::unordered_map<VkDescriptorType, uint32_t> layoutTypes;
@@ -161,7 +200,20 @@ protected:
     uint32_t hash = 0;
     uint32_t typesUsageID = ~0;
     VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_MAX_ENUM;
+    DescriptorSetRemappingInfo RemappingInfo;
 };
+
+namespace std
+{
+    template <>
+    struct hash<DescriptorSetsLayoutInfo>
+    {
+        size_t operator()(const DescriptorSetsLayoutInfo& v) const
+        {
+            return 0;
+        }
+    };
+}
 
 // The actual run-time descriptor set layouts
 class DescriptorSetsLayout : public DescriptorSetsLayoutInfo
@@ -278,10 +330,92 @@ class BindlessDescriptorManager : public VulkanRHI::DeviceChild
 public:
     BindlessDescriptorManager(Device *InDevice);
 
+    inline VkPipelineLayout GetPipelineLayout() const { return BindlessPipelineLayout; }
+
     RHIDescriptorHandle ReserveDescriptor(VkDescriptorType DescriptorType);
 
     void UpdateImage(RHIDescriptorHandle DescriptorHandle, VkImageView VulkanImage, bool bIsDepthStencil, bool bImmediateUpdate = true);
 
 private:
     const bool bIsSupported = false;
+
+    VkPipelineLayout BindlessPipelineLayout = VK_NULL_HANDLE;
+};
+
+// 1278
+//  Layout for a Pipeline, also includes DescriptorSets layout
+class VulkanLayout : public VulkanRHI::DeviceChild
+{
+public:
+    VulkanLayout(Device *InDevice);
+    virtual ~VulkanLayout();
+
+    virtual bool IsGfxLayout() const = 0;
+
+    inline const DescriptorSetsLayout &GetDescriptorSetsLayout() const { return DescriptorSetLayout; }
+
+    inline VkPipelineLayout GetPipelineLayout() const
+    {
+        return device->SupportsBindless() ? device->GetBindlessDescriptorManager()->GetPipelineLayout() : PipelineLayout;
+    }
+
+    // 	inline bool HasDescriptors() const
+    // 	{
+    // 		return DescriptorSetLayout.GetLayouts().Num() > 0;
+    // 	}
+
+    inline uint32 GetDescriptorSetLayoutHash() const
+    {
+        printf("Have not implement %s\n", __FILE__);
+        return -1;
+        // return DescriptorSetLayout.GetHash();
+    }
+
+    // 	void PatchSpirvBindings(FVulkanShader::FSpirvCode& SpirvCode, EShaderFrequency Frequency, const FVulkanShaderHeader& CodeHeader) const;
+
+protected:
+    DescriptorSetsLayout DescriptorSetLayout;
+    VkPipelineLayout PipelineLayout;
+
+    // 	template <bool bIsCompute>
+    // 	inline void FinalizeBindings(const FUniformBufferGatherInfo& UBGatherInfo)
+    // 	{
+    // 		// Setting descriptor is only allowed prior to compiling the layout
+    // 		check(DescriptorSetLayout.GetHandles().Num() == 0);
+
+    // 		DescriptorSetLayout.FinalizeBindings<bIsCompute>(UBGatherInfo);
+    // 	}
+
+    // 	inline void ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSet, const FVulkanShaderHeader& CodeHeader, FUniformBufferGatherInfo& OutUBGatherInfo) const
+    // 	{
+    // 		// Setting descriptor is only allowed prior to compiling the layout
+    // 		check(DescriptorSetLayout.GetHandles().Num() == 0);
+
+    // 		DescriptorSetLayout.ProcessBindingsForStage(StageFlags, DescSet, CodeHeader, OutUBGatherInfo);
+    // 	}
+
+    // 	void Compile(FVulkanDescriptorSetLayoutMap& DSetLayoutMap);
+
+    // 	friend class FVulkanComputePipeline;
+    // 	friend class FVulkanGfxPipeline;
+    friend class PipelineStateCacheManager;
+#if VULKAN_RHI_RAYTRACING
+    friend class FVulkanRayTracingPipelineState;
+#endif
+};
+
+class VulkanGfxLayout : public VulkanLayout
+{
+public:
+    VulkanGfxLayout(Device *InDevice) : VulkanLayout(InDevice) {}
+
+    virtual bool IsGfxLayout() const final override { return true; }
+
+    inline const VulkanGfxPipelineDescriptorInfo &GetGfxPipelineDescriptorInfo() const { return GfxPipelineDescriptorInfo; }
+
+    // 	bool UsesInputAttachment(FVulkanShaderHeader::EAttachmentType AttachmentType) const;
+
+protected:
+    VulkanGfxPipelineDescriptorInfo GfxPipelineDescriptorInfo;
+    friend class PipelineStateCacheManager;
 };

@@ -172,29 +172,29 @@ enum EBlendFactor
 };
 static_assert(EBlendFactor_Num <= (1 << EBlendFactor_NumBits), "EBlendFactor_Num will not fit on EBlendFactor_NumBits");
 
-//377
-enum EVertexElementType
+// 377
+enum VertexElementType
 {
 	VET_None,
 	VET_Float1,
 	VET_Float2,
 	VET_Float3,
 	VET_Float4,
-	VET_PackedNormal,	// FPackedNormal
+	VET_PackedNormal, // FPackedNormal
 	VET_UByte4,
 	VET_UByte4N,
 	VET_Color,
 	VET_Short2,
 	VET_Short4,
-	VET_Short2N,		// 16 bit word normalized to (value/32767.0,value/32767.0,0,0,1)
-	VET_Half2,			// 16 bit float using 1 bit sign, 5 bit exponent, 10 bit mantissa 
+	VET_Short2N, // 16 bit word normalized to (value/32767.0,value/32767.0,0,0,1)
+	VET_Half2,	 // 16 bit float using 1 bit sign, 5 bit exponent, 10 bit mantissa
 	VET_Half4,
-	VET_Short4N,		// 4 X 16 bit word, normalized 
+	VET_Short4N, // 4 X 16 bit word, normalized
 	VET_UShort2,
 	VET_UShort4,
-	VET_UShort2N,		// 16 bit word normalized to (value/65535.0,value/65535.0,0,0,1)
-	VET_UShort4N,		// 4 X 16 bit word unsigned, normalized 
-	VET_URGB10A2N,		// 10 bit r, g, b and 2 bit a normalized to (value/1023.0f, value/1023.0f, value/1023.0f, value/3.0f)
+	VET_UShort2N,  // 16 bit word normalized to (value/65535.0,value/65535.0,0,0,1)
+	VET_UShort4N,  // 4 X 16 bit word unsigned, normalized
+	VET_URGB10A2N, // 10 bit r, g, b and 2 bit a normalized to (value/1023.0f, value/1023.0f, value/1023.0f, value/3.0f)
 	VET_UInt,
 	VET_MAX,
 
@@ -234,7 +234,7 @@ enum PrimitiveType
 static_assert(PT_Num <= (1 << 8), "PrimitiveType doesn't fit in a byte");
 static_assert(PT_Num <= (1 << PT_NumBits), "PT_NumBits is too small");
 
-//704
+// 704
 enum EVRSAxisShadingRate : uint8
 {
 	VRSASR_1X = 0x0,
@@ -244,15 +244,31 @@ enum EVRSAxisShadingRate : uint8
 
 enum VRSShadingRate : uint8
 {
-	VRSSR_1x1  = (VRSASR_1X << 2) + VRSASR_1X,
-	VRSSR_1x2  = (VRSASR_1X << 2) + VRSASR_2X,
-	VRSSR_2x1  = (VRSASR_2X << 2) + VRSASR_1X,
-	VRSSR_2x2  = (VRSASR_2X << 2) + VRSASR_2X,
-	VRSSR_2x4  = (VRSASR_2X << 2) + VRSASR_4X,
-	VRSSR_4x2  = (VRSASR_4X << 2) + VRSASR_2X,
-	VRSSR_4x4  = (VRSASR_4X << 2) + VRSASR_4X,
-	
-	VRSSR_Last  = VRSSR_4x4
+	VRSSR_1x1 = (VRSASR_1X << 2) + VRSASR_1X,
+	VRSSR_1x2 = (VRSASR_1X << 2) + VRSASR_2X,
+	VRSSR_2x1 = (VRSASR_2X << 2) + VRSASR_1X,
+	VRSSR_2x2 = (VRSASR_2X << 2) + VRSASR_2X,
+	VRSSR_2x4 = (VRSASR_2X << 2) + VRSASR_4X,
+	VRSSR_4x2 = (VRSASR_4X << 2) + VRSASR_2X,
+	VRSSR_4x4 = (VRSASR_4X << 2) + VRSASR_4X,
+
+	VRSSR_Last = VRSSR_4x4
+};
+
+enum VRSRateCombiner : uint8
+{
+	VRSRB_Passthrough,
+	VRSRB_Override,
+	VRSRB_Min,
+	VRSRB_Max,
+	VRSRB_Sum,
+};
+
+enum VRSImageDataType : uint8
+{
+	VRSImage_NotSupported, // Image-based Variable Rate Shading is not supported on the current device/platform.
+	VRSImage_Palette,	   // Image-based VRS uses a palette of discrete, enumerated values to describe shading rate per tile.
+	VRSImage_Fractional,   // Image-based VRS uses a floating point value to describe shading rate in X/Y (e.g. 1.0f is full rate, 0.5f is half-rate, 0.25f is 1/4 rate, etc).
 };
 
 // 740

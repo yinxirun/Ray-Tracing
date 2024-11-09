@@ -22,21 +22,22 @@ public:
 class VulkanDepthStencilState : public DepthStencilState
 {
 public:
-	VulkanDepthStencilState(const DepthStencilStateInitializerRHI& InInitializer)
-	{
-		Initializer = InInitializer;
-	}
-	DepthStencilStateInitializerRHI Initializer;
+    VulkanDepthStencilState(const DepthStencilStateInitializerRHI &InInitializer)
+    {
+        Initializer = InInitializer;
+    }
+    void SetupCreateInfo(const GraphicsPipelineStateInitializer &GfxPSOInit,
+                         VkPipelineDepthStencilStateCreateInfo &OutDepthStencilState);
+    DepthStencilStateInitializerRHI Initializer;
 };
-
 
 class VulkanBlendState : public BlendState
 {
 public:
-	VulkanBlendState(const BlendStateInitializerRHI& InInitializer);
+    VulkanBlendState(const BlendStateInitializerRHI &InInitializer);
 
-	// array the pipeline state can point right to
-	VkPipelineColorBlendAttachmentState BlendStates[MaxSimultaneousRenderTargets];
+    // array the pipeline state can point right to
+    VkPipelineColorBlendAttachmentState BlendStates[MaxSimultaneousRenderTargets];
 
-	BlendStateInitializerRHI Initializer;
+    BlendStateInitializerRHI Initializer;
 };

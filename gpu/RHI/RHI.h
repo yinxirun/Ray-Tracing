@@ -29,7 +29,7 @@ struct VertexElement
 {
     uint8 StreamIndex;
     uint8 Offset;
-    TEnumAsByte<EVertexElementType> Type;
+    TEnumAsByte<VertexElementType> Type;
     uint8 AttributeIndex;
     uint16 Stride;
     /**
@@ -39,7 +39,7 @@ struct VertexElement
     uint16 bUseInstanceIndex;
 
     VertexElement() {}
-    VertexElement(uint8 InStreamIndex, uint8 InOffset, EVertexElementType InType, uint8 InAttributeIndex,
+    VertexElement(uint8 InStreamIndex, uint8 InOffset, VertexElementType InType, uint8 InAttributeIndex,
                   uint16 InStride, bool bInUseInstanceIndex = false) : StreamIndex(InStreamIndex),
                                                                        Offset(InOffset),
                                                                        Type(InType),

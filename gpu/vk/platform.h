@@ -24,6 +24,9 @@ public:
     static bool RequiresDepthWriteOnStencilClear() { return false; }
 
     static bool RegisterGPUWork() { return true; }
+
+    // Does the platform allow a nullptr Pixelshader on the pipeline
+    static bool SupportsNullPixelShader() { return false; }
 };
 
 class WindowsPlatform : public GenericPlatform

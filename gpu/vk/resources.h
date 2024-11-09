@@ -12,10 +12,14 @@
 #include "gpu/RHI/RHITransientResourceAllocator.h"
 #include "gpu/core/pixel_format.h"
 #include "gpu/core/assertion_macros.h"
+#include "gpu/core/templates/ref_counting.h"
 #include "vulkan_memory.h"
-
+#include "shader_resources.h"
 #include <vector>
 #include <unordered_map>
+#include <memory>
+#include <array>
+#include <iostream>
 
 namespace VulkanRHI
 {
@@ -27,6 +31,8 @@ class Device;
 class RHICommandListBase;
 class CommandListContext;
 class CmdBuffer;
+struct GfxPipelineDesc;
+class VulkanLayout;
 
 // Converts the internal texture dimension to Vulkan view type
 inline VkImageViewType UETextureDimensionToVkImageViewType(ETextureDimension Dimension)
@@ -142,22 +148,21 @@ public:
 };
 
 // 87
-class VulkanShaderModule //: public FThreadSafeRefCountedObject
+class ShaderModule : public ThreadSafeRefCountedObject
 {
     static Device *device;
-    VkShaderModule ActualShaderModule;
+    VkShaderModule actualShaderModule;
 
 public:
-    VulkanShaderModule(Device *DeviceIn, VkShaderModule ShaderModuleIn) : ActualShaderModule(ShaderModuleIn)
+    ShaderModule(Device *DeviceIn, VkShaderModule ShaderModuleIn) : actualShaderModule(ShaderModuleIn)
     {
         check(DeviceIn && (device == DeviceIn || !device));
         device = DeviceIn;
     }
-    virtual ~VulkanShaderModule();
-    VkShaderModule &GetVkShaderModule() { return ActualShaderModule; }
+    virtual ~ShaderModule();
+    VkShaderModule &GetVkShaderModule() { return actualShaderModule; }
 };
 
-// 101
 class VulkanShader //: public IRefCountedObject
 {
 public:
@@ -166,16 +171,72 @@ public:
 
     virtual ~VulkanShader();
 
+    std::shared_ptr<ShaderModule> GetOrCreateHandle(const GfxPipelineDesc &Desc, const VulkanLayout *Layout, uint32 LayoutHash)
+    {
+        // FScopeLock Lock(&VulkanShaderModulesMapCS);
+        if (NeedsSpirvInputAttachmentPatching(Desc))
+        {
+            LayoutHash = HashCombine(LayoutHash, 1);
+        }
+
+        return CreateHandle(Desc, Layout, LayoutHash);
+    }
+
+    // Name should be pointing to "main_"
+    void GetEntryPoint(char *Name, int32 NameLength)
+    {
+        char name[24] = "main";
+        memcpy(Name, name, 24);
+        // FCStringAnsi::Snprintf(Name, NameLength, "main_%0.8x_%0.8x", SpirvContainer.GetSizeBytes(), CodeHeader.SpirvCRC);
+    }
+
+    __forceinline const ShaderHeader &GetCodeHeader() const { return CodeHeader; }
+
     inline uint64 GetShaderKey() const { return ShaderKey; }
+
+    // This provides a view of the raw spirv bytecode.
+    // If it is stored compressed then the result of GetSpirvCode will contain the decompressed spirv.
+    class SpirvCode
+    {
+        friend class VulkanShader;
+        explicit SpirvCode(std::vector<uint32> &&UncompressedCodeIn) : UncompressedCode(std::move(UncompressedCodeIn))
+        {
+            CodeView = UncompressedCode;
+        }
+        std::vector<uint32> CodeView;
+        std::vector<uint32> UncompressedCode;
+
+    public:
+        std::vector<uint32> GetCodeView() { return CodeView; }
+    };
+
+    SpirvCode GetPatchedSpirvCode(const GfxPipelineDesc &Desc, const VulkanLayout *Layout);
 
 protected:
     uint64 ShaderKey;
-    std::vector<uint8> spirv;
+    /** External bindings for this shader. */
+    ShaderHeader CodeHeader;
     const EShaderFrequency Frequency;
 
-protected:
+    class SpirvContainer
+    {
+        friend class VulkanShader;
+        std::vector<uint8> SpirvCode;
+        int32 UncompressedSizeBytes = -1;
+
+    public:
+        bool IsCompressed() const { return UncompressedSizeBytes != -1; }
+        int32 GetSizeBytes() const { return UncompressedSizeBytes >= 0 ? UncompressedSizeBytes : SpirvCode.size(); }
+    } spirvContainer;
+
+    static SpirvCode GetSpirvCode(const SpirvContainer &Container);
+
     void Setup(std::vector<uint8> &&spirv, uint64 shaderKey);
     Device *device;
+
+    std::shared_ptr<ShaderModule> CreateHandle(const GfxPipelineDesc &Desc, const VulkanLayout *Layout, uint32 LayoutHash);
+
+    bool NeedsSpirvInputAttachmentPatching(const GfxPipelineDesc &Desc) const;
 
     friend class CommandListContext;
     friend class VulkanShaderFactory;
@@ -204,7 +265,7 @@ class VulkanShaderFactory
 {
 public:
     template <typename ShaderType>
-    ShaderType *CreateShader(std::vector<uint8>& Code, Device *Device);
+    ShaderType *CreateShader(std::vector<uint8> &Code, Device *Device);
 };
 
 class VulkanBoundShaderState : public BoundShaderState
@@ -445,27 +506,24 @@ protected:
 class VertexInputStateInfo
 {
 public:
-    // 	FVulkanVertexInputStateInfo();
-    // 	~FVulkanVertexInputStateInfo();
+    VertexInputStateInfo();
+    ~VertexInputStateInfo() = default;
 
-    // 	void Generate(FVulkanVertexDeclaration* VertexDeclaration, uint32 VertexHeaderInOutAttributeMask);
+    void Generate(VulkanVertexDeclaration *VertexDeclaration, uint32 VertexHeaderInOutAttributeMask);
 
-    // 	inline uint32 GetHash() const
-    // 	{
-    // 		check(Info.sType == VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
-    // 		return Hash;
-    // 	}
+    inline uint32 GetHash() const
+    {
+        check(Info.sType == VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO);
+        return Hash;
+    }
 
-    // 	inline const VkPipelineVertexInputStateCreateInfo& GetInfo() const
-    // 	{
-    // 		return Info;
-    // 	}
+    inline const VkPipelineVertexInputStateCreateInfo &GetInfo() const { return Info; }
 
-    // 	bool operator ==(const FVulkanVertexInputStateInfo& Other);
+    bool operator ==(const VertexInputStateInfo& Other);
 
 protected:
-    // VkPipelineVertexInputStateCreateInfo Info;
-    // uint32 Hash;
+    VkPipelineVertexInputStateCreateInfo Info;
+    uint32 Hash;
 
     uint32 BindingsNum;
     uint32 BindingsMask;
@@ -473,100 +531,13 @@ protected:
     // #todo-rco: Remove these TMaps
     std::unordered_map<uint32, uint32> BindingToStream;
     std::unordered_map<uint32, uint32> StreamToBinding;
-    VkVertexInputBindingDescription Bindings[MaxVertexElementCount];
+    std::array<VkVertexInputBindingDescription, MaxVertexElementCount> Bindings;
 
     uint32 AttributesNum;
-    VkVertexInputAttributeDescription Attributes[MaxVertexElementCount];
+    std::array<VkVertexInputAttributeDescription, MaxVertexElementCount> Attributes;
 
     friend class PendingGfxState;
-    // 	friend class FVulkanPipelineStateCacheManager;
-};
-
-// 1278
-//  Layout for a Pipeline, also includes DescriptorSets layout
-class VulkanLayout : public VulkanRHI::DeviceChild
-{
-    // public:
-    // 	FVulkanLayout(FVulkanDevice* InDevice);
-    // 	virtual ~FVulkanLayout();
-
-    // 	virtual bool IsGfxLayout() const = 0;
-
-    // 	inline const FVulkanDescriptorSetsLayout& GetDescriptorSetsLayout() const
-    // 	{
-    // 		return DescriptorSetLayout;
-    // 	}
-
-    // 	inline VkPipelineLayout GetPipelineLayout() const
-    // 	{
-    // 		return Device->SupportsBindless() ? Device->GetBindlessDescriptorManager()->GetPipelineLayout() : PipelineLayout;
-    // 	}
-
-    // 	inline bool HasDescriptors() const
-    // 	{
-    // 		return DescriptorSetLayout.GetLayouts().Num() > 0;
-    // 	}
-
-    // 	inline uint32 GetDescriptorSetLayoutHash() const
-    // 	{
-    // 		return DescriptorSetLayout.GetHash();
-    // 	}
-
-    // 	void PatchSpirvBindings(FVulkanShader::FSpirvCode& SpirvCode, EShaderFrequency Frequency, const FVulkanShaderHeader& CodeHeader) const;
-
-    // protected:
-    // 	FVulkanDescriptorSetsLayout	DescriptorSetLayout;
-    // 	VkPipelineLayout			PipelineLayout;
-
-    // 	template <bool bIsCompute>
-    // 	inline void FinalizeBindings(const FUniformBufferGatherInfo& UBGatherInfo)
-    // 	{
-    // 		// Setting descriptor is only allowed prior to compiling the layout
-    // 		check(DescriptorSetLayout.GetHandles().Num() == 0);
-
-    // 		DescriptorSetLayout.FinalizeBindings<bIsCompute>(UBGatherInfo);
-    // 	}
-
-    // 	inline void ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSet, const FVulkanShaderHeader& CodeHeader, FUniformBufferGatherInfo& OutUBGatherInfo) const
-    // 	{
-    // 		// Setting descriptor is only allowed prior to compiling the layout
-    // 		check(DescriptorSetLayout.GetHandles().Num() == 0);
-
-    // 		DescriptorSetLayout.ProcessBindingsForStage(StageFlags, DescSet, CodeHeader, OutUBGatherInfo);
-    // 	}
-
-    // 	void Compile(FVulkanDescriptorSetLayoutMap& DSetLayoutMap);
-
-    // 	friend class FVulkanComputePipeline;
-    // 	friend class FVulkanGfxPipeline;
-    // 	friend class FVulkanPipelineStateCacheManager;
-    // #if VULKAN_RHI_RAYTRACING
-    // 	friend class FVulkanRayTracingPipelineState;
-    // #endif
-};
-class VulkanGfxLayout : public VulkanLayout
-{
-    // public:
-    // 	FVulkanGfxLayout(FVulkanDevice* InDevice)
-    // 		: FVulkanLayout(InDevice)
-    // 	{
-    // 	}
-
-    // 	virtual bool IsGfxLayout() const final override
-    // 	{
-    // 		return true;
-    // 	}
-
-    // 	inline const FVulkanGfxPipelineDescriptorInfo& GetGfxPipelineDescriptorInfo() const
-    // 	{
-    // 		return GfxPipelineDescriptorInfo;
-    // 	}
-
-    // 	bool UsesInputAttachment(FVulkanShaderHeader::EAttachmentType AttachmentType) const;
-
-    // protected:
-    // 	FVulkanGfxPipelineDescriptorInfo		GfxPipelineDescriptorInfo;
-    // 	friend class FVulkanPipelineStateCacheManager;
+    friend class PipelineStateCacheManager;
 };
 
 static VulkanTexture *ResourceCast(Texture *texture)

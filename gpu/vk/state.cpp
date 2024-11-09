@@ -36,46 +36,125 @@ static inline VkCullModeFlags RasterizerCullModeToVulkan(ERasterizerCullMode InC
 
 static inline VkBlendOp BlendOpToVulkan(EBlendOperation InOp)
 {
-	switch (InOp)
-	{
-		case BO_Add:				return VK_BLEND_OP_ADD;
-		case BO_Subtract:			return VK_BLEND_OP_SUBTRACT;
-		case BO_Min:				return VK_BLEND_OP_MIN;
-		case BO_Max:				return VK_BLEND_OP_MAX;
-		case BO_ReverseSubtract:	return VK_BLEND_OP_REVERSE_SUBTRACT;
-		default:
-			break;
-	}
-	check(0);
-	return VK_BLEND_OP_MAX_ENUM;
+    switch (InOp)
+    {
+    case BO_Add:
+        return VK_BLEND_OP_ADD;
+    case BO_Subtract:
+        return VK_BLEND_OP_SUBTRACT;
+    case BO_Min:
+        return VK_BLEND_OP_MIN;
+    case BO_Max:
+        return VK_BLEND_OP_MAX;
+    case BO_ReverseSubtract:
+        return VK_BLEND_OP_REVERSE_SUBTRACT;
+    default:
+        break;
+    }
+    check(0);
+    return VK_BLEND_OP_MAX_ENUM;
 }
 
 static inline VkBlendFactor BlendFactorToVulkan(EBlendFactor InFactor)
 {
-	switch (InFactor)
-	{
-		case BF_Zero:						return VK_BLEND_FACTOR_ZERO;
-		case BF_One:						return VK_BLEND_FACTOR_ONE;
-		case BF_SourceColor:				return VK_BLEND_FACTOR_SRC_COLOR;
-		case BF_InverseSourceColor:			return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-		case BF_SourceAlpha:				return VK_BLEND_FACTOR_SRC_ALPHA;
-		case BF_InverseSourceAlpha:			return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		case BF_DestAlpha:					return VK_BLEND_FACTOR_DST_ALPHA;
-		case BF_InverseDestAlpha:			return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-		case BF_DestColor:					return VK_BLEND_FACTOR_DST_COLOR;
-		case BF_InverseDestColor:			return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
-		case BF_ConstantBlendFactor:		return VK_BLEND_FACTOR_CONSTANT_COLOR;
-		case BF_InverseConstantBlendFactor:	return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
-		case BF_Source1Color:				return VK_BLEND_FACTOR_SRC1_COLOR;
-		case BF_InverseSource1Color:		return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
-		case BF_Source1Alpha:				return VK_BLEND_FACTOR_SRC1_ALPHA;
-		case BF_InverseSource1Alpha:		return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
-		default:
-			break;
-	}
+    switch (InFactor)
+    {
+    case BF_Zero:
+        return VK_BLEND_FACTOR_ZERO;
+    case BF_One:
+        return VK_BLEND_FACTOR_ONE;
+    case BF_SourceColor:
+        return VK_BLEND_FACTOR_SRC_COLOR;
+    case BF_InverseSourceColor:
+        return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+    case BF_SourceAlpha:
+        return VK_BLEND_FACTOR_SRC_ALPHA;
+    case BF_InverseSourceAlpha:
+        return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    case BF_DestAlpha:
+        return VK_BLEND_FACTOR_DST_ALPHA;
+    case BF_InverseDestAlpha:
+        return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+    case BF_DestColor:
+        return VK_BLEND_FACTOR_DST_COLOR;
+    case BF_InverseDestColor:
+        return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+    case BF_ConstantBlendFactor:
+        return VK_BLEND_FACTOR_CONSTANT_COLOR;
+    case BF_InverseConstantBlendFactor:
+        return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
+    case BF_Source1Color:
+        return VK_BLEND_FACTOR_SRC1_COLOR;
+    case BF_InverseSource1Color:
+        return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
+    case BF_Source1Alpha:
+        return VK_BLEND_FACTOR_SRC1_ALPHA;
+    case BF_InverseSource1Alpha:
+        return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
+    default:
+        break;
+    }
 
-	check(0);
-	return VK_BLEND_FACTOR_MAX_ENUM;
+    check(0);
+    return VK_BLEND_FACTOR_MAX_ENUM;
+}
+
+static inline VkCompareOp CompareOpToVulkan(ECompareFunction InOp)
+{
+    switch (InOp)
+    {
+    case CF_Less:
+        return VK_COMPARE_OP_LESS;
+    case CF_LessEqual:
+        return VK_COMPARE_OP_LESS_OR_EQUAL;
+    case CF_Greater:
+        return VK_COMPARE_OP_GREATER;
+    case CF_GreaterEqual:
+        return VK_COMPARE_OP_GREATER_OR_EQUAL;
+    case CF_Equal:
+        return VK_COMPARE_OP_EQUAL;
+    case CF_NotEqual:
+        return VK_COMPARE_OP_NOT_EQUAL;
+    case CF_Never:
+        return VK_COMPARE_OP_NEVER;
+    case CF_Always:
+        return VK_COMPARE_OP_ALWAYS;
+    default:
+        break;
+    }
+
+    check(0);
+    return VK_COMPARE_OP_MAX_ENUM;
+}
+
+static inline VkStencilOp StencilOpToVulkan(EStencilOp InOp)
+{
+    VkStencilOp OutOp = VK_STENCIL_OP_MAX_ENUM;
+
+    switch (InOp)
+    {
+    case SO_Keep:
+        return VK_STENCIL_OP_KEEP;
+    case SO_Zero:
+        return VK_STENCIL_OP_ZERO;
+    case SO_Replace:
+        return VK_STENCIL_OP_REPLACE;
+    case SO_SaturatedIncrement:
+        return VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+    case SO_SaturatedDecrement:
+        return VK_STENCIL_OP_DECREMENT_AND_CLAMP;
+    case SO_Invert:
+        return VK_STENCIL_OP_INVERT;
+    case SO_Increment:
+        return VK_STENCIL_OP_INCREMENT_AND_WRAP;
+    case SO_Decrement:
+        return VK_STENCIL_OP_DECREMENT_AND_WRAP;
+    default:
+        break;
+    }
+
+    check(0);
+    return VK_STENCIL_OP_MAX_ENUM;
 }
 
 VulkanRasterizerState::VulkanRasterizerState(const RasterizerStateInitializer &InInitializer)
@@ -124,5 +203,49 @@ VulkanBlendState::VulkanBlendState(const BlendStateInitializerRHI &InInitializer
         BlendState.colorWriteMask |= (ColorTarget.ColorWriteMask & CW_GREEN) ? VK_COLOR_COMPONENT_G_BIT : 0;
         BlendState.colorWriteMask |= (ColorTarget.ColorWriteMask & CW_BLUE) ? VK_COLOR_COMPONENT_B_BIT : 0;
         BlendState.colorWriteMask |= (ColorTarget.ColorWriteMask & CW_ALPHA) ? VK_COLOR_COMPONENT_A_BIT : 0;
+    }
+}
+
+// 265
+void VulkanDepthStencilState::SetupCreateInfo(const GraphicsPipelineStateInitializer &GfxPSOInit, VkPipelineDepthStencilStateCreateInfo &OutDepthStencilState)
+{
+    ZeroVulkanStruct(OutDepthStencilState, VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO);
+
+    OutDepthStencilState.depthTestEnable = (Initializer.DepthTest != CF_Always || Initializer.bEnableDepthWrite) ? VK_TRUE : VK_FALSE;
+    OutDepthStencilState.depthCompareOp = CompareOpToVulkan(Initializer.DepthTest);
+    OutDepthStencilState.depthWriteEnable = Initializer.bEnableDepthWrite ? VK_TRUE : VK_FALSE;
+
+    {
+        // This will be filled in from the PSO
+        OutDepthStencilState.depthBoundsTestEnable = GfxPSOInit.bDepthBounds;
+        OutDepthStencilState.minDepthBounds = 0.0f;
+        OutDepthStencilState.maxDepthBounds = 1.0f;
+    }
+
+    OutDepthStencilState.stencilTestEnable = (Initializer.bEnableFrontFaceStencil || Initializer.bEnableBackFaceStencil) ? VK_TRUE : VK_FALSE;
+
+    // Front
+    OutDepthStencilState.back.failOp = StencilOpToVulkan(Initializer.FrontFaceStencilFailStencilOp);
+    OutDepthStencilState.back.passOp = StencilOpToVulkan(Initializer.FrontFacePassStencilOp);
+    OutDepthStencilState.back.depthFailOp = StencilOpToVulkan(Initializer.FrontFaceDepthFailStencilOp);
+    OutDepthStencilState.back.compareOp = CompareOpToVulkan(Initializer.FrontFaceStencilTest);
+    OutDepthStencilState.back.compareMask = Initializer.StencilReadMask;
+    OutDepthStencilState.back.writeMask = Initializer.StencilWriteMask;
+    OutDepthStencilState.back.reference = 0;
+
+    if (Initializer.bEnableBackFaceStencil)
+    {
+        // Back
+        OutDepthStencilState.front.failOp = StencilOpToVulkan(Initializer.BackFaceStencilFailStencilOp);
+        OutDepthStencilState.front.passOp = StencilOpToVulkan(Initializer.BackFacePassStencilOp);
+        OutDepthStencilState.front.depthFailOp = StencilOpToVulkan(Initializer.BackFaceDepthFailStencilOp);
+        OutDepthStencilState.front.compareOp = CompareOpToVulkan(Initializer.BackFaceStencilTest);
+        OutDepthStencilState.front.compareMask = Initializer.StencilReadMask;
+        OutDepthStencilState.front.writeMask = Initializer.StencilWriteMask;
+        OutDepthStencilState.front.reference = 0;
+    }
+    else
+    {
+        OutDepthStencilState.front = OutDepthStencilState.back;
     }
 }
