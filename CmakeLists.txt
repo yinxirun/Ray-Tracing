@@ -30,4 +30,4 @@ add_executable(main ${SRCS})
 
 target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(main PRIVATE glfw3dll)
+target_link_libraries(main PRIVATE glfw3dll spirv-cross-core spirv-cross-cpp spirv-cross-glsl spirv-cross-reflect)

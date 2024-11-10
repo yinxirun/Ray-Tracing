@@ -108,11 +108,10 @@ public:
 
     virtual void UnlockBuffer_BottomOfPipe(class RHICommandListBase &RHICmdList, Buffer *Buffer);
 
-    void InitInstance();
-
     /* Interface VulkanRHI Methond */
 
     /* VulkanRHI Methond */
+    void InitInstance();
     inline VkInstance GetInstance() const { return instance; }
     inline Device *GetDevice() const { return device; }
     inline std::vector<Viewport *> &GetViewports() { return viewports; }

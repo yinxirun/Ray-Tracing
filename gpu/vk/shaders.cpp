@@ -8,6 +8,7 @@
 #include "pipeline.h"
 #include "util.h"
 #include "configuration.h"
+#include "gpu/core/serialization/memory_reader.h"
 
 // 0 to not change layouts (eg Set 0 = Vertex, 1 = Pixel, etc)
 // 1 to use a new set for common Uniform Buffers
@@ -20,6 +21,13 @@ ShaderType *VulkanShaderFactory::CreateShader(std::vector<uint8> &Code, Device *
     const uint32 ShaderCodeLen = Code.size();
     const uint32 ShaderCodeCRC = MemCrc32(Code.data(), Code.size());
     const uint64 ShaderKey = ((uint64)ShaderCodeLen | ((uint64)ShaderCodeCRC << 32));
+
+    // 反序列化
+    MemoryReaderView ar(Code, true);
+    ShaderHeader codeHeader;
+    ar << codeHeader;
+    VulkanShader::SpirvContainer spirvContainer;
+    ar << spirvContainer;
 
     ShaderType *RetShader = new ShaderType(Device);
     RetShader->Setup(std::move(Code), ShaderKey);
@@ -42,17 +50,10 @@ VulkanShader::~VulkanShader() {}
 
 VulkanShader::SpirvCode VulkanShader::GetSpirvCode(const SpirvContainer &Container)
 {
-    if (Container.IsCompressed())
-    {
-        assert(0);
-    }
-    else
-    {
-        std::vector<uint32> code;
-        code.resize(Container.SpirvCode.size() / sizeof(uint32));
-        memcpy(code.data(), Container.SpirvCode.data(), Container.SpirvCode.size());
-        return SpirvCode(std::move(code));
-    }
+    std::vector<uint32> code;
+    code.resize(Container.SpirvCode.size() / sizeof(uint32));
+    memcpy(code.data(), Container.SpirvCode.data(), Container.SpirvCode.size());
+    return SpirvCode(std::move(code));
 }
 
 void VulkanShader::Setup(std::vector<uint8> &&spirv, uint64 shaderKey)
@@ -103,6 +104,21 @@ bool VulkanShader::NeedsSpirvInputAttachmentPatching(const GfxPipelineDesc &Desc
 {
     // return (Desc.RasterizationSamples > 1 && CodeHeader.InputAttachments.Num() > 0);
     return false;
+}
+
+Archive &operator<<(Archive &Ar, VulkanShader::SpirvContainer &spirvContainer)
+{
+    uint32 SpirvCodeSizeInBytes;
+    Ar << SpirvCodeSizeInBytes;
+    check(SpirvCodeSizeInBytes);
+    check(Ar.IsLoading());
+
+    std::vector<uint8> &SpirvCode = spirvContainer.SpirvCode;
+
+    SpirvCode.resize(SpirvCodeSizeInBytes);
+    Ar.Serialize(SpirvCode.data(), SpirvCodeSizeInBytes);
+
+    return Ar;
 }
 
 ShaderModule::~ShaderModule()

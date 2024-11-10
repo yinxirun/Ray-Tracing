@@ -38,8 +38,15 @@ std::vector<uint8> readFile(const std::string &filename)
 #define WIDTH 800
 #define HEIGHT 600
 
+std::string func(std::vector<uint8_t> &&inCode);
+
+std::vector<uint8> LoadShader(std::string filename);
+
 int main()
 {
+    LoadShader("gpu/shaders/a.vert.spv");
+    return 0;
+
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
@@ -93,7 +100,7 @@ int main()
         graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
         graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(readFile("gpu/shaders/a.vert.spv"));
         graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(readFile("gpu/shaders/a.frag.spv"));
-        auto pso = CreateGraphicsPipelineState(graphicsPSOInit);
+        // auto pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
         while (!glfwWindowShouldClose(window))
         {

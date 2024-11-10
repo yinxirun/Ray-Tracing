@@ -222,12 +222,13 @@ protected:
     {
         friend class VulkanShader;
         std::vector<uint8> SpirvCode;
-        int32 UncompressedSizeBytes = -1;
 
     public:
-        bool IsCompressed() const { return UncompressedSizeBytes != -1; }
-        int32 GetSizeBytes() const { return UncompressedSizeBytes >= 0 ? UncompressedSizeBytes : SpirvCode.size(); }
+        int32 GetSizeBytes() const { return SpirvCode.size(); }
+        friend Archive &operator<<(Archive &Ar, class VulkanShader::SpirvContainer &SpirvContainer);
     } spirvContainer;
+
+    friend Archive &operator<<(Archive &Ar, class VulkanShader::SpirvContainer &SpirvContainer);
 
     static SpirvCode GetSpirvCode(const SpirvContainer &Container);
 
@@ -519,7 +520,7 @@ public:
 
     inline const VkPipelineVertexInputStateCreateInfo &GetInfo() const { return Info; }
 
-    bool operator ==(const VertexInputStateInfo& Other);
+    bool operator==(const VertexInputStateInfo &Other);
 
 protected:
     VkPipelineVertexInputStateCreateInfo Info;

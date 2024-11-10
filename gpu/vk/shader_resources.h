@@ -1,6 +1,8 @@
 #pragma once
 
 #include <vector>
+#include "gpu/core/serialization/archive.h"
+#include "gpu/core/containers/enum_as_byte.h"
 
 /** The base type of a value in a shader parameter structure. */
 enum EUniformBufferBaseType : uint8
@@ -87,3 +89,26 @@ struct ShaderHeader
     };
     ShaderHeader(EInit) : InOutMask(0) {}
 };
+
+
+inline Archive& operator<<(Archive& Ar, ShaderHeader& Header)
+{
+	// Ar << Header.UniformBuffers;
+	// Ar << Header.Globals;
+	// Ar << Header.GlobalDescriptorTypes;
+	// Ar << Header.PackedGlobals;
+	// Ar << Header.PackedUBs;
+	// Ar << Header.InputAttachments;
+	// Ar << Header.EmulatedUBCopyRanges;
+	// Ar << Header.EmulatedUBsCopyInfo;
+	Ar << Header.InOutMask;
+	// Ar << Header.RayTracingPayloadType;
+	// Ar << Header.RayTracingPayloadSize;
+	// Ar << Header.SourceHash;
+	// Ar << Header.SpirvCRC;
+	// Ar << Header.WaveSize;
+	// Ar << Header.UniformBufferSpirvInfos;
+	// Ar << Header.GlobalSpirvInfos;
+	// Ar << Header.DebugName;
+	return Ar;
+}
