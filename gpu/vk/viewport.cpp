@@ -428,6 +428,11 @@ VkSurfaceTransformFlagBitsKHR Viewport::GetSwapchainQCOMRenderPassTransform() co
     return swapChain->QCOMRenderPassTransform;
 }
 
+VkFormat Viewport::GetSwapchainImageFormat() const
+{
+    return swapChain->imageFormat;
+}
+
 void Viewport::CreateSwapchain(struct SwapChainRecreateInfo *recreateInfo)
 {
     if (SupportsStandardSwapchain())

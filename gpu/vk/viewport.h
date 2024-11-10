@@ -75,6 +75,7 @@ public:
     inline SwapChain *GetSwapChain() { return swapChain; }
 
     VkSurfaceTransformFlagBitsKHR GetSwapchainQCOMRenderPassTransform() const;
+    VkFormat GetSwapchainImageFormat() const;
 
 protected:
     Device *device;

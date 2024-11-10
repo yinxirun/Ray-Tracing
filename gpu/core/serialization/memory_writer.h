@@ -67,7 +67,7 @@ public:
                 }
             }
 
-            Bytes.resize((IndexSizeType)NumBytesToAdd);
+            Bytes.resize((IndexSizeType)(Offset + Num));
         }
 
         check((Offset + Num) <= Bytes.size());

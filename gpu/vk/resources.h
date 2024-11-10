@@ -232,7 +232,7 @@ protected:
 
     static SpirvCode GetSpirvCode(const SpirvContainer &Container);
 
-    void Setup(std::vector<uint8> &&spirv, uint64 shaderKey);
+    void Setup(ShaderHeader &&header,SpirvContainer&& spirv, uint64 shaderKey);
     Device *device;
 
     std::shared_ptr<ShaderModule> CreateHandle(const GfxPipelineDesc &Desc, const VulkanLayout *Layout, uint32 LayoutHash);

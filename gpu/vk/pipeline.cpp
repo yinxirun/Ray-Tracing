@@ -363,18 +363,13 @@ VulkanGraphicsPipelineState::VulkanGraphicsPipelineState(Device *device, const G
 
 VulkanGraphicsPipelineState::~VulkanGraphicsPipelineState()
 {
-    // #if !UE_BUILD_SHIPPING
-    //     SGraphicsRHICount--;
-    // #endif
-    //     DEC_DWORD_STAT(STAT_VulkanNumGraphicsPSOs);
-
-    //     for (int ShaderStageIndex = 0; ShaderStageIndex < ShaderStage::NumStages; ShaderStageIndex++)
-    //     {
+         for (int ShaderStageIndex = 0; ShaderStageIndex < ShaderStage::NumStages; ShaderStageIndex++)
+         {
     //         if (VulkanShaders[ShaderStageIndex] != nullptr)
     //         {
     //             VulkanShaders[ShaderStageIndex]->Release();
     //         }
-    //     }
+         }
 
     //     device->PipelineStateCache->NotifyDeletedGraphicsPSO(this);
 }
@@ -394,7 +389,18 @@ PipelineStateCacheManager::PipelineStateCacheManager(Device *InDevice)
     LRUUsedPipelineMax = 0;
 }
 
-PipelineStateCacheManager::~PipelineStateCacheManager() {}
+PipelineStateCacheManager::~PipelineStateCacheManager()
+{
+    // Only destroy layouts when quitting
+    for (auto &Pair : LayoutMap)
+    {
+        delete Pair.second;
+    }
+    for (auto &Pair : DSetLayoutMap)
+    {
+        vkDestroyDescriptorSetLayout(device->GetInstanceHandle(), Pair.second.Handle, VULKAN_CPU_ALLOCATOR);
+    }
+}
 
 static inline VkPrimitiveTopology UEToVulkanTopologyType(const Device *InDevice, PrimitiveType PrimitiveType, uint16 &OutControlPoints)
 {
@@ -626,10 +632,10 @@ VulkanLayout *PipelineStateCacheManager::FindOrAddLayout(const DescriptorSetsLay
     Layout->descriptorSetsLayout.CopyFrom(DescriptorSetLayoutInfo);
     Layout->Compile(DSetLayoutMap);
 
-/*     if (GfxLayout)
-    {
-        GfxLayout->GfxPipelineDescriptorInfo.Initialize(GfxLayout->GetDescriptorSetsLayout().RemappingInfo);
-    } */
+    /*     if (GfxLayout)
+        {
+            GfxLayout->GfxPipelineDescriptorInfo.Initialize(GfxLayout->GetDescriptorSetsLayout().RemappingInfo);
+        } */
 
     LayoutMap.insert(std::pair(DescriptorSetLayoutInfo, Layout));
     return Layout;
@@ -955,7 +961,6 @@ VkResult PipelineStateCacheManager::CreateVKPipeline(VulkanGraphicsPipelineState
     VkPipeline *Pipeline = &PSO->VulkanPipeline;
     VkResult Result = vkCreateGraphicsPipelines(device->GetInstanceHandle(), VK_NULL_HANDLE,
                                                 1, &PipelineInfo, VULKAN_CPU_ALLOCATOR, Pipeline);
-
     return Result;
 }
 

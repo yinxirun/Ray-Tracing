@@ -30,7 +30,7 @@ ShaderType *VulkanShaderFactory::CreateShader(std::vector<uint8> &Code, Device *
     ar << spirvContainer;
 
     ShaderType *RetShader = new ShaderType(Device);
-    RetShader->Setup(std::move(Code), ShaderKey);
+    RetShader->Setup(std::move(codeHeader), std::move(spirvContainer), ShaderKey);
     return RetShader;
 }
 
@@ -56,10 +56,12 @@ VulkanShader::SpirvCode VulkanShader::GetSpirvCode(const SpirvContainer &Contain
     return SpirvCode(std::move(code));
 }
 
-void VulkanShader::Setup(std::vector<uint8> &&spirv, uint64 shaderKey)
+void VulkanShader::Setup(ShaderHeader &&header, SpirvContainer &&spirv, uint64 shaderKey)
 {
-    this->spirvContainer.SpirvCode = spirv;
-    this->ShaderKey = std::move(shaderKey);
+    check(device);
+    this->CodeHeader = std::move(header);
+    this->spirvContainer = std::move(spirv);
+    this->ShaderKey = shaderKey;
 }
 
 static std::shared_ptr<ShaderModule> CreateShaderModule(Device *device, VulkanShader::SpirvCode &SpirvCode)

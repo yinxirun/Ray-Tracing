@@ -50,6 +50,7 @@ public:
     void EndFrame() final override;
 
     void SetStreamSource(uint32 StreamIndex, Buffer *VertexBuffer, uint32 Offset) final override;
+    void SetGraphicsPipelineState(GraphicsPipelineState* GraphicsState, uint32 StencilRef, bool bApplyAdditionalState) final override;
 
     virtual void BeginRenderPass(const RenderPassInfo &InInfo, const char *InName) final override;
     virtual void EndRenderPass() final override;

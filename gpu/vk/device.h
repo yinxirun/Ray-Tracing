@@ -219,6 +219,8 @@ public:
 
     void SubmitCommandsAndFlushGPU();
 
+    inline class PipelineStateCacheManager *GetPipelineStateCache() { return PipelineStateCache; }
+
     inline const OptionalVulkanDeviceExtensions &GetOptionalExtensions() const { return OptionalDeviceExtensions; }
 
     inline bool SupportsParallelRendering() const { return false; }

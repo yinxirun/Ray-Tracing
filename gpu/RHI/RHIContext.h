@@ -6,6 +6,7 @@
 class Viewport;
 class VulkanTexture;
 class Buffer;
+class GraphicsPipelineState;
 
 class ComputeContext
 {
@@ -40,6 +41,8 @@ public:
     virtual void EndFrame() = 0;
 
     virtual void SetStreamSource(uint32 StreamIndex, Buffer* VertexBuffer, uint32 Offset) = 0;
+
+    virtual void SetGraphicsPipelineState(GraphicsPipelineState* GraphicsState, uint32 StencilRef, bool bApplyAdditionalState) = 0;
 
     virtual void DrawIndexedPrimitive(Buffer *IndexBuffer, int32 BaseVertexIndex, uint32 FirstInstance,
                                       uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances) = 0;

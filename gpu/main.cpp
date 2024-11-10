@@ -44,9 +44,6 @@ std::vector<uint8> LoadShader(std::string filename);
 
 int main()
 {
-    LoadShader("gpu/shaders/a.vert.spv");
-    return 0;
-
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
@@ -80,7 +77,7 @@ int main()
         GraphicsPipelineStateInitializer graphicsPSOInit;
 
         graphicsPSOInit.RenderTargetsEnabled = 1;
-        graphicsPSOInit.RenderTargetFormats[0] = PF_Unknown;
+        graphicsPSOInit.RenderTargetFormats[0] = PF_B8G8R8A8;
         graphicsPSOInit.RenderTargetFlags[0] = TextureCreateFlags::RenderTargetable;
         graphicsPSOInit.NumSamples = 1;
         graphicsPSOInit.DepthStencilTargetFormat = PF_Unknown;
@@ -98,9 +95,9 @@ int main()
         elements.push_back(VertexElement(0, 0, VET_Float4, 0, 12));
         elements.push_back(VertexElement(1, 0, VET_Float4, 1, 12));
         graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
-        graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(readFile("gpu/shaders/a.vert.spv"));
-        graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(readFile("gpu/shaders/a.frag.spv"));
-        // auto pso = CreateGraphicsPipelineState(graphicsPSOInit);
+        graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(LoadShader("gpu/shaders/a.vert.spv"));
+        graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(LoadShader("gpu/shaders/a.frag.spv"));
+        auto pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
         while (!glfwWindowShouldClose(window))
         {
