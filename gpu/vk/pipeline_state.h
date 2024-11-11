@@ -1,19 +1,20 @@
 #pragma once
 #include "vulkan_memory.h"
+#include "pipeline.h"
 #include <iostream>
 
 class CommandListContext;
 class CommandBuffer;
+class VulkanGraphicsPipelineState;
 
 // Common Pipeline state
 class CommonPipelineDescriptorState : public VulkanRHI::DeviceChild
 {
-	// public:
-	// 	FVulkanCommonPipelineDescriptorState(FVulkanDevice* InDevice)
-	// 		: VulkanRHI::FDeviceChild(InDevice)
-	// 		, bUseBindless(InDevice->SupportsBindless())
-	// 	{
-	// 	}
+public:
+	CommonPipelineDescriptorState(Device *InDevice)
+		: VulkanRHI::DeviceChild(InDevice), bUseBindless(InDevice->SupportsBindless())
+	{
+	}
 
 	// 	virtual ~FVulkanCommonPipelineDescriptorState() {}
 
@@ -101,14 +102,17 @@ class CommonPipelineDescriptorState : public VulkanRHI::DeviceChild
 	// 		DSWriter[DescriptorSet].DynamicOffsets[DynamicOffsetIndex] = DynamicOffset;
 	// 	}
 
-	// protected:
-	// 	void Reset()
-	// 	{
-	// 		for(FVulkanDescriptorSetWriter& Writer : DSWriter)
-	// 		{
-	// 			Writer.Reset();
-	// 		}
-	// 	}
+protected:
+	void Reset()
+	{
+#ifdef PRINT_UNIMPLEMENT
+		printf("Have not implement CommonPipelineDescriptorState::Reset %s %d\n", __FILE__, __LINE__);
+// 		for(FVulkanDescriptorSetWriter& Writer : DSWriter)
+// 		{
+// 			Writer.Reset();
+// 		}
+#endif
+	}
 	// 	inline void Bind(VkCommandBuffer CmdBuffer, VkPipelineLayout PipelineLayout, VkPipelineBindPoint BindPoint)
 	// 	{
 	// 		// Bindless will replace with global sets
@@ -122,40 +126,40 @@ class CommonPipelineDescriptorState : public VulkanRHI::DeviceChild
 	// 		}
 	// 	}
 
-	// 	void CreateDescriptorWriteInfos();
+	void CreateDescriptorWriteInfos();
 
 	// 	//#todo-rco: Won't work multithreaded!
 	// 	FVulkanDescriptorSetWriteContainer DSWriteContainer;
-	// 	const FVulkanDescriptorSetsLayout* DescriptorSetsLayout = nullptr;
+	const DescriptorSetsLayout *descriptorSetsLayout = nullptr;
 
 	// 	//#todo-rco: Won't work multithreaded!
 	// 	TArray<VkDescriptorSet> DescriptorSetHandles;
 
 	// 	// Bitmask of sets that exist in this pipeline
-	// 	//#todo-rco: Won't work multithreaded!
-	// 	uint32			UsedSetsMask = 0;
+	// #todo-rco: Won't work multithreaded!
+	uint32 UsedSetsMask = 0;
 
 	// 	//#todo-rco: Won't work multithreaded!
 	// 	TArray<uint32> DynamicOffsets;
 
-	// 	bool bIsResourcesDirty = true;
+	bool bIsResourcesDirty = true;
 
 	// 	TArray<FVulkanDescriptorSetWriter> DSWriter;
 
 	// 	mutable FVulkanDSetsKey DSetsKey;
 	// 	mutable bool bIsDSetsKeyDirty = true;
 
-	// 	const bool bUseBindless;
+	const bool bUseBindless;
 };
 
 class GraphicsPipelineDescriptorState : public CommonPipelineDescriptorState
 {
-	// public:
-	// 	FVulkanGraphicsPipelineDescriptorState(FVulkanDevice* InDevice, FVulkanRHIGraphicsPipelineState* InGfxPipeline);
-	// 	virtual ~FVulkanGraphicsPipelineDescriptorState()
-	// 	{
-	// 		GfxPipeline->Release();
-	// 	}
+public:
+	GraphicsPipelineDescriptorState(Device *InDevice, VulkanGraphicsPipelineState *InGfxPipeline);
+	virtual ~GraphicsPipelineDescriptorState()
+	{
+		GfxPipeline->Release();
+	}
 
 	// 	inline void SetPackedGlobalShaderParameter(uint8 Stage, uint32 BufferIndex, uint32 ByteOffset, uint32 NumBytes, const void* NewValue)
 	// 	{
@@ -169,7 +173,9 @@ class GraphicsPipelineDescriptorState : public CommonPipelineDescriptorState
 
 	bool UpdateDescriptorSets(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer)
 	{
-		printf("ERROR: Have not implement UpdateDescriptorSets %s\n", __FILE__);
+#ifdef PRINT_UNIMPLEMENT
+		printf("Have not implement UpdateDescriptorSets %s\n", __FILE__);
+#endif
 		// 		check(!bUseBindless);
 
 		// 		const bool bUseDynamicGlobalUBs = (GDynamicGlobalUBs->GetInt() > 0);
@@ -192,26 +198,26 @@ class GraphicsPipelineDescriptorState : public CommonPipelineDescriptorState
 		// 		Bind(CmdBuffer, GfxPipeline->GetLayout().GetPipelineLayout(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 	}
 
-	// 	void Reset()
-	// 	{
-	// 		FMemory::Memcpy(PackedUniformBuffersDirty, PackedUniformBuffersMask);
-	// 		FVulkanCommonPipelineDescriptorState::Reset();
-	// 		bIsResourcesDirty = true;
-	// 	}
+	void Reset()
+	{
+		memcpy(PackedUniformBuffersDirty.data(), PackedUniformBuffersMask.data(), sizeof(uint64) * ShaderStage::NumStages);
+		CommonPipelineDescriptorState::Reset();
+		bIsResourcesDirty = true;
+	}
 
 	// 	inline const FVulkanGfxPipelineDescriptorInfo& GetGfxPipelineDescriptorInfo() const
 	// 	{
 	// 		return *PipelineDescriptorInfo;
 	// 	}
 
-	// protected:
-	// 	const FVulkanGfxPipelineDescriptorInfo* PipelineDescriptorInfo;
+protected:
+	const VulkanGfxPipelineDescriptorInfo *PipelineDescriptorInfo;
 
-	// 	TStaticArray<FPackedUniformBuffers, ShaderStage::NumStages> PackedUniformBuffers;
-	// 	TStaticArray<uint64, ShaderStage::NumStages> PackedUniformBuffersMask;
-	// 	TStaticArray<uint64, ShaderStage::NumStages> PackedUniformBuffersDirty;
+	std::array<PackedUniformBuffers, ShaderStage::NumStages> PackedUniformBuffers;
+	std::array<uint64, ShaderStage::NumStages> PackedUniformBuffersMask;
+	std::array<uint64, ShaderStage::NumStages> PackedUniformBuffersDirty;
 
-	// 	FVulkanRHIGraphicsPipelineState* GfxPipeline;
+	VulkanGraphicsPipelineState *GfxPipeline;
 
 	// 	template<bool bUseDynamicGlobalUBs>
 	// 	bool InternalUpdateDescriptorSets(FVulkanCommandListContext* CmdListContext, FVulkanCmdBuffer* CmdBuffer);

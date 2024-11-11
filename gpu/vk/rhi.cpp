@@ -153,7 +153,7 @@ std::shared_ptr<BlendState> RHI::CreateBlendState(const BlendStateInitializerRHI
 
 CommandListContext *RHI::GetDefaultContext() { return &device->GetImmediateContext(); }
 
-std::shared_ptr<GraphicsPipelineState> RHI::CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
+GraphicsPipelineState* RHI::CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
 {
     return device->PipelineStateCache->CreateGraphicsPipelineState(Initializer);
 }

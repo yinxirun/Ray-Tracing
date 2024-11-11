@@ -221,6 +221,8 @@ public:
 
     inline class PipelineStateCacheManager *GetPipelineStateCache() { return PipelineStateCache; }
 
+    void NotifyDeletedGfxPipeline(class VulkanGraphicsPipelineState *Pipeline);
+
     inline const OptionalVulkanDeviceExtensions &GetOptionalExtensions() const { return OptionalDeviceExtensions; }
 
     inline bool SupportsParallelRendering() const { return false; }
@@ -272,4 +274,5 @@ private:
     PipelineStateCacheManager *PipelineStateCache;
 
     friend class RHI;
+    friend class VulkanGraphicsPipelineState;
 };

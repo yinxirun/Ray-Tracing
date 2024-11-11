@@ -37,7 +37,7 @@ __forceinline PixelShader *CreatePixelShader(std::vector<uint8> Code)
     return rhi->CreatePixelShader(Code);
 }
 
-__forceinline std::shared_ptr<GraphicsPipelineState> CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
+__forceinline GraphicsPipelineState* CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
 {
     return rhi->CreateGraphicsPipelineState(Initializer);
 }

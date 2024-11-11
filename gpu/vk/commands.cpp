@@ -30,8 +30,9 @@ void CommandListContext::SetResourcesFromTables(const ShaderType *Shader)
     check(Shader);
 
     static constexpr EShaderFrequency Frequency = static_cast<EShaderFrequency>(ShaderType::StaticFrequency);
-
+#ifdef PRINT_UNIMPLEMENT
     printf("Have not implement CommandListContext::SetResourcesFromTables %s\n", __FILE__);
+#endif
 
     if (Frequency == SF_Compute)
     {
@@ -56,7 +57,6 @@ void CommandListContext::SetResourcesFromTables(const ShaderType *Shader)
 // 210
 void CommandListContext::CommitGraphicsResourceTables()
 {
-    printf("Have not implement CommandListContext::CommitGraphicsResourceTables %s\n", __FILE__);
     check(pendingGfxState);
 
     if (const VulkanShader *Shader = pendingGfxState->GetCurrentShader(SF_Vertex))
@@ -103,7 +103,6 @@ void CommandListContext::CommitGraphicsResourceTables()
 void CommandListContext::DrawIndexedPrimitive(Buffer *IndexBufferRHI, int32 BaseVertexIndex, uint32 FirstInstance,
                                               uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
 {
-    printf("Have not implement CommandListContext::DrawIndexedPrimitive\n");
     NumInstances = std::max(1U, NumInstances);
 
     //	checkf(GRHISupportsFirstInstance || FirstInstance == 0, TEXT("FirstInstance must be 0, see GRHISupportsFirstInstance"));
@@ -124,4 +123,16 @@ void CommandListContext::DrawIndexedPrimitive(Buffer *IndexBufferRHI, int32 Base
     {
         // 		GpuProfiler.RegisterGPUWork(NumPrimitives * NumInstances, NumVertices * NumInstances);
     }
+}
+
+// 877
+void CommandListContext::SubmitCommandsHint()
+{
+    RequestSubmitCurrentCommands();
+    CmdBuffer *cmdBuffer = commandBufferManager->GetActiveCmdBuffer();
+    if (cmdBuffer && cmdBuffer->HasBegun() && cmdBuffer->IsOutsideRenderPass())
+    {
+        SafePointSubmit();
+    }
+    commandBufferManager->RefreshFenceStatus();
 }

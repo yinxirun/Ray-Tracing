@@ -84,7 +84,7 @@ public:
      * CAUTION: Platforms that support RHIThread but don't actually have a threadsafe implementation must flush internally with FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList()); when the call is from the render thread
      */
     // FlushType: Thread safe
-    virtual std::shared_ptr<GraphicsPipelineState> CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
+    virtual GraphicsPipelineState* CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
 
     // 339
     virtual std::shared_ptr<Buffer> CreateBuffer(BufferDesc const &Desc, Access ResourceState, ResourceCreateInfo &CreateInfo);

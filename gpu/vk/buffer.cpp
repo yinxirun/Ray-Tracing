@@ -534,7 +534,6 @@ void VulkanMultiBuffer::Unlock(RHICommandListBase *RHICmdList, CommandListContex
 void VulkanMultiBuffer::InternalUnlock(CommandListContext &Context, VulkanRHI::PendingBufferLock &PendingLock,
                                        VulkanMultiBuffer *MultiBuffer, int32 InBufferIndex)
 {
-
     const uint32 LockSize = PendingLock.Size;
     const uint32 LockOffset = PendingLock.Offset;
     VulkanRHI::StagingBuffer *stagingBuffer = PendingLock.stagingBuffer;

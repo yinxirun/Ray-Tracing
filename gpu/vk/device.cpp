@@ -11,6 +11,8 @@
 #include "renderpass.h"
 #include "resources.h"
 #include "pipeline.h"
+#include "context.h"
+#include "pending_state.h"
 
 bool GEnableAsyncCompute = true;
 
@@ -364,6 +366,20 @@ void Device::SubmitCommandsAndFlushGPU()
     }
 
     SubmitCommands(immediateContext);
+}
+
+void Device::NotifyDeletedGfxPipeline(class VulkanGraphicsPipelineState *Pipeline)
+{
+    if (computeContext != immediateContext)
+    {
+        // ensure(0);
+    }
+
+    // #todo-rco: Loop through all contexts!
+    if (immediateContext && immediateContext->pendingGfxState)
+    {
+        immediateContext->pendingGfxState->NotifyDeletedPipeline(Pipeline);
+    }
 }
 
 void Device::SetupPresentQueue(VkSurfaceKHR Surface)

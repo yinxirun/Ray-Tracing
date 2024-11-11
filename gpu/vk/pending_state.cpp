@@ -7,13 +7,13 @@
 
 PendingGfxState::~PendingGfxState()
 {
-	// TMap<FVulkanRHIGraphicsPipelineState*, FVulkanGraphicsPipelineDescriptorState*> Temp;
-	// Swap(Temp, PipelineStates);
-	// for (auto& Pair : Temp)
-	// {
-	// 	FVulkanGraphicsPipelineDescriptorState* State = Pair.Value;
-	// 	delete State;
-	// }
+	std::unordered_map<VulkanGraphicsPipelineState *, GraphicsPipelineDescriptorState *> Temp;
+	std::swap(Temp, PipelineStates);
+	for (auto &Pair : Temp)
+	{
+		GraphicsPipelineDescriptorState *State = Pair.second;
+		delete State;
+	}
 }
 
 void PendingGfxState::PrepareForDraw(CmdBuffer *CmdBuffer)
@@ -173,4 +173,35 @@ void PendingGfxState::InternalUpdateDynamicStates(CmdBuffer *Cmd)
 	}
 
 	Cmd->bNeedsDynamicStateSet = false;
+}
+
+bool PendingGfxState::SetGfxPipeline(VulkanGraphicsPipelineState *InGfxPipeline, bool bForceReset)
+{
+	bool bChanged = bForceReset;
+
+	if (InGfxPipeline != CurrentPipeline)
+	{
+		CurrentPipeline = InGfxPipeline;
+		auto it = PipelineStates.find(InGfxPipeline);
+		if (it != PipelineStates.end())
+		{
+			CurrentState = it->second;
+			check(CurrentState->GfxPipeline == InGfxPipeline);
+		}
+		else
+		{
+			CurrentState = new GraphicsPipelineDescriptorState(device, InGfxPipeline);
+			PipelineStates.insert(std::pair(CurrentPipeline, CurrentState));
+		}
+
+		primitiveType = InGfxPipeline->PrimitiveType;
+		bChanged = true;
+	}
+
+	if (bChanged || bForceReset)
+	{
+		CurrentState->Reset();
+	}
+
+	return bChanged;
 }

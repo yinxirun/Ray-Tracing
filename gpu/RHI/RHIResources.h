@@ -118,6 +118,7 @@ struct TextureCreateDesc : public TextureDesc
     size_t BulkDataSize = 0;
 };
 
+/// @note 在UE中，想要用TRefCountPointer 管理资源，该资源类型就必须实现 AddRef 和 Release 。但是在这里，我使用std::shared_ptr管理，好像两个方法没什么用处
 class RHIResource
 {
 public:
@@ -230,6 +231,9 @@ public:
     /// @return	The pointer to the platform-specific RHI texture baseclass or NULL if it not initialized or not supported for this RHI
     virtual void *GetTextureBaseRHI() { return nullptr; }
 
+    /** @return Whether the texture is multi sampled. */
+    bool IsMultisampled() const { return GetDesc().NumSamples > 1; }
+
     /** @return Whether the texture has a clear color defined */
     bool HasClearValue() const
     {
@@ -237,10 +241,7 @@ public:
     }
 
     /** @return the clear color value if set */
-    LinearColor GetClearColor() const
-    {
-        return GetDesc().ClearValue.GetClearColor();
-    }
+    LinearColor GetClearColor() const { return GetDesc().ClearValue.GetClearColor(); }
 
     /** @return the depth & stencil clear value if set */
     void GetDepthStencilClearValue(float &OutDepth, uint32 &OutStencil) const
@@ -938,6 +939,22 @@ struct RenderPassInfo
 
     // Hint for some RHI's that renderpass will have specific sub-passes
     SubpassHint SubpassHint = SubpassHint::None;
+
+    RenderPassInfo() = default;
+    RenderPassInfo(const RenderPassInfo &) = default;
+    RenderPassInfo &operator=(const RenderPassInfo &) = default;
+
+    // Color, no depth, optional resolve, optional mip, optional array slice
+    explicit RenderPassInfo(Texture *ColorRT, RenderTargetActions ColorAction, Texture *ResolveRT = nullptr, uint8 InMipIndex = 0, int32 InArraySlice = -1)
+    {
+        check(!(ResolveRT && ResolveRT->IsMultisampled()));
+        check(ColorRT);
+        ColorRenderTargets[0].RenderTarget = ColorRT;
+        ColorRenderTargets[0].ResolveTarget = ResolveRT;
+        ColorRenderTargets[0].ArraySlice = InArraySlice;
+        ColorRenderTargets[0].MipIndex = InMipIndex;
+        ColorRenderTargets[0].Action = ColorAction;
+    }
 
     inline int32 GetNumColorRenderTargets() const
     {

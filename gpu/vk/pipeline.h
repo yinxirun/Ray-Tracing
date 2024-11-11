@@ -4,6 +4,7 @@
 #include "resources.h"
 #include "private.h"
 #include "descriptor_sets.h"
+#include "util.h"
 #include <memory>
 
 #define VULKAN_USE_SHADERKEYS 1
@@ -13,9 +14,20 @@ class VulkanGfxLayout;
 class Device;
 class DescriptorSetsLayoutInfo;
 
-class VulkanPSOKey
+class VulkanPSOKey : public TDataKey<VulkanPSOKey, true>
 {
 };
+namespace std
+{
+    template <>
+    struct hash<VulkanPSOKey>
+    {
+        size_t operator()(const VulkanPSOKey &v) const
+        {
+            return v.GetHash();
+        }
+    };
+}
 
 template <typename TVulkanShader>
 static inline uint64 GetShaderKey(RHIGraphicsShader *ShaderType)
@@ -425,9 +437,9 @@ private:
     // 	void SavePSOCache(const FString& CacheFilename, FPipelineCache& Cache);
     // 	void DestroyCache();
 
-    std::shared_ptr<GraphicsPipelineState> CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
+    GraphicsPipelineState *CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
     // 	FVulkanComputePipeline* RHICreateComputePipelineState(FRHIComputeShader* ComputeShaderRHI);
-    // 	void NotifyDeletedGraphicsPSO(FRHIGraphicsPipelineState* PSO);
+    void NotifyDeletedGraphicsPSO(GraphicsPipelineState *PSO);
     bool CreateGfxPipelineFromEntry(VulkanGraphicsPipelineState *PSO, VulkanShader *Shaders[ShaderStage::NumStages], bool bPrecompile);
 
     VkResult CreateVKPipeline(VulkanGraphicsPipelineState *PSO, VulkanShader *Shaders[ShaderStage::NumStages], const VkGraphicsPipelineCreateInfo &PipelineInfo, bool bIsPrecompileJob);
@@ -442,13 +454,13 @@ private:
     bool LRUEvictImmediately();
     // 	void LRUTrim(uint32 nSpaceNeeded);
     // 	void LRUAdd(FVulkanRHIGraphicsPipelineState* PSO);
-    // 	void LRUTouch(FVulkanRHIGraphicsPipelineState* PSO);
+    void LRUTouch(VulkanGraphicsPipelineState *PSO);
     // 	bool LRUEvictOne(bool bOnlyOld = false);
     // 	void LRURemoveAll();
     // 	void LRUDump();
     // 	void LRUDebugEvictAll(); //evict all that are safe to evict without stalling..
     // 	void LRURemove(FVulkanRHIGraphicsPipelineState* PSO);
-    // 	void LRUCheckNotInside(FVulkanRHIGraphicsPipelineState* PSO);
+    void LRUCheckNotInside(VulkanGraphicsPipelineState *PSO);
 
     Device *device;
     bool bEvictImmediately;
@@ -502,7 +514,7 @@ private:
     DescriptorSetLayoutMap DSetLayoutMap;
 
     // 	FCriticalSection GraphicsPSOLockedCS;
-    // 	TMap<FVulkanPSOKey, FVulkanRHIGraphicsPipelineState*> GraphicsPSOLockedMap;
+    std::unordered_map<VulkanPSOKey, VulkanGraphicsPipelineState *> GraphicsPSOLockedMap;
 
     // 	FCriticalSection LRUCS;
     // 	FVulkanRHIGraphicsPipelineStateLRU LRU;
@@ -512,8 +524,8 @@ private:
     // 	TMap<uint64, FVulkanPipelineSize> LRU2SizeList;	// key: Shader hash (FShaderHash), value: pipeline size
     bool bUseLRU = false;
     friend class RHI;
-    // 	friend class FVulkanCommandListContext;
-    // 	friend class FVulkanRHIGraphicsPipelineState;
+    friend class CommandListContext;
+    friend class VulkanGraphicsPipelineState;
 
     // 	struct FVulkanLRUCacheFile
     // 	{
@@ -578,7 +590,7 @@ public:
         return VulkanPipeline;
     }
 
-    // void DeleteVkPipeline(bool bImmediate);
+    void DeleteVkPipeline(bool bImmediate);
     void GetOrCreateShaderModules(std::shared_ptr<ShaderModule> (&ShaderModulesOUT)[ShaderStage::NumStages], VulkanShader *const *Shaders);
     // VulkanShader::SpirvCode GetPatchedSpirvCode(VulkanShader *Shader);
     // void PurgeShaderModules(VulkanShader *const *Shaders);

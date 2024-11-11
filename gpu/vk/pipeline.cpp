@@ -340,8 +340,8 @@ void GfxPipelineDesc::FRenderTargets::WriteInto(RenderTargetLayout &Out) const
 
 VulkanGraphicsPipelineState::VulkanGraphicsPipelineState(Device *device, const GraphicsPipelineStateInitializer &PSOInitializer_,
                                                          GfxPipelineDesc &Desc, VulkanPSOKey *VulkanKey)
-    // : bIsRegistered(false), PrimitiveType(PSOInitializer_.PrimitiveType),
-    : VulkanPipeline(0), device(device), Desc(Desc) //, VulkanKey(VulkanKey->CopyDeep())
+    : bIsRegistered(false), PrimitiveType(PSOInitializer_.PrimitiveType),
+      VulkanPipeline(0), device(device), Desc(Desc) //, VulkanKey(VulkanKey->CopyDeep())
 {
     memset(VulkanShaders, 0, sizeof(VulkanShaders));
     VulkanShaders[ShaderStage::Vertex] = static_cast<VulkanVertexShader *>(PSOInitializer_.BoundShaderState.VertexShaderRHI);
@@ -363,15 +363,15 @@ VulkanGraphicsPipelineState::VulkanGraphicsPipelineState(Device *device, const G
 
 VulkanGraphicsPipelineState::~VulkanGraphicsPipelineState()
 {
-         for (int ShaderStageIndex = 0; ShaderStageIndex < ShaderStage::NumStages; ShaderStageIndex++)
-         {
-    //         if (VulkanShaders[ShaderStageIndex] != nullptr)
-    //         {
-    //             VulkanShaders[ShaderStageIndex]->Release();
-    //         }
-         }
+    for (int ShaderStageIndex = 0; ShaderStageIndex < ShaderStage::NumStages; ShaderStageIndex++)
+    {
+        //         if (VulkanShaders[ShaderStageIndex] != nullptr)
+        //         {
+        //             VulkanShaders[ShaderStageIndex]->Release();
+        //         }
+    }
 
-    //     device->PipelineStateCache->NotifyDeletedGraphicsPSO(this);
+    device->PipelineStateCache->NotifyDeletedGraphicsPSO(this);
 }
 
 void PipelineStateCacheManager::InitAndLoad(const std::vector<std::string> &CacheFilenames)
@@ -641,8 +641,47 @@ VulkanLayout *PipelineStateCacheManager::FindOrAddLayout(const DescriptorSetsLay
     return Layout;
 }
 
+// 1983
+void PipelineStateCacheManager::NotifyDeletedGraphicsPSO(GraphicsPipelineState *PSO)
+{
+    VulkanGraphicsPipelineState *VkPSO = (VulkanGraphicsPipelineState *)PSO;
+    device->NotifyDeletedGfxPipeline(VkPSO);
+    VulkanPSOKey &Key = VkPSO->VulkanKey;
+
+    if (VkPSO->bIsRegistered)
+    {
+        printf("Have not implement destroying registered PSO %s %d\n", __FILE__, __LINE__);
+        exit(1);
+        /* FScopeLock Lock(&GraphicsPSOLockedCS); */
+        // VulkanGraphicsPipelineState **Contained = GraphicsPSOLockedMap.Find(Key);
+        // check(Contained && *Contained == PSO);
+        // VkPSO->bIsRegistered = false;
+        // if (bUseLRU)
+        // {
+        //     LRURemove(*Contained);
+        //     check((*Contained)->LRUNode == 0);
+        // }
+        // else
+        // {
+        //     (*Contained)->DeleteVkPipeline(true);
+        //     check(VkPSO->GetVulkanPipeline() == 0);
+        // }
+        // GraphicsPSOLockedMap.Remove(Key);
+    }
+    else
+    {
+        /* FScopeLock Lock(&GraphicsPSOLockedCS); */
+        auto it = GraphicsPSOLockedMap.find(Key);
+        if (it != GraphicsPSOLockedMap.end())
+        {
+            check(0);
+        }
+        VkPSO->DeleteVkPipeline(true);
+    }
+}
+
 // 2042
-std::shared_ptr<GraphicsPipelineState> PipelineStateCacheManager::CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
+GraphicsPipelineState *PipelineStateCacheManager::CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
 {
 
     // Optional lock for PSO creation, GVulkanPSOForceSingleThreaded is used to work around driver bugs.
@@ -755,7 +794,7 @@ std::shared_ptr<GraphicsPipelineState> PipelineStateCacheManager::CreateGraphics
             // 		}
         }
     }
-    return std::shared_ptr<VulkanGraphicsPipelineState>(NewPSO);
+    return NewPSO;
 }
 
 bool PipelineStateCacheManager::CreateGfxPipelineFromEntry(VulkanGraphicsPipelineState *PSO,
@@ -788,17 +827,17 @@ bool PipelineStateCacheManager::CreateGfxPipelineFromEntry(VulkanGraphicsPipelin
     uint32 ColorWriteMask = 0xffffffff;
     if (Shaders[ShaderStage::Pixel])
     {
-        //    ColorWriteMask = Shaders[ShaderStage::Pixel]->CodeHeader.InOutMask;
+        ColorWriteMask = Shaders[ShaderStage::Pixel]->CodeHeader.InOutMask;
     }
     for (int32 Index = 0; Index < GfxEntry->ColorAttachmentStates.size(); ++Index)
     {
-        // 	GfxEntry->ColorAttachmentStates[Index].WriteInto(BlendStates[Index]);
+        GfxEntry->ColorAttachmentStates[Index].WriteInto(BlendStates[Index]);
 
-        // 	if(0 == (ColorWriteMask & 1)) //clear write mask of rendertargets not written by pixelshader.
-        // 	{
-        // 		BlendStates[Index].colorWriteMask = 0;
-        // 	}
-        // 	ColorWriteMask >>= 1;
+        if (0 == (ColorWriteMask & 1)) // clear write mask of rendertargets not written by pixelshader.
+        {
+            BlendStates[Index].colorWriteMask = 0;
+        }
+        ColorWriteMask >>= 1;
     }
     CBInfo.pAttachments = BlendStates;
     CBInfo.blendConstants[0] = 1.0f;
@@ -970,6 +1009,16 @@ bool PipelineStateCacheManager::LRUEvictImmediately()
     return bEvictImmediately && CVarEnableLRU != 0;
 }
 
+// 2546
+void PipelineStateCacheManager::LRUTouch(VulkanGraphicsPipelineState *PSO)
+{
+    if (!bUseLRU)
+    {
+        return;
+    }
+    printf("ERROR: Don't support LRU %s %d\n", __FILE__, __LINE__);
+}
+
 void VulkanGraphicsPipelineState::GetOrCreateShaderModules(std::shared_ptr<ShaderModule> (&ShaderModulesOUT)[ShaderStage::NumStages], VulkanShader *const *Shaders)
 {
     for (int32 Index = 0; Index < ShaderStage::NumStages; ++Index)
@@ -981,4 +1030,28 @@ void VulkanGraphicsPipelineState::GetOrCreateShaderModules(std::shared_ptr<Shade
             ShaderModulesOUT[Index] = Shader->GetOrCreateHandle(Desc, Layout, Layout->GetDescriptorSetLayoutHash());
         }
     }
+}
+
+// 2602
+void VulkanGraphicsPipelineState::DeleteVkPipeline(bool bImmediate)
+{
+    if (VulkanPipeline != VK_NULL_HANDLE)
+    {
+        if (bImmediate)
+        {
+            vkDestroyPipeline(device->GetInstanceHandle(), VulkanPipeline, VULKAN_CPU_ALLOCATOR);
+        }
+        else
+        {
+            device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::DeferredDeletionQueue2::EType::Pipeline, VulkanPipeline);
+        }
+        VulkanPipeline = VK_NULL_HANDLE;
+    }
+
+    device->PipelineStateCache->LRUCheckNotInside(this);
+}
+
+void PipelineStateCacheManager::LRUCheckNotInside(VulkanGraphicsPipelineState *PSO)
+{
+    printf("Have not implement PipelineStateCacheManager::LRUCheckNotInside %s %d\n", __FILE__, __LINE__);
 }

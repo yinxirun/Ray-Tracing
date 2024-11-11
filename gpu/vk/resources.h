@@ -15,6 +15,7 @@
 #include "gpu/core/templates/ref_counting.h"
 #include "vulkan_memory.h"
 #include "shader_resources.h"
+#include "common.h"
 #include <vector>
 #include <unordered_map>
 #include <memory>
@@ -232,7 +233,7 @@ protected:
 
     static SpirvCode GetSpirvCode(const SpirvContainer &Container);
 
-    void Setup(ShaderHeader &&header,SpirvContainer&& spirv, uint64 shaderKey);
+    void Setup(ShaderHeader &&header, SpirvContainer &&spirv, uint64 shaderKey);
     Device *device;
 
     std::shared_ptr<ShaderModule> CreateHandle(const GfxPipelineDesc &Desc, const VulkanLayout *Layout, uint32 LayoutHash);
@@ -240,6 +241,7 @@ protected:
     bool NeedsSpirvInputAttachmentPatching(const GfxPipelineDesc &Desc) const;
 
     friend class CommandListContext;
+    friend class PipelineStateCacheManager;
     friend class VulkanShaderFactory;
 };
 
@@ -265,8 +267,33 @@ typedef TVulkanBaseShader<RHIComputeShader, SF_Compute> VulkanComputeShader;
 class VulkanShaderFactory
 {
 public:
+    ~VulkanShaderFactory();
+
     template <typename ShaderType>
     ShaderType *CreateShader(std::vector<uint8> &Code, Device *Device);
+
+    template <typename ShaderType>
+    ShaderType *LookupShader(uint64 ShaderKey) const
+    {
+        if (ShaderKey)
+        {
+            // FRWScopeLock ScopedLock(RWLock[ShaderType::StaticFrequency], SLT_ReadOnly);
+            auto it = ShaderMap[ShaderType::StaticFrequency].find(ShaderKey);
+
+            if (it != ShaderMap[ShaderType::StaticFrequency].end())
+            {
+                return static_cast<ShaderType *>(it->second);
+            }
+        }
+        return nullptr;
+    }
+
+    void LookupShaders(const uint64 InShaderKeys[ShaderStage::NumStages], VulkanShader *OutShaders[ShaderStage::NumStages]) const;
+
+    void OnDeleteShader(const VulkanShader &Shader);
+
+private:
+    std::unordered_map<uint64, VulkanShader *> ShaderMap[SF_NumFrequencies];
 };
 
 class VulkanBoundShaderState : public BoundShaderState
@@ -539,6 +566,36 @@ protected:
 
     friend class PendingGfxState;
     friend class PipelineStateCacheManager;
+};
+
+// 1298
+//  This class holds the staging area for packed global uniform buffers for a given shader
+class PackedUniformBuffers
+{
+public:
+    // One buffer is a chunk of bytes
+    typedef std::vector<uint8> PackedBuffer;
+
+    void Init(const ShaderHeader &InCodeHeader, uint64 &OutPackedUniformBufferStagingMask)
+    {
+        printf("Have not implement PackedUniformBuffers::Init %s %d\n", __FILE__, __LINE__);
+        // PackedUniformBuffers.AddDefaulted(InCodeHeader.PackedUBs.Num());
+        // for (int32 Index = 0; Index < InCodeHeader.PackedUBs.Num(); ++Index)
+        // {
+        //     PackedUniformBuffers[Index].AddUninitialized(InCodeHeader.PackedUBs[Index].SizeInBytes);
+        // }
+
+        // OutPackedUniformBufferStagingMask = ((uint64)1 << (uint64)InCodeHeader.PackedUBs.Num()) - 1;
+        // EmulatedUBsCopyInfo = InCodeHeader.EmulatedUBsCopyInfo;
+        // EmulatedUBsCopyRanges = InCodeHeader.EmulatedUBCopyRanges;
+    }
+
+protected:
+    std::vector<PackedBuffer> PackedUniformBuffers;
+
+    // Copies to Shader Code Header (shaders may be deleted when we use this object again)
+    /* std::vector<CrossCompiler::FUniformBufferCopyInfo> EmulatedUBsCopyInfo; */
+    std::vector<uint32> EmulatedUBsCopyRanges;
 };
 
 static VulkanTexture *ResourceCast(Texture *texture)

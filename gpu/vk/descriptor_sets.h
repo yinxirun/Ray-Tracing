@@ -49,10 +49,12 @@ class VulkanGfxPipelineDescriptorInfo
 public:
     inline bool IsInitialized() const { return bInitialized; }
 
-    void Initialize(const DescriptorSetRemappingInfo& InRemappingInfo);
+    void Initialize(const DescriptorSetRemappingInfo &InRemappingInfo);
 
 protected:
-    bool bInitialized;
+    uint32 HasDescriptorsInSetMask;
+    bool bInitialized=true;
+    friend class GraphicsPipelineDescriptorState;
 };
 
 struct UniformBufferGatherInfo

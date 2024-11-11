@@ -19,6 +19,9 @@ public:
     {
         check(false);
     }
+
+	/// Submit the current command buffer to the GPU if possible.
+	virtual void SubmitCommandsHint() = 0;
 };
 
 class CommandContext : public ComputeContext

@@ -15,6 +15,14 @@
 // 2 to collapse all sets into Set 0
 static int32 GDescriptorSetLayoutMode = 0;
 
+VulkanShaderFactory::~VulkanShaderFactory()
+{
+    for (auto &Map : ShaderMap)
+    {
+        Map.clear();
+    }
+}
+
 template <typename ShaderType>
 ShaderType *VulkanShaderFactory::CreateShader(std::vector<uint8> &Code, Device *Device)
 {
@@ -22,16 +30,58 @@ ShaderType *VulkanShaderFactory::CreateShader(std::vector<uint8> &Code, Device *
     const uint32 ShaderCodeCRC = MemCrc32(Code.data(), Code.size());
     const uint64 ShaderKey = ((uint64)ShaderCodeLen | ((uint64)ShaderCodeCRC << 32));
 
-    // 反序列化
-    MemoryReaderView ar(Code, true);
-    ShaderHeader codeHeader;
-    ar << codeHeader;
-    VulkanShader::SpirvContainer spirvContainer;
-    ar << spirvContainer;
+    ShaderType *RetShader = LookupShader<ShaderType>(ShaderKey);
 
-    ShaderType *RetShader = new ShaderType(Device);
-    RetShader->Setup(std::move(codeHeader), std::move(spirvContainer), ShaderKey);
+    if (RetShader == nullptr)
+    {
+        // 反序列化
+        MemoryReaderView ar(Code, true);
+        ShaderHeader codeHeader;
+        ar << codeHeader;
+        VulkanShader::SpirvContainer spirvContainer;
+        ar << spirvContainer;
+        {
+            // FRWScopeLock ScopedLock(RWLock[ShaderType::StaticFrequency], SLT_Write);
+            auto it = ShaderMap[ShaderType::StaticFrequency].find(ShaderKey);
+            if (it != ShaderMap[ShaderType::StaticFrequency].end())
+            {
+                RetShader = static_cast<ShaderType *>(it->second);
+            }
+            else
+            {
+                RetShader = new ShaderType(Device);
+                RetShader->Setup(std::move(codeHeader), std::move(spirvContainer), ShaderKey);
+                ShaderMap[ShaderType::StaticFrequency].insert(std::pair(ShaderKey, RetShader));
+            }
+        }
+    }
     return RetShader;
+}
+
+void VulkanShaderFactory::LookupShaders(const uint64 InShaderKeys[ShaderStage::NumStages], VulkanShader *OutShaders[ShaderStage::NumStages]) const
+{
+    for (int32 Idx = 0; Idx < ShaderStage::NumStages; ++Idx)
+    {
+        uint64 ShaderKey = InShaderKeys[Idx];
+        if (ShaderKey)
+        {
+            EShaderFrequency ShaderFrequency = ShaderStage::GetFrequencyForGfxStage((ShaderStage::EStage)Idx);
+            /* FRWScopeLock ScopedLock(RWLock[ShaderFrequency], SLT_ReadOnly); */
+
+            auto it = ShaderMap[ShaderFrequency].find(ShaderKey);
+            if (it != ShaderMap[ShaderFrequency].end())
+            {
+                OutShaders[Idx] = it->second;
+            }
+        }
+    }
+}
+
+void VulkanShaderFactory::OnDeleteShader(const VulkanShader &Shader)
+{
+    const uint64 ShaderKey = Shader.GetShaderKey();
+    // FRWScopeLock ScopedLock(RWLock[Shader.Frequency], SLT_Write);
+    ShaderMap[Shader.Frequency].erase(ShaderKey);
 }
 
 VertexShader *RHI::CreateVertexShader(std::vector<uint8> Code)

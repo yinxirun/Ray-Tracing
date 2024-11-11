@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "GLFW/glfw3.h"
 #include "gpu/RHI/dynamic_rhi.h"
@@ -56,10 +57,12 @@ int main()
         std::shared_ptr<Viewport> viewport = CreateViewport(window, 800, 600, false, PixelFormat::PF_B8G8R8A8);
         drawingViewport = viewport.get();
 
-        BufferDesc desc(36, 0, BufferUsageFlags::VertexBuffer);
+        BufferDesc desc(36, 4, BufferUsageFlags::VertexBuffer);
         ResourceCreateInfo ci{};
         auto positionBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
-        auto colorBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
+
+        desc = BufferDesc(12, 4, BufferUsageFlags::IndexBuffer);
+        auto indexBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
 
         void *mapped = LockBuffer_BottomOfPipe(dummy, positionBuffer.get(), 0, positionBuffer->GetSize(),
                                                ResourceLockMode::RLM_WriteOnly);
@@ -67,11 +70,10 @@ int main()
         memcpy(mapped, position, 36);
         UnlockBuffer_BottomOfPipe(dummy, positionBuffer.get());
 
-        mapped = LockBuffer_BottomOfPipe(dummy, colorBuffer.get(), 0, colorBuffer->GetSize(),
-                                         ResourceLockMode::RLM_WriteOnly);
-        float color[9] = {0, 0, 1, 0, 1, 0, 1, 0, 0};
-        memcpy(mapped, color, 36);
-        UnlockBuffer_BottomOfPipe(dummy, colorBuffer.get());
+        mapped = LockBuffer_BottomOfPipe(dummy, indexBuffer.get(), 0, indexBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
+        uint32 indices[3] = {0, 1, 2};
+        memcpy(mapped, indices, 12);
+        UnlockBuffer_BottomOfPipe(dummy, indexBuffer.get());
 
         // 创建PSO
         GraphicsPipelineStateInitializer graphicsPSOInit;
@@ -93,11 +95,11 @@ int main()
 
         VertexDeclarationElementList elements;
         elements.push_back(VertexElement(0, 0, VET_Float4, 0, 12));
-        elements.push_back(VertexElement(1, 0, VET_Float4, 1, 12));
+        // elements.push_back(VertexElement(1, 0, VET_Float4, 1, 12));
         graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
         graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(LoadShader("gpu/shaders/a.vert.spv"));
         graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(LoadShader("gpu/shaders/a.frag.spv"));
-        auto pso = CreateGraphicsPipelineState(graphicsPSOInit);
+        auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
         while (!glfwWindowShouldClose(window))
         {
@@ -105,20 +107,20 @@ int main()
             context->BeginDrawingViewport(viewport);
             context->BeginFrame();
 
-            RenderPassInfo renderpassInfo{};
-            RenderPassInfo::ColorEntry entry;
-            entry.ArraySlice = 0;
-            entry.RenderTarget = viewport->GetBackBuffer().get();
-            entry.Action = RenderTargetActions::Clear_Store;
-            renderpassInfo.ColorRenderTargets[0] = entry;
-            context->BeginRenderPass(renderpassInfo, "test");
+            RenderPassInfo RPInfo(viewport->GetBackBuffer().get(), RenderTargetActions::Clear_Store);
+            context->BeginRenderPass(RPInfo, "no name");
 
+            context->SetGraphicsPipelineState(pso, 0, false);
             context->SetStreamSource(0, positionBuffer.get(), 0);
+            // context->SetStreamSource(1, colorBuffer.get(), 0);
+            context->DrawIndexedPrimitive(indexBuffer.get(), 0, 0, 3, 0, 1, 1);
 
             context->EndRenderPass();
+
             context->EndFrame();
             context->EndDrawingViewport(viewport.get(), false);
         }
+        context->SubmitCommandsHint();
     }
 
     RHIExit();

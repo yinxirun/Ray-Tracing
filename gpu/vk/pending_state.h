@@ -84,9 +84,26 @@ public:
         bDirtyVertexStreams = true;
     }
 
+    inline void Bind(VkCommandBuffer CmdBuffer) { CurrentPipeline->Bind(CmdBuffer); }
+
     void PrepareForDraw(CmdBuffer *CmdBuffer);
 
+    bool SetGfxPipeline(VulkanGraphicsPipelineState *InGfxPipeline, bool bForceReset);
+
     inline void UpdateDynamicStates(CmdBuffer *Cmd) { InternalUpdateDynamicStates(Cmd); }
+
+    inline void SetStencilRef(uint32 InStencilRef)
+    {
+        if (InStencilRef != StencilRef)
+        {
+            StencilRef = InStencilRef;
+        }
+    }
+
+    void NotifyDeletedPipeline(VulkanGraphicsPipelineState *Pipeline)
+    {
+        PipelineStates.erase(Pipeline);
+    }
 
 protected:
     std::vector<VkViewport> viewports;
@@ -98,6 +115,8 @@ protected:
 
     VulkanGraphicsPipelineState *CurrentPipeline;
     GraphicsPipelineDescriptorState *CurrentState;
+
+    std::unordered_map<VulkanGraphicsPipelineState *, GraphicsPipelineDescriptorState *> PipelineStates;
 
     struct VertexStream
     {

@@ -43,6 +43,8 @@ public:
 
     virtual void WriteGPUFence(GPUFence *Fence) final override;
 
+    virtual void SubmitCommandsHint() final override;
+
     void BeginDrawingViewport(std::shared_ptr<Viewport> &Viewport) final override;
     void EndDrawingViewport(Viewport *Viewport, bool bLockToVsync) final override;
 
@@ -50,7 +52,7 @@ public:
     void EndFrame() final override;
 
     void SetStreamSource(uint32 StreamIndex, Buffer *VertexBuffer, uint32 Offset) final override;
-    void SetGraphicsPipelineState(GraphicsPipelineState* GraphicsState, uint32 StencilRef, bool bApplyAdditionalState) final override;
+    void SetGraphicsPipelineState(GraphicsPipelineState *GraphicsState, uint32 StencilRef, bool bApplyAdditionalState) final override;
 
     virtual void BeginRenderPass(const RenderPassInfo &InInfo, const char *InName) final override;
     virtual void EndRenderPass() final override;
@@ -105,8 +107,8 @@ public:
     VkSurfaceTransformFlagBitsKHR GetSwapchainQCOMRenderPassTransform() const;
     SwapChain *GetSwapChain() const;
 
-    RenderPass* PrepareRenderPassForPSOCreation(const GraphicsPipelineStateInitializer& Initializer);
-	RenderPass* PrepareRenderPassForPSOCreation(const RenderTargetLayout& Initializer);
+    RenderPass *PrepareRenderPassForPSOCreation(const GraphicsPipelineStateInitializer &Initializer);
+    RenderPass *PrepareRenderPassForPSOCreation(const RenderTargetLayout &Initializer);
 
 private:
     inline bool SafePointSubmit()
