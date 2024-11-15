@@ -50,7 +50,7 @@ void Queue::Submit(CmdBuffer *CmdBuffer, uint32 NumSignalSemaphores, VkSemaphore
 
 	CmdBuffer->GetOwner()->RefreshFenceStatus(CmdBuffer);
 
-	// device->GetStagingManager().ProcessPendingFree(false, false);
+	device->GetStagingManager().ProcessPendingFree(false, false);
 
 	// If we're tracking layouts for the queue, merge in the changes recorded in this command buffer's context
 	CmdBuffer->GetLayoutManager().TransferTo(LayoutManager);

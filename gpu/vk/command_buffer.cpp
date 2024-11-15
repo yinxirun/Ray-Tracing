@@ -31,6 +31,7 @@ CmdBuffer::CmdBuffer(Device *InDevice, CommandBufferPool *InCommandBufferPool, b
 	  device(InDevice),
 	  CommandBufferHandle(VK_NULL_HANDLE),
 	  fence(nullptr),
+	  FenceSignaledCounter(0), SubmittedFenceCounter(0),
 	  commandBufferPool(InCommandBufferPool),
 	  LayoutManager(device->SupportsParallelRendering(), &InCommandBufferPool->GetMgr().GetCommandListContext()->GetQueue()->GetLayoutManager())
 {

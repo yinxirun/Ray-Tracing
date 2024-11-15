@@ -6,6 +6,8 @@
 #include "util.h"
 #include "queue.h"
 
+extern uint32 GFrameNumberRenderThread;
+
 // This 'frame number' should only be used for the deletion queue
 uint32 GVulkanRHIDeletionFrameNumber = 0;
 const uint32 NUM_FRAMES_TO_WAIT_FOR_RESOURCE_DELETE = 2;
@@ -20,12 +22,12 @@ namespace VulkanRHI
 
     void *StagingBuffer::GetMappedPointer()
     {
-        void *data;
-        vmaMapMemory(device->GetAllocator(), allocation, &data);
-        return data;
+        if (mappedPointer == nullptr)
+            vmaMapMemory(device->GetAllocator(), allocation, &mappedPointer);
+        return mappedPointer;
     }
 
-    uint32 StagingBuffer::GetSize() const { return allocationInfo.size; }
+    uint32 StagingBuffer::GetSize() const { return BufferSize; }
 
     void StagingBuffer::FlushMappedMemory()
     {
@@ -34,8 +36,11 @@ namespace VulkanRHI
 
     StagingBuffer::~StagingBuffer()
     {
-        vmaUnmapMemory(device->GetAllocator(), allocation);
-        vmaDestroyBuffer(device->GetAllocator(), buffer, allocation);
+        if (buffer != VK_NULL_HANDLE)
+        {
+            vmaUnmapMemory(device->GetAllocator(), allocation);
+            vmaDestroyBuffer(device->GetAllocator(), buffer, allocation);
+        }
     }
 
     void StagingBuffer::Destroy()
@@ -43,23 +48,30 @@ namespace VulkanRHI
         vmaUnmapMemory(device->GetAllocator(), allocation);
         vmaDestroyBuffer(device->GetAllocator(), buffer, allocation);
         buffer = VK_NULL_HANDLE;
+        allocation = VK_NULL_HANDLE;
     }
 
     StagingManager::~StagingManager()
     {
-        check(UsedStagingBuffers.size() == 0);
+        check(usedStagingBuffers.size() == 0);
+        check(pendingFreeStagingBuffers.size() == 0);
+        check(freeStagingBuffers.size() == 0);
     }
 
     void StagingManager::Deinit()
     {
+        ProcessPendingFree(true, true);
+        check(usedStagingBuffers.size() == 0);
+        check(pendingFreeStagingBuffers.size() == 0);
+        check(freeStagingBuffers.size() == 0);
     }
 
-    StagingBuffer *StagingManager::AcquireBuffer(uint32 Size,
+    StagingBuffer *StagingManager::AcquireBuffer(uint32 size,
                                                  VkBufferUsageFlags InUsageFlags,
                                                  VkMemoryPropertyFlagBits InMemoryReadFlags)
     {
-        const bool IsHostCached = (InMemoryReadFlags == VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
-        if (IsHostCached)
+        const bool isHostCached = (InMemoryReadFlags == VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+        if (isHostCached)
         {
             printf("ERROR: Don't support host cache %s %d\n", __FILE__, __LINE__);
             exit(-1);
@@ -72,12 +84,34 @@ namespace VulkanRHI
             InUsageFlags |= (VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
         }
 
+#ifdef PRINT_UNIMPLEMENT
         printf("Notice: Don't support Descriptor Buffer %s %d\n", __FILE__, __LINE__);
+#endif
+
+        // #todo-rco: Better locking!
+        {
+            /* FScopeLock Lock(&StagingLock); */
+            for (int32 Index = 0; Index < freeStagingBuffers.size(); ++Index)
+            {
+                FreeEntry &FreeBuffer = freeStagingBuffers[Index];
+                if (FreeBuffer.StagingBuffer->GetSize() == size && FreeBuffer.StagingBuffer->MemoryReadFlags == InMemoryReadFlags)
+                {
+                    StagingBuffer *Buffer = FreeBuffer.StagingBuffer;
+                    freeStagingBuffers[Index] = freeStagingBuffers.back();
+                    freeStagingBuffers.pop_back();
+                    usedStagingBuffers.push_back(Buffer);
+                    return Buffer;
+                }
+            }
+        }
 
         StagingBuffer *stagingBuffer = new StagingBuffer(device);
+        stagingBuffer->MemoryReadFlags = InMemoryReadFlags;
+        stagingBuffer->BufferSize = size;
+
         VkBufferCreateInfo StagingBufferCreateInfo;
         ZeroVulkanStruct(StagingBufferCreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
-        StagingBufferCreateInfo.size = Size;
+        StagingBufferCreateInfo.size = size;
         StagingBufferCreateInfo.usage = InUsageFlags;
 
         VmaAllocationCreateInfo allocCI{};
@@ -86,14 +120,42 @@ namespace VulkanRHI
         vmaCreateBuffer(device->GetAllocator(), &StagingBufferCreateInfo, &allocCI,
                         &stagingBuffer->buffer, &stagingBuffer->allocation, &stagingBuffer->allocationInfo);
 
+        {
+            /* FScopeLock Lock(&StagingLock); */
+            usedStagingBuffers.push_back(stagingBuffer);
+            usedMemory += stagingBuffer->GetSize();
+            peakUsedMemory = std::max(usedMemory, peakUsedMemory);
+        }
+
         return stagingBuffer;
     }
 
     // Sets pointer to nullptr
-    void StagingManager::ReleaseBuffer(CmdBuffer *CmdBuffer, StagingBuffer *&StagingBuffer)
+    void StagingManager::ReleaseBuffer(CmdBuffer *CmdBuffer, StagingBuffer *&stagingBuffer)
     {
-        delete StagingBuffer;
-        StagingBuffer = nullptr;
+        /* FScopeLock Lock(&StagingLock); */
+        for (int i = 0; i < usedStagingBuffers.size(); ++i)
+        {
+            if (usedStagingBuffers[i] == stagingBuffer)
+            {
+                usedStagingBuffers[i] = usedStagingBuffers.back();
+                usedStagingBuffers.pop_back();
+                break;
+            }
+        }
+
+        if (CmdBuffer)
+        {
+            PendingItemsPerCmdBuffer *ItemsForCmdBuffer = FindOrAdd(CmdBuffer);
+            PendingItemsPerCmdBuffer::PendingItems *ItemsForFence = ItemsForCmdBuffer->FindOrAddItemsForFence(CmdBuffer->GetFenceSignaledCounter());
+            check(stagingBuffer);
+            ItemsForFence->Resources.push_back(stagingBuffer);
+        }
+        else
+        {
+            freeStagingBuffers.push_back({stagingBuffer, GFrameNumberRenderThread});
+        }
+        stagingBuffer = nullptr;
     }
 
     Fence::Fence(Device *InDevice, FenceManager *InOwner, bool bCreateSignaled)
@@ -396,5 +458,94 @@ namespace VulkanRHI
 
             Entries.push_back(Entry);
         }
+    }
+
+    // 4388
+    inline StagingManager::PendingItemsPerCmdBuffer *StagingManager::FindOrAdd(CmdBuffer *CmdBuffer)
+    {
+        for (int32 Index = 0; Index < pendingFreeStagingBuffers.size(); ++Index)
+        {
+            if (pendingFreeStagingBuffers[Index].cmdBuffer == CmdBuffer)
+            {
+                return &pendingFreeStagingBuffers[Index];
+            }
+        }
+
+        pendingFreeStagingBuffers.push_back(PendingItemsPerCmdBuffer());
+        PendingItemsPerCmdBuffer &New = pendingFreeStagingBuffers.back();
+        New.cmdBuffer = CmdBuffer;
+        return &New;
+    }
+
+    // 4403
+    inline StagingManager::PendingItemsPerCmdBuffer::PendingItems *StagingManager::PendingItemsPerCmdBuffer::FindOrAddItemsForFence(uint64 Fence)
+    {
+        for (int32 Index = 0; Index < pendingItems.size(); ++Index)
+        {
+            if (pendingItems[Index].FenceCounter == Fence)
+            {
+                return &pendingItems[Index];
+            }
+        }
+
+        pendingItems.push_back(PendingItems());
+        PendingItems &New = pendingItems.back();
+        New.FenceCounter = Fence;
+        return &New;
+    }
+
+    // 4513
+    void StagingManager::ProcessPendingFreeNoLock(bool bImmediately, bool bFreeToOS)
+    {
+        int32 NumOriginalFreeBuffers = freeStagingBuffers.size();
+        for (int32 Index = pendingFreeStagingBuffers.size() - 1; Index >= 0; --Index)
+        {
+            PendingItemsPerCmdBuffer &EntriesPerCmdBuffer = pendingFreeStagingBuffers[Index];
+            for (int32 FenceIndex = EntriesPerCmdBuffer.pendingItems.size() - 1; FenceIndex >= 0; --FenceIndex)
+            {
+                PendingItemsPerCmdBuffer::PendingItems &pendingItems = EntriesPerCmdBuffer.pendingItems[FenceIndex];
+                if (bImmediately || pendingItems.FenceCounter < EntriesPerCmdBuffer.cmdBuffer->GetFenceSignaledCounter())
+                {
+                    for (int32 ResourceIndex = 0; ResourceIndex < pendingItems.Resources.size(); ++ResourceIndex)
+                    {
+                        check(pendingItems.Resources[ResourceIndex]);
+                        freeStagingBuffers.push_back({pendingItems.Resources[ResourceIndex], GFrameNumberRenderThread});
+                    }
+
+                    EntriesPerCmdBuffer.pendingItems[FenceIndex] = EntriesPerCmdBuffer.pendingItems.back();
+                    EntriesPerCmdBuffer.pendingItems.pop_back();
+                }
+            }
+
+            if (EntriesPerCmdBuffer.pendingItems.size() == 0)
+            {
+                pendingFreeStagingBuffers[Index] = pendingFreeStagingBuffers.back();
+                pendingFreeStagingBuffers.pop_back();
+            }
+        }
+
+        if (bFreeToOS)
+        {
+            int32 NumFreeBuffers = bImmediately ? freeStagingBuffers.size() : NumOriginalFreeBuffers;
+            for (int32 Index = NumFreeBuffers - 1; Index >= 0; --Index)
+            {
+                FreeEntry &Entry = freeStagingBuffers[Index];
+                if (bImmediately || Entry.FrameNumber + NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS < GFrameNumberRenderThread)
+                {
+                    usedMemory -= Entry.StagingBuffer->GetSize();
+                    Entry.StagingBuffer->Destroy();
+                    delete Entry.StagingBuffer;
+
+                    freeStagingBuffers[Index] = freeStagingBuffers.back();
+                    freeStagingBuffers.pop_back();
+                }
+            }
+        }
+    }
+
+    void StagingManager::ProcessPendingFree(bool bImmediately, bool bFreeToOS)
+    {
+        /* FScopeLock Lock(&StagingLock); */
+        ProcessPendingFreeNoLock(bImmediately, bFreeToOS);
     }
 }

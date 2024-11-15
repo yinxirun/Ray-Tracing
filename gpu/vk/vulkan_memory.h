@@ -22,6 +22,11 @@ extern EDelayAcquireImageType GVulkanDelayAcquireImage;
 
 namespace VulkanRHI
 {
+    enum
+    {
+        NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS = 3,
+    };
+
     class FenceManager;
 
     // Custom ref counting
@@ -97,7 +102,9 @@ namespace VulkanRHI
 
         VkBuffer buffer;
         VkMemoryPropertyFlagBits MemoryReadFlags;
+        uint32 BufferSize;
         VmaAllocationInfo allocationInfo;
+        void *mappedPointer = nullptr;
 
         // Owner maintains lifetime
         virtual ~StagingBuffer();
@@ -110,7 +117,7 @@ namespace VulkanRHI
     class StagingManager
     {
     public:
-        StagingManager() : device(nullptr) {}
+        StagingManager() : peakUsedMemory(0), usedMemory(0), device(nullptr) {}
         ~StagingManager();
 
         void Init(Device *InDevice) { device = InDevice; }
@@ -123,10 +130,40 @@ namespace VulkanRHI
         // Sets pointer to nullptr
         void ReleaseBuffer(CmdBuffer *CmdBuffer, StagingBuffer *&StagingBuffer);
 
-    protected:
-        Device *device;
+        void ProcessPendingFree(bool bImmediately, bool bFreeToOS);
 
-        std::vector<StagingBuffer *> UsedStagingBuffers;
+    protected:
+        struct PendingItemsPerCmdBuffer
+        {
+            CmdBuffer *cmdBuffer;
+            struct PendingItems
+            {
+                uint64 FenceCounter;
+                std::vector<StagingBuffer *> Resources;
+            };
+
+            inline PendingItems *FindOrAddItemsForFence(uint64 Fence);
+
+            std::vector<PendingItems> pendingItems;
+        };
+
+        std::vector<StagingBuffer *> usedStagingBuffers;
+        std::vector<PendingItemsPerCmdBuffer> pendingFreeStagingBuffers;
+        struct FreeEntry
+        {
+            StagingBuffer *StagingBuffer;
+            uint32 FrameNumber;
+        };
+        std::vector<FreeEntry> freeStagingBuffers;
+
+        uint64 peakUsedMemory;
+        uint64 usedMemory;
+
+        PendingItemsPerCmdBuffer *FindOrAdd(CmdBuffer *CmdBuffer);
+
+        void ProcessPendingFreeNoLock(bool bImmediately, bool bFreeToOS);
+
+        Device *device;
     };
 
     class Fence

@@ -566,7 +566,7 @@ enum
 };
 
 // 88
-enum EShaderFrequency : uint8
+enum ShaderFrequency : uint8
 {
 	SF_Vertex = 0,
 	SF_Mesh = 1,

@@ -743,7 +743,7 @@ GraphicsPipelineState *PipelineStateCacheManager::CreateGraphicsPipelineState(co
             const BoundShaderStateInput &BSI = Initializer.BoundShaderState;
             for (int32 StageIdx = 0; StageIdx < ShaderStage::NumStages; ++StageIdx)
             {
-                NewPSO->ShaderKeys[StageIdx] = GetShaderKeyForGfxStage(BSI, (ShaderStage::EStage)StageIdx);
+                NewPSO->ShaderKeys[StageIdx] = GetShaderKeyForGfxStage(BSI, (ShaderStage::Stage)StageIdx);
             }
 
             check(BSI.VertexShaderRHI);
@@ -758,7 +758,7 @@ GraphicsPipelineState *PipelineStateCacheManager::CreateGraphicsPipelineState(co
                 GetVulkanShaders(Initializer.BoundShaderState, VulkanShaders);
                 for (int32 StageIdx = 0; StageIdx < ShaderStage::NumStages; ++StageIdx)
                 {
-                    uint64 key = GetShaderKeyForGfxStage(BSI, (ShaderStage::EStage)StageIdx);
+                    uint64 key = GetShaderKeyForGfxStage(BSI, (ShaderStage::Stage)StageIdx);
                     check(key == NewPSO->ShaderKeys[StageIdx]);
                 }
 
@@ -870,7 +870,7 @@ bool PipelineStateCacheManager::CreateGfxPipelineFromEntry(VulkanGraphicsPipelin
         {
             continue;
         }
-        const ShaderStage::EStage CurrStage = (ShaderStage::EStage)ShaderStage;
+        const ShaderStage::Stage CurrStage = (ShaderStage::Stage)ShaderStage;
 
         ShaderStages[PipelineInfo.stageCount].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         const VkShaderStageFlagBits Stage = UEFrequencyToVKStageBit(ShaderStage::GetFrequencyForGfxStage(CurrStage));

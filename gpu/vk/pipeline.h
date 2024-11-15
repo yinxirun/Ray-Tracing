@@ -37,7 +37,7 @@ static inline uint64 GetShaderKey(RHIGraphicsShader *ShaderType)
     return BaseVulkanShader ? BaseVulkanShader->GetShaderKey() : 0;
 }
 
-inline uint64 GetShaderKeyForGfxStage(const BoundShaderStateInput &BSI, ShaderStage::EStage Stage)
+inline uint64 GetShaderKeyForGfxStage(const BoundShaderStateInput &BSI, ShaderStage::Stage Stage)
 {
     switch (Stage)
     {
@@ -573,15 +573,15 @@ public:
         vkCmdBindPipeline(CmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, VulkanPipeline);
     }
 
-    inline const uint64 GetShaderKey(EShaderFrequency Frequency) const
+    inline const uint64 GetShaderKey(ShaderFrequency Frequency) const
     {
-        ShaderStage::EStage Stage = ShaderStage::GetStageForFrequency(Frequency);
+        ShaderStage::Stage Stage = ShaderStage::GetStageForFrequency(Frequency);
         return ShaderKeys[Stage];
     }
 
-    inline const VulkanShader *GetShader(EShaderFrequency Frequency) const
+    inline const VulkanShader *GetShader(ShaderFrequency Frequency) const
     {
-        ShaderStage::EStage Stage = ShaderStage::GetStageForFrequency(Frequency);
+        ShaderStage::Stage Stage = ShaderStage::GetStageForFrequency(Frequency);
         return VulkanShaders[Stage];
     }
 

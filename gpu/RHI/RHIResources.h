@@ -406,7 +406,7 @@ public:
     void SetHash(SHAHash InHash) { Hash = InHash; }
     SHAHash GetHash() const { return Hash; }
 
-    RHIShader(ERHIResourceType InResourceType, EShaderFrequency InFrequency)
+    RHIShader(ERHIResourceType InResourceType, ShaderFrequency InFrequency)
         : RHIResource(InResourceType)
     // , Frequency(InFrequency)
     // , bNoDerivativeOps(false)
@@ -421,7 +421,7 @@ private:
 class RHIGraphicsShader : public RHIShader
 {
 public:
-    explicit RHIGraphicsShader(ERHIResourceType InResourceType, EShaderFrequency InFrequency)
+    explicit RHIGraphicsShader(ERHIResourceType InResourceType, ShaderFrequency InFrequency)
         : RHIShader(InResourceType, InFrequency) {}
 };
 

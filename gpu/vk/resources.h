@@ -167,7 +167,7 @@ public:
 class VulkanShader //: public IRefCountedObject
 {
 public:
-    VulkanShader(Device *InDevice, EShaderFrequency InFrequency)
+    VulkanShader(Device *InDevice, ShaderFrequency InFrequency)
         : ShaderKey(0), Frequency(InFrequency), device(InDevice) {}
 
     virtual ~VulkanShader();
@@ -217,7 +217,7 @@ protected:
     uint64 ShaderKey;
     /** External bindings for this shader. */
     ShaderHeader CodeHeader;
-    const EShaderFrequency Frequency;
+    const ShaderFrequency Frequency;
 
     class SpirvContainer
     {
@@ -246,7 +246,7 @@ protected:
 };
 
 /** This represents a vertex shader that hasn't been combined with a specific declaration to create a bound shader. */
-template <typename BaseResourceType, EShaderFrequency ShaderType>
+template <typename BaseResourceType, ShaderFrequency ShaderType>
 class TVulkanBaseShader : public BaseResourceType, public VulkanShader
 {
 private:

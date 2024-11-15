@@ -65,7 +65,7 @@ void VulkanShaderFactory::LookupShaders(const uint64 InShaderKeys[ShaderStage::N
         uint64 ShaderKey = InShaderKeys[Idx];
         if (ShaderKey)
         {
-            EShaderFrequency ShaderFrequency = ShaderStage::GetFrequencyForGfxStage((ShaderStage::EStage)Idx);
+            ShaderFrequency ShaderFrequency = ShaderStage::GetFrequencyForGfxStage((ShaderStage::Stage)Idx);
             /* FRWScopeLock ScopedLock(RWLock[ShaderFrequency], SLT_ReadOnly); */
 
             auto it = ShaderMap[ShaderFrequency].find(ShaderKey);
@@ -214,7 +214,7 @@ void VulkanLayout::Compile(DescriptorSetLayoutMap &DSetLayoutMap)
 }
 
 // 796
-void DescriptorSetsLayoutInfo::ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSetStage,
+void DescriptorSetsLayoutInfo::ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::Stage DescSetStage,
                                                        const ShaderHeader &CodeHeader, UniformBufferGatherInfo &OutUBGatherInfo) const
 {
     const bool bMoveCommonUBsToExtraSet = GDescriptorSetLayoutMode == 1 || GDescriptorSetLayoutMode == 2;

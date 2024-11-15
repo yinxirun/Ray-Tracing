@@ -12,6 +12,8 @@
 #include "vulkan_memory.h"
 #include "gpu/core/misc/crc.h"
 
+extern uint32 GFrameNumberRenderThread;
+
 namespace VulkanRHI
 {
     class DeviceChild;
@@ -138,7 +140,7 @@ public:
         }
     };
 
-    void ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::EStage DescSetStage,
+    void ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::Stage DescSetStage,
                                  const ShaderHeader &CodeHeader, UniformBufferGatherInfo &OutUBGatherInfo) const;
 
     const std::vector<SetLayout> &GetLayouts() const { return setLayouts; }

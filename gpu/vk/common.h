@@ -6,7 +6,7 @@
 
 namespace ShaderStage
 {
-	enum EStage
+	enum Stage
 	{
 		// Adjusting these requires a full shader rebuild (ie modify the guid on VulkanCommon.usf)
 		// Keep the values in sync with EShaderFrequency
@@ -50,7 +50,7 @@ namespace ShaderStage
 		Invalid = -1,
 	};
 
-	inline EStage GetStageForFrequency(EShaderFrequency Stage)
+	inline Stage GetStageForFrequency(ShaderFrequency Stage)
 	{
 		switch (Stage)
 		{
@@ -74,12 +74,12 @@ namespace ShaderStage
 		return Invalid;
 	}
 
-	inline EShaderFrequency GetFrequencyForGfxStage(EStage Stage)
+	inline ShaderFrequency GetFrequencyForGfxStage(Stage Stage)
 	{
 		switch (Stage)
 		{
-		case EStage::Vertex:	return SF_Vertex;
-		case EStage::Pixel:		return SF_Pixel;
+		case Stage::Vertex:	return SF_Vertex;
+		case Stage::Pixel:		return SF_Pixel;
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
 		case EStage::Geometry:	return SF_Geometry;
 #endif

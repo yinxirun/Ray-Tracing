@@ -39,7 +39,7 @@ public:
         // FMemory::Memzero(PendingStreams);
     }
 
-    const VulkanShader *GetCurrentShader(EShaderFrequency Frequency) const
+    const VulkanShader *GetCurrentShader(ShaderFrequency Frequency) const
     {
         return (CurrentPipeline ? CurrentPipeline->GetShader(Frequency) : nullptr);
     }

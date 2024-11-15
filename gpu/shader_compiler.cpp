@@ -4,6 +4,7 @@
 #include "definitions.h"
 #include "gpu/core/serialization/memory_writer.h"
 #include "gpu/vk/shader_resources.h"
+#include "gpu/RHI/RHIDefinitions.h"
 
 std::string func(std::vector<uint8_t> &&inCode)
 {
@@ -42,7 +43,7 @@ std::string func(std::vector<uint8_t> &&inCode)
     return source;
 }
 
-std::vector<uint8> LoadShader(std::string spvFilename)
+std::vector<uint8> LoadShader(std::string spvFilename, ShaderFrequency freq)
 {
     std::ifstream file(spvFilename, std::ios::ate | std::ios::binary);
     if (!file.is_open())
@@ -66,10 +67,21 @@ std::vector<uint8> LoadShader(std::string spvFilename)
 
     ShaderHeader header;
     header.InOutMask = 0;
-    for (auto &res : resources.stage_inputs)
+    if (freq == ShaderFrequency::SF_Vertex)
     {
-        unsigned attribLocation = glsl.get_decoration(res.id, spv::DecorationLocation);
-        header.InOutMask |= (1 << attribLocation);
+        for (auto &res : resources.stage_inputs)
+        {
+            unsigned attribLocation = glsl.get_decoration(res.id, spv::DecorationLocation);
+            header.InOutMask |= (1 << attribLocation);
+        }
+    }
+    else if (freq == ShaderFrequency::SF_Pixel)
+    {
+        for (auto &res : resources.stage_outputs)
+        {
+            unsigned attribLocation = glsl.get_decoration(res.id, spv::DecorationLocation);
+            header.InOutMask |= (1 << attribLocation);
+        }
     }
 
     std::vector<uint8> data;

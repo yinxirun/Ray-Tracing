@@ -127,7 +127,7 @@ inline VkImageLayout GetMergedDepthStencilLayout(VkImageLayout DepthLayout, VkIm
 void VulkanSetImageLayout(CmdBuffer *CmdBuffer, VkImage Image, VkImageLayout OldLayout, VkImageLayout NewLayout, const VkImageSubresourceRange &SubresourceRange);
 
 // 90
-inline VkShaderStageFlagBits UEFrequencyToVKStageBit(EShaderFrequency InStage)
+inline VkShaderStageFlagBits UEFrequencyToVKStageBit(ShaderFrequency InStage)
 {
 	switch (InStage)
 	{

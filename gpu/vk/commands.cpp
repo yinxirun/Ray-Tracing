@@ -29,7 +29,7 @@ void CommandListContext::SetResourcesFromTables(const ShaderType *Shader)
 {
     check(Shader);
 
-    static constexpr EShaderFrequency Frequency = static_cast<EShaderFrequency>(ShaderType::StaticFrequency);
+    static constexpr ShaderFrequency Frequency = static_cast<ShaderFrequency>(ShaderType::StaticFrequency);
 #ifdef PRINT_UNIMPLEMENT
     printf("Have not implement CommandListContext::SetResourcesFromTables %s\n", __FILE__);
 #endif

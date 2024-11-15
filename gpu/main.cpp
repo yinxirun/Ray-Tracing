@@ -41,7 +41,7 @@ std::vector<uint8> readFile(const std::string &filename)
 
 std::string func(std::vector<uint8_t> &&inCode);
 
-std::vector<uint8> LoadShader(std::string filename);
+std::vector<uint8> LoadShader(std::string filename, ShaderFrequency freq);
 
 int main()
 {
@@ -60,20 +60,27 @@ int main()
         BufferDesc desc(36, 4, BufferUsageFlags::VertexBuffer);
         ResourceCreateInfo ci{};
         auto positionBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
+        auto colorBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
 
         desc = BufferDesc(12, 4, BufferUsageFlags::IndexBuffer);
         auto indexBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
 
-        void *mapped = LockBuffer_BottomOfPipe(dummy, positionBuffer.get(), 0, positionBuffer->GetSize(),
-                                               ResourceLockMode::RLM_WriteOnly);
-        float position[9] = {0.5f, -0.5f, 0.f, 0.f, 0.5f, 0.f, -0.5f, -0.5f, 0.f};
-        memcpy(mapped, position, 36);
-        UnlockBuffer_BottomOfPipe(dummy, positionBuffer.get());
+        void *mapped;
 
         mapped = LockBuffer_BottomOfPipe(dummy, indexBuffer.get(), 0, indexBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
         uint32 indices[3] = {0, 1, 2};
         memcpy(mapped, indices, 12);
         UnlockBuffer_BottomOfPipe(dummy, indexBuffer.get());
+
+        mapped = LockBuffer_BottomOfPipe(dummy, positionBuffer.get(), 0, positionBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
+        float position[9] = {0.5f, -0.5f, 0.5f, 0.f, 0.5f, 0.5f, -0.5f, -0.5f, 0.5f};
+        memcpy(mapped, position, 36);
+        UnlockBuffer_BottomOfPipe(dummy, positionBuffer.get());
+
+        mapped = LockBuffer_BottomOfPipe(dummy, colorBuffer.get(), 0, colorBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
+        float color[9] = {1.0f, 0.0f, 0.0f, 0.f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+        memcpy(mapped, color, 36);
+        UnlockBuffer_BottomOfPipe(dummy, colorBuffer.get());
 
         // 创建PSO
         GraphicsPipelineStateInitializer graphicsPSOInit;
@@ -94,11 +101,11 @@ int main()
         graphicsPSOInit.PrimitiveType = PT_TriangleList;
 
         VertexDeclarationElementList elements;
-        elements.push_back(VertexElement(0, 0, VET_Float4, 0, 12));
-        // elements.push_back(VertexElement(1, 0, VET_Float4, 1, 12));
+        elements.push_back(VertexElement(0, 0, VET_Float3, 0, 12));
+        elements.push_back(VertexElement(1, 0, VET_Float3, 1, 12));
         graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
-        graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(LoadShader("gpu/shaders/a.vert.spv"));
-        graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(LoadShader("gpu/shaders/a.frag.spv"));
+        graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(LoadShader("gpu/shaders/a.vert.spv", SF_Vertex));
+        graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(LoadShader("gpu/shaders/a.frag.spv", SF_Pixel));
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
         while (!glfwWindowShouldClose(window))
@@ -112,7 +119,7 @@ int main()
 
             context->SetGraphicsPipelineState(pso, 0, false);
             context->SetStreamSource(0, positionBuffer.get(), 0);
-            // context->SetStreamSource(1, colorBuffer.get(), 0);
+            context->SetStreamSource(1, colorBuffer.get(), 0);
             context->DrawIndexedPrimitive(indexBuffer.get(), 0, 0, 3, 0, 1, 1);
 
             context->EndRenderPass();
