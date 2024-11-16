@@ -357,7 +357,7 @@ namespace VulkanRHI
             // #todo-rco: Had to add this check, we were getting null CmdBuffers on the first frame, or before first frame maybe
             if (bDeleteImmediately ||
                 (GVulkanRHIDeletionFrameNumber > entry->FrameNumber + NUM_FRAMES_TO_WAIT_FOR_RESOURCE_DELETE &&
-                 (entry->CmdBuffer == nullptr || entry->FenceCounter < entry->CmdBuffer->GetFenceSignaledCounterC())))
+                 (entry->CmdBuffer == nullptr || entry->FenceCounter < entry->CmdBuffer->GetFenceSignaledCounter())))
             {
                 switch (entry->StructureType)
                 {

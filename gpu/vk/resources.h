@@ -468,8 +468,77 @@ protected:
     friend class CommandListContext;
 };
 
+struct VulkanRingBuffer : public VulkanRHI::DeviceChild
+{
+public:
+    VulkanRingBuffer(Device *InDevice, uint64 TotalSize, VkFlags Usage, VkMemoryPropertyFlags MemPropertyFlags);
+    virtual ~VulkanRingBuffer();
+
+    // Allocate some space in the ring buffer
+    inline uint64 AllocateMemory(uint64 Size, uint32 Alignment, CmdBuffer *InCmdBuffer)
+    {
+        Alignment = std::max(Alignment, MinAlignment);
+        uint64 AllocationOffset = Align<uint64>(BufferOffset, Alignment);
+        if (AllocationOffset + Size <= BufferSize)
+        {
+            BufferOffset = AllocationOffset + Size;
+            return AllocationOffset;
+        }
+
+        return WrapAroundAllocateMemory(Size, Alignment, InCmdBuffer);
+    }
+
+    inline VkBuffer GetHandle() { return handle; }
+
+    inline void *GetMappedPointer() { return info.pMappedData; }
+
+    inline VmaAllocation &GetAllocation() { return allocation; }
+
+    inline VmaAllocationInfo GetAllocationInfo() const { return info; }
+
+protected:
+    uint64 BufferSize;
+    uint64 BufferOffset;
+    VkDeviceAddress BufferAddress;
+    uint32 MinAlignment;
+
+    VkBuffer handle = 0;
+    VmaAllocation allocation = 0;
+    VmaAllocationInfo info;
+
+    // Fence for wrapping around
+    CmdBuffer *FenceCmdBuffer = nullptr;
+    uint64 FenceCounter = 0;
+    uint64 WrapAroundAllocateMemory(uint64 Size, uint32 Alignment, CmdBuffer *InCmdBuffer);
+};
+
+struct VulkanUniformBufferUploader : public VulkanRHI::DeviceChild
+{
+public:
+    VulkanUniformBufferUploader(Device *InDevice);
+    ~VulkanUniformBufferUploader();
+
+    inline uint8 *GetCPUMappedPointer() { return (uint8 *)CPUBuffer->GetMappedPointer(); }
+
+    inline uint64 AllocateMemory(uint64 Size, uint32 Alignment, CmdBuffer *InCmdBuffer)
+    {
+        return CPUBuffer->AllocateMemory(Size, Alignment, InCmdBuffer);
+    }
+    inline const VmaAllocation &GetCPUBufferAllocation() const { return CPUBuffer->GetAllocation(); }
+
+    inline VkBuffer GetCPUBufferHandle() const { return CPUBuffer->GetHandle(); }
+
+    inline VmaAllocationInfo GetCPUBufferAllocationInfo() const { return CPUBuffer->GetAllocationInfo(); }
+
+protected:
+    VulkanRingBuffer *CPUBuffer;
+    friend class CommandListContext;
+};
+
 // 1068
-class VulkanMultiBuffer : public Buffer, public VulkanRHI::DeviceChild, public VulkanViewableResource
+class VulkanMultiBuffer : public Buffer,
+                          public VulkanRHI::DeviceChild,
+                          public VulkanViewableResource
 {
 public:
     VulkanMultiBuffer(Device *InDevice, BufferDesc const &InBufferDesc,
@@ -528,6 +597,25 @@ protected:
 
     static void InternalUnlock(CommandListContext &Context, VulkanRHI::PendingBufferLock &PendingLock,
                                VulkanMultiBuffer *MultiBuffer, int32 InDynamicBufferIndex);
+};
+
+class VulkanUniformBuffer : public UniformBuffer
+{
+public:
+    VulkanUniformBuffer(Device &Device, std::shared_ptr<const UniformBufferLayout> InLayout, const void *Contents, UniformBufferUsage InUsage, UniformBufferValidation Validation);
+    virtual ~VulkanUniformBuffer();
+
+    void UpdateResourceTable(const UniformBufferLayout &InLayout, const void *Contents, int32 ResourceNum);
+    void UpdateResourceTable(RHIResource **Resources, int32 ResourceNum);
+
+    Device *device;
+
+    VkBuffer handle = VK_NULL_HANDLE;
+    VmaAllocation allocation = VK_NULL_HANDLE;
+    VmaAllocationInfo info;
+    uint32 offset;
+
+    UniformBufferUsage Usage;
 };
 
 // 1258

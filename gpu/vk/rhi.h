@@ -6,6 +6,7 @@
 #include "gpu/core/pixel_format.h"
 #include "gpu/RHI/RHIAccess.h"
 #include "gpu/RHI/RHIDefinitions.h"
+#include "gpu/RHI/RHIResources.h"
 #include "gpu/core/assertion_macros.h"
 
 class Device;
@@ -84,7 +85,17 @@ public:
      * CAUTION: Platforms that support RHIThread but don't actually have a threadsafe implementation must flush internally with FScopedRHIThreadStaller StallRHIThread(FRHICommandListExecutor::GetImmediateCommandList()); when the call is from the render thread
      */
     // FlushType: Thread safe
-    virtual GraphicsPipelineState* CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
+    virtual GraphicsPipelineState *CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
+
+    /**
+     * Creates a uniform buffer.  The contents of the uniform buffer are provided in a parameter, and are immutable.
+     * CAUTION: Even though this is marked as threadsafe, it is only valid to call from the render thread or the RHI thread. Thus is need not be threadsafe on platforms that do not support or aren't using an RHIThread
+     * @param Contents - A pointer to a memory block of size NumBytes that is copied into the new uniform buffer.
+     * @param NumBytes - The number of bytes the uniform buffer should contain.
+     * @return The new uniform buffer.
+     */
+    // FlushType: Thread safe, but varies depending on the RHI
+    virtual std::shared_ptr<UniformBuffer> CreateUniformBuffer(const void *Contents, std::shared_ptr<const UniformBufferLayout> Layout, UniformBufferUsage Usage, UniformBufferValidation Validation);
 
     // 339
     virtual std::shared_ptr<Buffer> CreateBuffer(BufferDesc const &Desc, Access ResourceState, ResourceCreateInfo &CreateInfo);

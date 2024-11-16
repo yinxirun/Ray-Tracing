@@ -18,6 +18,14 @@
 inline bool IsInGameThread() { return true; }
 /// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
 inline bool IsInRenderingThread() { return true; }
+/// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
+inline bool IsInRHIThread() { return true; }
+
+// RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.  
+// Enforce a min size of 64 bits on pointer types in uniform buffer structs to guarantee layout matching between languages.
+#define SHADER_PARAMETER_POINTER_ALIGNMENT sizeof(uint64)
+static_assert(sizeof(void*) <= SHADER_PARAMETER_POINTER_ALIGNMENT, "The alignment of pointer needs to match the largest pointer.");
+
 
 // 180
 enum class ERHIZBuffer
@@ -201,6 +209,96 @@ enum VertexElementType
 	VET_NumBits = 5,
 };
 static_assert(VET_MAX <= (1 << VET_NumBits), "VET_MAX will not fit on VET_NumBits");
+
+enum UniformBufferUsage
+{
+	// the uniform buffer is temporary, used for a single draw call then discarded
+	UniformBuffer_SingleDraw = 0,
+	// the uniform buffer is used for multiple draw calls but only for the current frame
+	UniformBuffer_SingleFrame,
+	// the uniform buffer is used for multiple draw calls, possibly across multiple frames
+	UniformBuffer_MultiFrame,
+};
+
+enum class UniformBufferValidation
+{
+	None,
+	ValidateResources
+};
+
+/** The base type of a value in a shader parameter structure. */
+enum EUniformBufferBaseType : uint8
+{
+	UBMT_INVALID,
+
+	// Invalid type when trying to use bool, to have explicit error message to programmer on why
+	// they shouldn't use bool in shader parameter structures.
+	UBMT_BOOL,
+
+	// Parameter types.
+	UBMT_INT32,
+	UBMT_UINT32,
+	UBMT_FLOAT32,
+
+	// RHI resources not tracked by render graph.
+	UBMT_TEXTURE,
+	UBMT_SRV,
+	UBMT_UAV,
+	UBMT_SAMPLER,
+
+	// Resources tracked by render graph.
+	UBMT_RDG_TEXTURE,
+	UBMT_RDG_TEXTURE_ACCESS,
+	UBMT_RDG_TEXTURE_ACCESS_ARRAY,
+	UBMT_RDG_TEXTURE_SRV,
+	UBMT_RDG_TEXTURE_NON_PIXEL_SRV,
+	UBMT_RDG_TEXTURE_UAV,
+	UBMT_RDG_BUFFER_ACCESS,
+	UBMT_RDG_BUFFER_ACCESS_ARRAY,
+	UBMT_RDG_BUFFER_SRV,
+	UBMT_RDG_BUFFER_UAV,
+	UBMT_RDG_UNIFORM_BUFFER,
+
+	// Nested structure.
+	UBMT_NESTED_STRUCT,
+
+	// Structure that is nested on C++ side, but included on shader side.
+	UBMT_INCLUDED_STRUCT,
+
+	// GPU Indirection reference of struct, like is currently named Uniform buffer.
+	UBMT_REFERENCED_STRUCT,
+
+	// Structure dedicated to setup render targets for a rasterizer pass.
+	UBMT_RENDER_TARGET_BINDING_SLOTS,
+
+	UBMT_RESOURCE_COLLECTION,
+
+	EUniformBufferBaseType_Num,
+	EUniformBufferBaseType_NumBits = 5,
+};
+
+enum
+{
+	/** The maximum number of static slots allowed. */
+	MAX_UNIFORM_BUFFER_STATIC_SLOTS = 255
+};
+
+/** The list of flags declaring which binding models are allowed for a uniform buffer layout. */
+enum class UniformBufferBindingFlags : uint8
+{
+	/** If set, the uniform buffer can be bound as an RHI shader parameter on an RHI shader (i.e. RHISetShaderUniformBuffer). */
+	Shader = 1 << 0,
+
+	/** If set, the uniform buffer can be bound globally through a static slot (i.e. RHISetStaticUniformBuffers). */
+	Static = 1 << 1,
+
+	/** If set, the uniform buffer can be bound globally or per-shader, depending on the use case. Only one binding model should be
+	 *  used at a time, and RHI validation will emit an error if both are used for a particular uniform buffer at the same time. This
+	 *  is designed for difficult cases where a fixed single binding model would produce an unnecessary maintenance burden. Using this
+	 *  disables some RHI validation errors for global bindings, so use with care.
+	 */
+	StaticAndShader = Static | Shader
+};
 
 // 673
 enum PrimitiveType
@@ -608,3 +706,45 @@ enum ResourceLockMode
 	RLM_WriteOnly_NoOverwrite,
 	RLM_Num
 };
+
+/** Returns whether the shader parameter type references an RDG texture. */
+inline bool IsRDGTextureReferenceShaderParameterType(EUniformBufferBaseType BaseType)
+{
+	return BaseType == UBMT_RDG_TEXTURE || BaseType == UBMT_RDG_TEXTURE_SRV || BaseType == UBMT_RDG_TEXTURE_UAV ||
+		   BaseType == UBMT_RDG_TEXTURE_ACCESS || BaseType == UBMT_RDG_TEXTURE_ACCESS_ARRAY;
+}
+
+/** Returns whether the shader parameter type references an RDG buffer. */
+inline bool IsRDGBufferReferenceShaderParameterType(EUniformBufferBaseType BaseType)
+{
+	return BaseType == UBMT_RDG_BUFFER_SRV || BaseType == UBMT_RDG_BUFFER_UAV ||
+		   BaseType == UBMT_RDG_BUFFER_ACCESS || BaseType == UBMT_RDG_BUFFER_ACCESS_ARRAY;
+}
+
+/** Returns whether the shader parameter type is for RDG access and not actually for shaders. */
+inline bool IsRDGResourceAccessType(EUniformBufferBaseType BaseType)
+{
+	return BaseType == UBMT_RDG_TEXTURE_ACCESS || BaseType == UBMT_RDG_TEXTURE_ACCESS_ARRAY ||
+		   BaseType == UBMT_RDG_BUFFER_ACCESS || BaseType == UBMT_RDG_BUFFER_ACCESS_ARRAY;
+}
+
+/** Returns whether the shader parameter type is a reference onto a RDG resource. */
+inline bool IsRDGResourceReferenceShaderParameterType(EUniformBufferBaseType BaseType)
+{
+	return IsRDGTextureReferenceShaderParameterType(BaseType) || IsRDGBufferReferenceShaderParameterType(BaseType) || BaseType == UBMT_RDG_UNIFORM_BUFFER;
+}
+
+/** Returns whether the shader parameter type in FRHIUniformBufferLayout is actually ignored by the RHI. */
+inline bool IsShaderParameterTypeIgnoredByRHI(EUniformBufferBaseType BaseType)
+{
+	return
+		// Render targets bindings slots needs to be in FRHIUniformBufferLayout for render graph, but the RHI does not actually need to know about it.
+		BaseType == UBMT_RENDER_TARGET_BINDING_SLOTS ||
+
+		// Custom access states are used by the render graph.
+		IsRDGResourceAccessType(BaseType) ||
+
+		// #yuriy_todo: RHI is able to dereference uniform buffer in root shader parameter structures
+		BaseType == UBMT_REFERENCED_STRUCT ||
+		BaseType == UBMT_RDG_UNIFORM_BUFFER;
+}

@@ -37,7 +37,12 @@ __forceinline PixelShader *CreatePixelShader(std::vector<uint8> Code)
     return rhi->CreatePixelShader(Code);
 }
 
-__forceinline GraphicsPipelineState* CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
+__forceinline GraphicsPipelineState *CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
 {
     return rhi->CreateGraphicsPipelineState(Initializer);
+}
+
+__forceinline std::shared_ptr<UniformBuffer> CreateUniformBuffer(const void *Contents, std::shared_ptr<const UniformBufferLayout> Layout, UniformBufferUsage Usage, UniformBufferValidation Validation)
+{
+    return rhi->CreateUniformBuffer(Contents, Layout, Usage, Validation);
 }

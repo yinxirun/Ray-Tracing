@@ -106,7 +106,18 @@ int main()
         graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
         graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(LoadShader("gpu/shaders/a.vert.spv", SF_Vertex));
         graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(LoadShader("gpu/shaders/a.frag.spv", SF_Pixel));
+        // PSO的回收还没写，目前是会泄漏的
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
+
+        UniformBufferLayoutInitializer UBInit;
+        UBInit.BindingFlags = UniformBufferBindingFlags::Shader;
+        UBInit.ConstantBufferSize = 192;
+        UBInit.Resources.push_back({0, EUniformBufferBaseType::UBMT_FLOAT32});
+        UBInit.Resources.push_back({64, EUniformBufferBaseType::UBMT_FLOAT32});
+        UBInit.Resources.push_back({128, EUniformBufferBaseType::UBMT_FLOAT32});
+        UBInit.ComputeHash();
+        auto UBLayout = std::make_shared<const UniformBufferLayout>(UBInit);
+        auto ub = CreateUniformBuffer(0, UBLayout, UniformBufferUsage::UniformBuffer_MultiFrame, UniformBufferValidation::None);
 
         while (!glfwWindowShouldClose(window))
         {

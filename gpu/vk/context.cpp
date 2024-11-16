@@ -10,7 +10,7 @@ extern RHI *rhi;
 
 CommandListContext::CommandListContext(RHI *InRHI, Device *InDevice, Queue *InQueue, CommandListContext *InImmediate)
     : rhi(InRHI), Immediate(InImmediate), device(InDevice), queue(InQueue), bSubmitAtNextSafePoint(false),
-      commandBufferManager(nullptr), pendingGfxState(nullptr)
+      UniformBufferUploader(nullptr), commandBufferManager(nullptr), pendingGfxState(nullptr)
 {
     // Create CommandBufferManager, contain all active buffers
     commandBufferManager = new CommandBufferManager(InDevice, this);
@@ -26,6 +26,8 @@ CommandListContext::CommandListContext(RHI *InRHI, Device *InDevice, Queue *InQu
 
     // Create Pending state, contains pipeline states such as current shader and etc..
     pendingGfxState = new PendingGfxState(device, *this);
+
+    UniformBufferUploader = new VulkanUniformBufferUploader(device);
 }
 
 CommandListContext::~CommandListContext()
@@ -41,7 +43,7 @@ CommandListContext::~CommandListContext()
     delete commandBufferManager;
     commandBufferManager = nullptr;
 
-    // delete UniformBufferUploader;
+    delete UniformBufferUploader;
     delete pendingGfxState;
     // delete PendingComputeState;
 

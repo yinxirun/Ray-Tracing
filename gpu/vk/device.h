@@ -47,6 +47,7 @@ struct OptionalVulkanDeviceExtensions
             // Promoted to 1.2
             uint64 HasKHRRenderPass2 : 1;
             uint64 HasEXTSubgroupSizeControl : 1;
+            uint64 HasBufferDeviceAddress : 1;
 
             // Promoted to 1.3
         };

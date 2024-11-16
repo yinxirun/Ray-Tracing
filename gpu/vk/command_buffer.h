@@ -48,7 +48,7 @@ public:
 
     inline volatile uint64 GetFenceSignaledCounter() const { return FenceSignaledCounter; }
 
-    inline volatile uint64 GetFenceSignaledCounterC() const { return FenceSignaledCounter; }
+    inline volatile uint64 GetSubmittedFenceCounter() const { return SubmittedFenceCounter; }
 
     inline LayoutManager &GetLayoutManager() { return LayoutManager; }
 
@@ -196,6 +196,8 @@ public:
 
         return activeCmdBuffer;
     }
+
+    inline CmdBuffer *GetActiveCmdBufferDirect() { return activeCmdBuffer; }
 
     inline bool HasPendingUploadCmdBuffer() const { return uploadCmdBuffer != nullptr; }
 

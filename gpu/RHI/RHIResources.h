@@ -1,5 +1,6 @@
 #pragma once
 #include "Volk/volk.h"
+#include "gpu/core/templates/alignment_template.h"
 #include "gpu/math/color.h"
 #include "gpu/math/vec.h"
 #include "gpu/definitions.h"
@@ -8,13 +9,17 @@
 #include "RHIDefinitions.h"
 #include "RHIAccess.h"
 #include "RHIUtilities.h"
+#include "RHIResources.h"
 #include "RHI.h"
 #include "RHIImmutableSamplerState.h"
 #include <array>
 #include <vector>
 #include <atomic>
+#include <memory>
 
 typedef std::vector<VertexElement> VertexDeclarationElementList;
+
+struct UniformBufferResource;
 
 // 351
 struct ResourceCreateInfo
@@ -461,6 +466,135 @@ public:
 
 private:
     // struct FPipelineStateStats *Stats;
+};
+
+//
+// Buffer
+//
+
+/** Data structure to store information about resource parameter in a shader parameter structure. */
+struct UniformBufferResource
+{
+    /** Byte offset to each resource in the uniform buffer memory. */
+    uint16 memberOffset;
+
+    /** Type of the member that allow (). */
+    EUniformBufferBaseType memberType;
+
+    /** Compare two uniform buffer layout resources. */
+    friend inline bool operator==(const UniformBufferResource &A, const UniformBufferResource &B)
+    {
+        return A.memberOffset == B.memberOffset && A.memberType == B.memberType;
+    }
+};
+
+/** Initializer for the layout of a uniform buffer in memory. */
+struct UniformBufferLayoutInitializer
+{
+public:
+    UniformBufferLayoutInitializer() = default;
+
+    inline uint32 GetHash() const
+    {
+        check(Hash != 0);
+        return Hash;
+    }
+
+    void ComputeHash()
+    {
+        // Static slot is not stable. Just track whether we have one at all.
+        uint32 TmpHash = ConstantBufferSize << 16 | static_cast<uint32>(BindingFlags) << 8 | static_cast<uint32>(StaticSlot != MAX_UNIFORM_BUFFER_STATIC_SLOTS);
+
+        for (int32 ResourceIndex = 0; ResourceIndex < Resources.size(); ResourceIndex++)
+        {
+            // Offset and therefore hash must be the same regardless of pointer size
+            check(Resources[ResourceIndex].memberOffset == Align(Resources[ResourceIndex].memberOffset, SHADER_PARAMETER_POINTER_ALIGNMENT));
+            TmpHash ^= Resources[ResourceIndex].memberOffset;
+        }
+
+        uint32 N = Resources.size();
+        while (N >= 4)
+        {
+            TmpHash ^= (Resources[--N].memberType << 0);
+            TmpHash ^= (Resources[--N].memberType << 8);
+            TmpHash ^= (Resources[--N].memberType << 16);
+            TmpHash ^= (Resources[--N].memberType << 24);
+        }
+        while (N >= 2)
+        {
+            TmpHash ^= Resources[--N].memberType << 0;
+            TmpHash ^= Resources[--N].memberType << 16;
+        }
+        while (N > 0)
+        {
+            TmpHash ^= Resources[--N].memberType;
+        }
+        Hash = TmpHash;
+    }
+
+    std::vector<UniformBufferResource> Resources;
+    uint32 ConstantBufferSize = 0;
+    uint8 StaticSlot = MAX_UNIFORM_BUFFER_STATIC_SLOTS;
+    UniformBufferBindingFlags BindingFlags = UniformBufferBindingFlags::Shader;
+
+private:
+    uint32 Hash = 0;
+};
+
+/** The layout of a uniform buffer in memory. */
+struct UniformBufferLayout : public RHIResource
+{
+    UniformBufferLayout() = delete;
+
+    explicit UniformBufferLayout(const UniformBufferLayoutInitializer &Initializer)
+        : RHIResource(RRT_UniformBufferLayout),
+          Resources(Initializer.Resources), Hash(Initializer.GetHash()), ConstantBufferSize(Initializer.ConstantBufferSize),
+          StaticSlot(Initializer.StaticSlot), BindingFlags(Initializer.BindingFlags)
+    {
+    }
+
+    /** The list of all resource inlined into the shader parameter structure. */
+    const std::vector<UniformBufferResource> Resources;
+
+    const uint32 Hash;
+
+    /** The size of the constant buffer in bytes. */
+    const uint32 ConstantBufferSize;
+
+    /** The static slot (if applicable). */
+    const uint8 StaticSlot;
+
+    /** The binding flags describing how this resource can be bound to the RHI. */
+    const UniformBufferBindingFlags BindingFlags;
+};
+
+class UniformBuffer : public RHIResource
+{
+public:
+    UniformBuffer() = delete;
+
+    /** Initialization constructor. */
+    UniformBuffer(std::shared_ptr<const UniformBufferLayout> InLayout)
+        : RHIResource(RRT_UniformBuffer), Layout(InLayout), LayoutConstantBufferSize(InLayout->ConstantBufferSize)
+    {
+    }
+
+    /** @return The number of bytes in the uniform buffer. */
+    uint32 GetSize() const
+    {
+        check(LayoutConstantBufferSize == Layout->ConstantBufferSize);
+        return LayoutConstantBufferSize;
+    }
+    const UniformBufferLayout &GetLayout() const { return *Layout; }
+    const UniformBufferLayout *GetLayoutPtr() const { return Layout.get(); }
+
+protected:
+    std::vector<RHIResource *> ResourceTable;
+
+private:
+    /** Layout of the uniform buffer. */
+    std::shared_ptr<const UniformBufferLayout> Layout;
+    uint32 LayoutConstantBufferSize;
 };
 
 // 1220

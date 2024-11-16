@@ -16,6 +16,7 @@ class RenderPass;
 class Framebuffer;
 class PendingGfxState;
 class SwapChain;
+class VulkanUniformBufferUploader;
 
 class CommandListContext : public CommandContext
 {
@@ -80,6 +81,8 @@ public:
 
     inline Framebuffer *GetCurrentFramebuffer() { return CurrentFramebuffer; }
 
+    inline VulkanUniformBufferUploader *GetUniformBufferUploader() { return UniformBufferUploader; }
+
     inline Queue *GetQueue() { return queue; }
 
     inline Device *GetDevice() const { return device; }
@@ -93,6 +96,7 @@ protected:
     CommandBufferManager *commandBufferManager;
     Queue *queue;
     bool bSubmitAtNextSafePoint;
+    VulkanUniformBufferUploader *UniformBufferUploader;
 
     RenderPass *CurrentRenderPass = nullptr;
     Framebuffer *CurrentFramebuffer = nullptr;

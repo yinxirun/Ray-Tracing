@@ -567,3 +567,4 @@ std::shared_ptr<Buffer> RHI::CreateBuffer(BufferDesc const &Desc, Access Resourc
 {
     return std::make_shared<VulkanMultiBuffer>(device, Desc, CreateInfo, nullptr);
 }
+
