@@ -75,7 +75,7 @@ std::shared_ptr<VertexDeclaration> RHI::CreateVertexDeclaration(const VertexDecl
     return VertexDeclarationRefPtr;
 }
 
-VertexInputStateInfo::VertexInputStateInfo()
+VulkanVertexInputStateInfo::VulkanVertexInputStateInfo()
     : Hash(0), BindingsNum(0), BindingsMask(0), AttributesNum(0)
 {
     memset(&Info, 0, sizeof(VkPipelineVertexInputStateCreateInfo));
@@ -83,7 +83,7 @@ VertexInputStateInfo::VertexInputStateInfo()
     memset(Bindings.data(), 0, sizeof(VkVertexInputBindingDescription) * Bindings.size());
 }
 
-bool VertexInputStateInfo::operator==(const VertexInputStateInfo &Other)
+bool VulkanVertexInputStateInfo::operator==(const VulkanVertexInputStateInfo &Other)
 {
     if (AttributesNum != Other.AttributesNum)
     {
@@ -101,7 +101,7 @@ bool VertexInputStateInfo::operator==(const VertexInputStateInfo &Other)
 
 /// 104 创建PSO需要VkPipelineVertexInputStateCreateInfo，其由VkVertexInputBindingDescription和VkVertexInputAttributeDescription两部分信息组成。
 /// 本函数根据输入VertexDeclaration生成以上信息，本保存在本对象内。同时生成哈希值。
-void VertexInputStateInfo::Generate(VulkanVertexDeclaration *VertexDeclaration, uint32 VertexHeaderInOutAttributeMask)
+void VulkanVertexInputStateInfo::Generate(VulkanVertexDeclaration *VertexDeclaration, uint32 VertexHeaderInOutAttributeMask)
 {
     // GenerateVertexInputState is expected to be called only once!
     check(Info.sType == 0);

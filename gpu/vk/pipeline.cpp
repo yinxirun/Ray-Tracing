@@ -431,7 +431,7 @@ void PipelineStateCacheManager::CreateGfxEntry(const GraphicsPipelineStateInitia
     VulkanShader *Shaders[ShaderStage::NumStages];
     GetVulkanShaders(PSOInitializer.BoundShaderState, Shaders);
 
-    VertexInputStateInfo VertexInputState;
+    VulkanVertexInputStateInfo VertexInputState;
     {
         const BoundShaderStateInput &BSI = PSOInitializer.BoundShaderState;
 

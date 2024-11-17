@@ -15,6 +15,12 @@
 // 2 to collapse all sets into Set 0
 static int32 GDescriptorSetLayoutMode = 0;
 
+// default 2
+// 2 to treat ALL uniform buffers as dynamic [default]
+// 1 to treat global/packed uniform buffers as dynamic
+// 0 to treat them as regular
+int32 GDynamicGlobalUBs = 0;
+
 VulkanShaderFactory::~VulkanShaderFactory()
 {
     for (auto &Map : ShaderMap)
@@ -240,8 +246,168 @@ void DescriptorSetsLayoutInfo::ProcessBindingsForStage(VkShaderStageFlagBits Sta
 template <bool bIsCompute>
 void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const UniformBufferGatherInfo &UBGatherInfo, const std::vector<SamplerState *> &ImmutableSamplers)
 {
+    printf("Have not implement FinalizeBindings %s %d\n", __FILE__, __LINE__);
     check(!bIsCompute);
-    printf("Have not implement DescriptorSetsLayoutInfo::FinalizeBindings %s\n", __FILE__);
+    check(RemappingInfo.IsEmpty());
+
+    std::unordered_map<uint32, DescriptorSetRemappingInfo::UBRemappingInfo> AlreadyProcessedUBs;
+
+    // We'll be reusing this struct
+    VkDescriptorSetLayoutBinding Binding;
+    Binding = {};
+    Binding.descriptorCount = 1;
+
+    const bool bConvertAllUBsToDynamic = (GDynamicGlobalUBs > 1);
+    const bool bConvertPackedUBsToDynamic = bConvertAllUBsToDynamic || GDynamicGlobalUBs == 1;
+    const bool bConsolidateAllIntoOneSet = GDescriptorSetLayoutMode == 2;
+    const uint32 MaxDescriptorSetUniformBuffersDynamic = Device.GetLimits().maxDescriptorSetUniformBuffersDynamic;
+
+    uint8 DescriptorStageToSetMapping[ShaderStage::NumStages];
+    FMemory::Memset(DescriptorStageToSetMapping, UINT8_MAX);
+
+    const bool bMoveCommonUBsToExtraSet = (UBGatherInfo.CommonUBLayoutsToStageMap.size() > 0) || bConsolidateAllIntoOneSet;
+    const uint32 CommonUBDescriptorSet = bMoveCommonUBsToExtraSet ? RemappingInfo.SetInfos.AddDefaulted() : UINT32_MAX;
+
+    auto FindOrAddDescriptorSet = [&](int32 Stage) -> uint8
+    {
+        if (bConsolidateAllIntoOneSet)
+        {
+            return 0;
+        }
+
+        if (DescriptorStageToSetMapping[Stage] == UINT8_MAX)
+        {
+            uint32 NewSet = RemappingInfo.SetInfos.AddDefaulted();
+            DescriptorStageToSetMapping[Stage] = (uint8)NewSet;
+            return NewSet;
+        }
+
+        return DescriptorStageToSetMapping[Stage];
+    };
+
+    int32 CurrentImmutableSampler = 0;
+    for (int32 Stage = 0; Stage < (bIsCompute ? 1 : ShaderStage::NumStages); ++Stage)
+    {
+        if (const ShaderHeader *ShaderHeader = UBGatherInfo.CodeHeaders[Stage])
+        {
+            VkShaderStageFlags StageFlags = UEFrequencyToVKStageBit(bIsCompute ? SF_Compute : ShaderStage::GetFrequencyForGfxStage((ShaderStage::Stage)Stage));
+            Binding.stageFlags = StageFlags;
+
+            RemappingInfo.StageInfos[Stage].PackedUBBindingIndices.reserve(ShaderHeader->PackedUBs.size());
+            for (int32 Index = 0; Index < ShaderHeader->PackedUBs.size(); ++Index)
+            {
+                check(0);
+            }
+
+            RemappingInfo.StageInfos[Stage].UniformBuffers.reserve(ShaderHeader->UniformBuffers.size());
+            for (int32 Index = 0; Index < ShaderHeader->UniformBuffers.size(); ++Index)
+            {
+                VkDescriptorType Type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+                if (bConvertAllUBsToDynamic && layoutTypes[VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC] < MaxDescriptorSetUniformBuffersDynamic)
+                {
+                    Type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+                }
+
+                // Here we might mess up with the stageFlags, so reset them every loop
+                Binding.stageFlags = StageFlags;
+                Binding.descriptorType = Type;
+                const ShaderHeader::UniformBufferInfo &UBInfo = ShaderHeader->UniformBuffers[Index];
+                const uint32 LayoutHash = UBInfo.LayoutHash;
+                const bool bUBHasConstantData = UBInfo.ConstantDataOriginalBindingIndex != UINT16_MAX;
+                if (bUBHasConstantData)
+                {
+                    bool bProcessRegularUB = true;
+                    const VkShaderStageFlags *FoundFlags = bMoveCommonUBsToExtraSet ? &(UBGatherInfo.CommonUBLayoutsToStageMap.find(LayoutHash)->second) : nullptr;
+                    if (FoundFlags)
+                    {
+                        check(0);
+                    }
+
+                    if (bProcessRegularUB)
+                    {
+                        int32 DescriptorSet = FindOrAddDescriptorSet(Stage);
+                        uint32 NewBindingIndex;
+                        RemappingInfo.AddUBWithData(Stage, Index, DescriptorSet, Type, NewBindingIndex);
+                        Binding.binding = NewBindingIndex;
+
+                        AddDescriptor(FindOrAddDescriptorSet(Stage), Binding);
+                    }
+                }
+                else
+                {
+                    RemappingInfo.AddUBResourceOnly(Stage, Index);
+                }
+            }
+
+            RemappingInfo.StageInfos[Stage].Globals.Reserve(ShaderHeader->Globals.Num());
+            Binding.stageFlags = StageFlags;
+            for (int32 Index = 0; Index < ShaderHeader->Globals.size(); ++Index)
+            {
+                const ShaderHeader::GlobalInfo &GlobalInfo = ShaderHeader->Globals[Index];
+                int32 DescriptorSet = FindOrAddDescriptorSet(Stage);
+                VkDescriptorType Type = BindingToDescriptorType(ShaderHeader->GlobalDescriptorTypes[GlobalInfo.TypeIndex]);
+                uint16 CombinedSamplerStateAlias = GlobalInfo.CombinedSamplerStateAliasIndex;
+                uint32 NewBindingIndex = RemappingInfo.AddGlobal(Stage, Index, DescriptorSet, Type, CombinedSamplerStateAlias);
+                Binding.binding = NewBindingIndex;
+                Binding.descriptorType = Type;
+                if (CombinedSamplerStateAlias == UINT16_MAX)
+                {
+                    if (GlobalInfo.bImmutableSampler)
+                    {
+                        if (CurrentImmutableSampler < ImmutableSamplers.Num())
+                        {
+                            FVulkanSamplerState *SamplerState = ResourceCast(ImmutableSamplers[CurrentImmutableSampler]);
+                            if (SamplerState && SamplerState->Sampler != VK_NULL_HANDLE)
+                            {
+                                Binding.pImmutableSamplers = &SamplerState->Sampler;
+                            }
+                            ++CurrentImmutableSampler;
+                        }
+                    }
+
+                    AddDescriptor(DescriptorSet, Binding);
+                }
+
+                Binding.pImmutableSamplers = nullptr;
+            }
+
+            if (ShaderHeader->InputAttachments.size())
+            {
+                printf("Error: Don't support %s %d\n", __FILE__, __LINE__);
+                exit(-1);
+                /* int32 DescriptorSet = FindOrAddDescriptorSet(Stage);
+                check(Stage == ShaderStage::Pixel);
+                for (int32 SrcIndex = 0; SrcIndex < ShaderHeader->InputAttachments.Num(); ++SrcIndex)
+                {
+                    int32 OriginalGlobalIndex = ShaderHeader->InputAttachments[SrcIndex].GlobalIndex;
+                    const FVulkanShaderHeader::FGlobalInfo &OriginalGlobalInfo = ShaderHeader->Globals[OriginalGlobalIndex];
+                    check(BindingToDescriptorType(ShaderHeader->GlobalDescriptorTypes[OriginalGlobalInfo.TypeIndex]) == VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT);
+                    int32 RemappingIndex = RemappingInfo.InputAttachmentData.AddDefaulted();
+                    FInputAttachmentData &AttachmentData = RemappingInfo.InputAttachmentData[RemappingIndex];
+                    AttachmentData.BindingIndex = RemappingInfo.StageInfos[Stage].Globals[OriginalGlobalIndex].NewBindingIndex;
+                    AttachmentData.DescriptorSet = (uint8)DescriptorSet;
+                    AttachmentData.Type = ShaderHeader->InputAttachments[SrcIndex].Type;
+                } */
+            }
+        }
+    }
+
+    CompileTypesUsageID();
+    GenerateHash(ImmutableSamplers);
+
+    // If we are consolidating and no uniforms are present in the shader, then strip the empty set data
+    if (bConsolidateAllIntoOneSet)
+    {
+        printf("Don't support %s %d\n", __FILE__, __LINE__);
+        exit(-1);
+    }
+    else
+    {
+        for (int32 Index = 0; Index < RemappingInfo.SetInfos.size(); ++Index)
+        {
+            check(RemappingInfo.SetInfos[Index].Types.size() > 0);
+        }
+    }
 }
 
 template void DescriptorSetsLayoutInfo::FinalizeBindings<true>(const Device &Device, const UniformBufferGatherInfo &UBGatherInfo, const std::vector<SamplerState *> &ImmutableSamplers);

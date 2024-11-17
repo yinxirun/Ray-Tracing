@@ -479,7 +479,7 @@ struct UniformBufferResource
     uint16 memberOffset;
 
     /** Type of the member that allow (). */
-    EUniformBufferBaseType memberType;
+    UniformBufferBaseType memberType;
 
     /** Compare two uniform buffer layout resources. */
     friend inline bool operator==(const UniformBufferResource &A, const UniformBufferResource &B)

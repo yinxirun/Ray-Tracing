@@ -37,6 +37,81 @@ namespace std
 /// Information for remapping descriptor sets when combining layouts
 struct DescriptorSetRemappingInfo
 {
+    struct RemappingInfo
+    {
+        uint16 NewDescriptorSet = UINT16_MAX;
+        uint16 NewBindingIndex = UINT16_MAX;
+    };
+
+    struct UBRemappingInfo
+    {
+        // Remapping is only valid if there is constant data
+        RemappingInfo Remapping;
+
+        bool bHasConstantData = false;
+
+        bool bPadding = false; // padding is need on memcmp/MemCrc to make sure mem align
+    };
+
+    struct SetInfo
+    {
+        std::vector<VkDescriptorType> Types;
+        uint16 NumImageInfos = 0;
+        uint16 NumBufferInfos = 0;
+#if VULKAN_RHI_RAYTRACING
+        uint8 NumAccelerationStructures = 0;
+#endif // VULKAN_RHI_RAYTRACING
+    };
+    std::vector<SetInfo> SetInfos;
+
+    struct StageInfo
+    {
+        std::vector<RemappingInfo> Globals;
+        std::vector<UBRemappingInfo> UniformBuffers;
+        std::vector<uint16> PackedUBBindingIndices;
+        uint16 PackedUBDescriptorSet = UINT16_MAX;
+        uint16 Pad0 = 0;
+
+        inline bool IsEmpty() const
+        {
+            if (Globals.size() != 0)
+            {
+                return false;
+            }
+
+            if (UniformBuffers.size() != 0)
+            {
+                return false;
+            }
+
+            if (PackedUBBindingIndices.size() != 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+    };
+    std::array<StageInfo, ShaderStage::NumStages> StageInfos;
+
+    inline bool IsEmpty() const
+    {
+        if (SetInfos.size() == 0)
+        {
+            for (int32 Index = 0; Index < ShaderStage::NumStages; ++Index)
+            {
+                if (!StageInfos[Index].IsEmpty())
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     inline bool operator==(const DescriptorSetRemappingInfo &In) const { return true; }
     inline bool operator!=(const DescriptorSetRemappingInfo &In) const
     {
@@ -55,7 +130,7 @@ public:
 
 protected:
     uint32 HasDescriptorsInSetMask;
-    bool bInitialized=true;
+    bool bInitialized = true;
     friend class GraphicsPipelineDescriptorState;
 };
 

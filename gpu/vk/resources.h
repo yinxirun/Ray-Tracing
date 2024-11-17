@@ -619,11 +619,11 @@ public:
 };
 
 // 1258
-class VertexInputStateInfo
+class VulkanVertexInputStateInfo
 {
 public:
-    VertexInputStateInfo();
-    ~VertexInputStateInfo() = default;
+    VulkanVertexInputStateInfo();
+    ~VulkanVertexInputStateInfo() = default;
 
     void Generate(VulkanVertexDeclaration *VertexDeclaration, uint32 VertexHeaderInOutAttributeMask);
 
@@ -635,7 +635,7 @@ public:
 
     inline const VkPipelineVertexInputStateCreateInfo &GetInfo() const { return Info; }
 
-    bool operator==(const VertexInputStateInfo &Other);
+    bool operator==(const VulkanVertexInputStateInfo &Other);
 
 protected:
     VkPipelineVertexInputStateCreateInfo Info;

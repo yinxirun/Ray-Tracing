@@ -553,7 +553,7 @@ public:
                                 GfxPipelineDesc &Desc, VulkanPSOKey *Key);
     ~VulkanGraphicsPipelineState();
 
-    inline const VertexInputStateInfo &GetVertexInputState() const
+    inline const VulkanVertexInputStateInfo &GetVertexInputState() const
     {
         return VertexInputState;
     }
@@ -602,7 +602,7 @@ public:
     TEnumAsByte<PrimitiveType> PrimitiveType;
 
     VkPipeline VulkanPipeline;
-    VertexInputStateInfo VertexInputState;
+    VulkanVertexInputStateInfo VertexInputState;
     VulkanLayout *Layout;
     Device *device;
     GfxPipelineDesc Desc;

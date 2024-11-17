@@ -39,9 +39,14 @@ std::vector<uint8> readFile(const std::string &filename)
 #define WIDTH 800
 #define HEIGHT 600
 
-std::string func(std::vector<uint8_t> &&inCode);
-
 std::vector<uint8> LoadShader(std::string filename, ShaderFrequency freq);
+
+struct PerCamera
+{
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
 
 int main()
 {
@@ -109,12 +114,13 @@ int main()
         // PSO的回收还没写，目前是会泄漏的
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
+        PerCamera perCamera;
         UniformBufferLayoutInitializer UBInit;
         UBInit.BindingFlags = UniformBufferBindingFlags::Shader;
-        UBInit.ConstantBufferSize = 192;
-        UBInit.Resources.push_back({0, EUniformBufferBaseType::UBMT_FLOAT32});
-        UBInit.Resources.push_back({64, EUniformBufferBaseType::UBMT_FLOAT32});
-        UBInit.Resources.push_back({128, EUniformBufferBaseType::UBMT_FLOAT32});
+        UBInit.ConstantBufferSize = sizeof(PerCamera);
+        UBInit.Resources.push_back({offsetof(PerCamera, model), UniformBufferBaseType::UBMT_FLOAT32});
+        UBInit.Resources.push_back({offsetof(PerCamera, view), UniformBufferBaseType::UBMT_FLOAT32});
+        UBInit.Resources.push_back({offsetof(PerCamera, proj), UniformBufferBaseType::UBMT_FLOAT32});
         UBInit.ComputeHash();
         auto UBLayout = std::make_shared<const UniformBufferLayout>(UBInit);
         auto ub = CreateUniformBuffer(0, UBLayout, UniformBufferUsage::UniformBuffer_MultiFrame, UniformBufferValidation::None);

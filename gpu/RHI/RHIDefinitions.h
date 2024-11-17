@@ -227,7 +227,7 @@ enum class UniformBufferValidation
 };
 
 /** The base type of a value in a shader parameter structure. */
-enum EUniformBufferBaseType : uint8
+enum UniformBufferBaseType : uint8
 {
 	UBMT_INVALID,
 
@@ -708,34 +708,34 @@ enum ResourceLockMode
 };
 
 /** Returns whether the shader parameter type references an RDG texture. */
-inline bool IsRDGTextureReferenceShaderParameterType(EUniformBufferBaseType BaseType)
+inline bool IsRDGTextureReferenceShaderParameterType(UniformBufferBaseType BaseType)
 {
 	return BaseType == UBMT_RDG_TEXTURE || BaseType == UBMT_RDG_TEXTURE_SRV || BaseType == UBMT_RDG_TEXTURE_UAV ||
 		   BaseType == UBMT_RDG_TEXTURE_ACCESS || BaseType == UBMT_RDG_TEXTURE_ACCESS_ARRAY;
 }
 
 /** Returns whether the shader parameter type references an RDG buffer. */
-inline bool IsRDGBufferReferenceShaderParameterType(EUniformBufferBaseType BaseType)
+inline bool IsRDGBufferReferenceShaderParameterType(UniformBufferBaseType BaseType)
 {
 	return BaseType == UBMT_RDG_BUFFER_SRV || BaseType == UBMT_RDG_BUFFER_UAV ||
 		   BaseType == UBMT_RDG_BUFFER_ACCESS || BaseType == UBMT_RDG_BUFFER_ACCESS_ARRAY;
 }
 
 /** Returns whether the shader parameter type is for RDG access and not actually for shaders. */
-inline bool IsRDGResourceAccessType(EUniformBufferBaseType BaseType)
+inline bool IsRDGResourceAccessType(UniformBufferBaseType BaseType)
 {
 	return BaseType == UBMT_RDG_TEXTURE_ACCESS || BaseType == UBMT_RDG_TEXTURE_ACCESS_ARRAY ||
 		   BaseType == UBMT_RDG_BUFFER_ACCESS || BaseType == UBMT_RDG_BUFFER_ACCESS_ARRAY;
 }
 
 /** Returns whether the shader parameter type is a reference onto a RDG resource. */
-inline bool IsRDGResourceReferenceShaderParameterType(EUniformBufferBaseType BaseType)
+inline bool IsRDGResourceReferenceShaderParameterType(UniformBufferBaseType BaseType)
 {
 	return IsRDGTextureReferenceShaderParameterType(BaseType) || IsRDGBufferReferenceShaderParameterType(BaseType) || BaseType == UBMT_RDG_UNIFORM_BUFFER;
 }
 
 /** Returns whether the shader parameter type in FRHIUniformBufferLayout is actually ignored by the RHI. */
-inline bool IsShaderParameterTypeIgnoredByRHI(EUniformBufferBaseType BaseType)
+inline bool IsShaderParameterTypeIgnoredByRHI(UniformBufferBaseType BaseType)
 {
 	return
 		// Render targets bindings slots needs to be in FRHIUniformBufferLayout for render graph, but the RHI does not actually need to know about it.

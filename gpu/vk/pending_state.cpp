@@ -54,7 +54,7 @@ void PendingGfxState::PrepareForDraw(CmdBuffer *CmdBuffer)
 	if (bDirtyVertexStreams)
 	{
 		// Its possible to have no vertex buffers
-		const VertexInputStateInfo &VertexInputStateInfo = CurrentPipeline->GetVertexInputState();
+		const VulkanVertexInputStateInfo &VertexInputStateInfo = CurrentPipeline->GetVertexInputState();
 		if (VertexInputStateInfo.AttributesNum == 0)
 		{
 			// However, we need to verify that there are also no bindings

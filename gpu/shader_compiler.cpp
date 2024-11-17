@@ -1,6 +1,8 @@
 #include <spirv_cross/spirv_glsl.hpp>
+#include <spirv_cross/spirv_common.hpp>
 #include <string>
 #include <fstream>
+#include <iostream>
 #include "definitions.h"
 #include "gpu/core/serialization/memory_writer.h"
 #include "gpu/vk/shader_resources.h"
@@ -43,6 +45,21 @@ std::string func(std::vector<uint8_t> &&inCode)
     return source;
 }
 
+UniformBufferBaseType ParseType(spirv_cross::SPIRType type)
+{
+    using namespace spirv_cross;
+    switch (type.basetype)
+    {
+    case SPIRType::Float:
+        return UniformBufferBaseType::UBMT_FLOAT32;
+        break;
+
+    default:
+        exit(1);
+        break;
+    }
+}
+
 std::vector<uint8> LoadShader(std::string spvFilename, ShaderFrequency freq)
 {
     std::ifstream file(spvFilename, std::ios::ate | std::ios::binary);
@@ -69,10 +86,42 @@ std::vector<uint8> LoadShader(std::string spvFilename, ShaderFrequency freq)
     header.InOutMask = 0;
     if (freq == ShaderFrequency::SF_Vertex)
     {
+        // Vertex Input
         for (auto &res : resources.stage_inputs)
         {
             unsigned attribLocation = glsl.get_decoration(res.id, spv::DecorationLocation);
             header.InOutMask |= (1 << attribLocation);
+        }
+
+        // Uniform Buffer
+        for (auto &res : resources.uniform_buffers)
+        {
+            ShaderHeader::UniformBufferInfo ubInfo;
+            ubInfo.LayoutHash=0;
+
+            spirv_cross::SPIRType type = glsl.get_type(res.base_type_id);
+
+            uint32_t member_count = type.member_types.size();
+            for (int i = 0; i < member_count; i++)
+            {
+                ShaderHeader::UBResourceInfo ubResInfo;
+
+                std::string resourceName = glsl.get_member_name(res.base_type_id, i);
+
+                const spirv_cross::SPIRType &member_type = glsl.get_type(type.member_types[i]);
+
+                ubResInfo.UBBaseType = ParseType(member_type);
+
+                size_t resourceSize = glsl.get_declared_struct_member_size(type, i);
+                uint32 resourceOffset = glsl.type_struct_member_offset(type, i);
+
+                ubInfo.ResourceEntries.push_back(ubResInfo);
+            }
+
+            unsigned binding = glsl.get_decoration(res.id, spv::DecorationBinding);
+            unsigned set = glsl.get_decoration(res.id, spv::DecorationDescriptorSet);
+
+            header.UniformBuffers.push_back(ubInfo);
         }
     }
     else if (freq == ShaderFrequency::SF_Pixel)

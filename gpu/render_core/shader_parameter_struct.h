@@ -8,7 +8,7 @@
 class RHIResource;
 
 /** Dereferences the RHI resource from a shader parameter struct. */
-inline RHIResource *GetShaderParameterResourceRHI(const void *Contents, uint16 MemberOffset, EUniformBufferBaseType MemberType)
+inline RHIResource *GetShaderParameterResourceRHI(const void *Contents, uint16 MemberOffset, UniformBufferBaseType MemberType)
 {
     check(Contents);
     if (IsShaderParameterTypeIgnoredByRHI(MemberType))
