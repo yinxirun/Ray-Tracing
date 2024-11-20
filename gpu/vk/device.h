@@ -12,6 +12,7 @@
 #include "common.h"
 #include <cstring>
 #include "vulkan_memory.h"
+#include "state.h"
 
 #include "gpu/core/pixel_format.h"
 #include "resources.h"
@@ -189,7 +190,17 @@ public:
     inline VkDevice GetInstanceHandle() const { return device; }
     inline VmaAllocator GetAllocator() const { return allocator; }
 
-    // 382
+    // 371
+    inline const VulkanSamplerState &GetDefaultSampler() const
+    {
+        return *DefaultSampler;
+    }
+
+    inline const View::TextureView &GetDefaultImageView() const
+    {
+        return DefaultTexture->DefaultView->GetTextureView();
+    }
+
     const VkFormatProperties &GetFormatProperties(VkFormat InFormat) const;
 
     inline const VkPhysicalDeviceProperties &GetDeviceProperties() const { return gpuProps; }
@@ -205,6 +216,9 @@ public:
 
     // 428
     inline BindlessDescriptorManager *GetBindlessDescriptorManager() { return bindlessDescriptorManager; }
+
+    inline std::unordered_map<uint32, std::shared_ptr<SamplerState>> &GetSamplerMap() { return SamplerMap; }
+
     // 438
     inline VulkanShaderFactory &GetShaderFactory() { return ShaderFactory; }
 
@@ -246,6 +260,9 @@ private:
 
     VulkanShaderFactory ShaderFactory;
 
+    std::shared_ptr<VulkanSamplerState> DefaultSampler;
+    VulkanTexture *DefaultTexture;
+
     VkPhysicalDevice gpu;
     VkPhysicalDeviceProperties gpuProps;
 
@@ -260,6 +277,8 @@ private:
     Queue *presentQueue;
 
     VkComponentMapping PixelFormatComponentMapping[PF_MAX];
+
+    std::unordered_map<uint32, std::shared_ptr<SamplerState>> SamplerMap;
 
     CommandListContextImmediate *immediateContext;
     CommandListContext *computeContext;

@@ -1,4 +1,72 @@
 #include "state.h"
+#include "rhi.h"
+#include "device.h"
+#include "configuration.h"
+#include "util.h"
+#include "private.h"
+#include "descriptor_sets.h"
+#include "gpu/core/misc/crc.h"
+#include <unordered_map>
+#include <algorithm>
+inline VkSamplerMipmapMode TranslateMipFilterMode(SamplerFilter InFilter)
+{
+    switch (InFilter)
+    {
+    case SF_Point:
+        return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    case SF_Bilinear:
+        return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    case SF_Trilinear:
+        return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    case SF_AnisotropicPoint:
+        return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    case SF_AnisotropicLinear:
+        return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    default:
+        break;
+    }
+    check(0);
+    return VK_SAMPLER_MIPMAP_MODE_MAX_ENUM;
+}
+
+inline VkFilter TranslateMinMagFilterMode(SamplerFilter InFilter)
+{
+    switch (InFilter)
+    {
+    case SF_Point:
+        return VK_FILTER_NEAREST;
+    case SF_Bilinear:
+        return VK_FILTER_LINEAR;
+    case SF_Trilinear:
+        return VK_FILTER_LINEAR;
+    case SF_AnisotropicPoint:
+    case SF_AnisotropicLinear:
+        return VK_FILTER_LINEAR;
+    default:
+        break;
+    }
+    check(0);
+    return VK_FILTER_MAX_ENUM;
+}
+
+inline VkSamplerAddressMode TranslateWrapMode(SamplerAddressMode InAddressMode)
+{
+    switch (InAddressMode)
+    {
+    case AM_Wrap:
+        return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    case AM_Clamp:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    case AM_Mirror:
+        return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+    case AM_Border:
+        return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    default:
+        break;
+    }
+    check(0);
+    return VK_SAMPLER_ADDRESS_MODE_MAX_ENUM;
+}
 
 static inline VkPolygonMode RasterizerFillModeToVulkan(ERasterizerFillMode InFillMode)
 {
@@ -32,6 +100,21 @@ static inline VkCullModeFlags RasterizerCullModeToVulkan(ERasterizerCullMode InC
     }
     check(0);
     return VK_CULL_MODE_NONE;
+}
+
+inline VkCompareOp TranslateSamplerCompareFunction(SamplerCompareFunction InSamplerComparisonFunction)
+{
+    switch (InSamplerComparisonFunction)
+    {
+    case SCF_Less:
+        return VK_COMPARE_OP_LESS;
+    case SCF_Never:
+        return VK_COMPARE_OP_NEVER;
+    default:
+        break;
+    };
+    check(0);
+    return VK_COMPARE_OP_MAX_ENUM;
 }
 
 static inline VkBlendOp BlendOpToVulkan(EBlendOperation InOp)
@@ -206,6 +289,57 @@ VulkanBlendState::VulkanBlendState(const BlendStateInitializerRHI &InInitializer
     }
 }
 
+// 195
+void VulkanSamplerState::SetupSamplerCreateInfo(const SamplerStateInitializer &Initializer, Device &InDevice, VkSamplerCreateInfo &OutSamplerInfo)
+{
+    ZeroVulkanStruct(OutSamplerInfo, VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
+
+    OutSamplerInfo.magFilter = TranslateMinMagFilterMode(Initializer.Filter);
+    OutSamplerInfo.minFilter = TranslateMinMagFilterMode(Initializer.Filter);
+    OutSamplerInfo.mipmapMode = TranslateMipFilterMode(Initializer.Filter);
+    OutSamplerInfo.addressModeU = TranslateWrapMode(Initializer.AddressU);
+    OutSamplerInfo.addressModeV = TranslateWrapMode(Initializer.AddressV);
+    OutSamplerInfo.addressModeW = TranslateWrapMode(Initializer.AddressW);
+
+    OutSamplerInfo.mipLodBias = Initializer.MipBias;
+
+    OutSamplerInfo.maxAnisotropy = 1.0f;
+    if (Initializer.Filter == SF_AnisotropicLinear || Initializer.Filter == SF_AnisotropicPoint)
+    {
+        OutSamplerInfo.maxAnisotropy = std::clamp((float)ComputeAnisotropyRT(Initializer.MaxAnisotropy),
+                                                  1.0f, InDevice.GetLimits().maxSamplerAnisotropy);
+    }
+    OutSamplerInfo.anisotropyEnable = OutSamplerInfo.maxAnisotropy > 1.0f;
+
+    OutSamplerInfo.compareEnable = Initializer.SamplerComparisonFunction != SCF_Never ? VK_TRUE : VK_FALSE;
+    OutSamplerInfo.compareOp = TranslateSamplerCompareFunction(Initializer.SamplerComparisonFunction);
+    OutSamplerInfo.minLod = Initializer.MinMipLevel;
+    OutSamplerInfo.maxLod = Initializer.MaxMipLevel;
+    OutSamplerInfo.borderColor = Initializer.BorderColor == 0 ? VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK : VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+}
+
+VulkanSamplerState::VulkanSamplerState(const VkSamplerCreateInfo &InInfo, Device &InDevice, const bool bInIsImmutable)
+    : sampler(VK_NULL_HANDLE), SamplerId(0), BindlessHandle(), bIsImmutable(bInIsImmutable)
+{
+    VERIFYVULKANRESULT(vkCreateSampler(InDevice.GetInstanceHandle(), &InInfo, VULKAN_CPU_ALLOCATOR, &sampler));
+
+    if (UseVulkanDescriptorCache())
+    {
+        check(0);
+        /* SamplerId = ++GVulkanSamplerHandleIdCounter; */
+    }
+    if (InDevice.SupportsBindless())
+    {
+        check(0);
+    }
+    /*     if (InDevice.SupportsBindless() && (RHIGetRuntimeBindlessSamplersConfiguration(GMaxRHIShaderPlatform) != ERHIBindlessConfiguration::Disabled))
+        {
+            BindlessDescriptorManager *BindlessDescriptorManager = InDevice.GetBindlessDescriptorManager();
+            BindlessHandle = BindlessDescriptorManager->ReserveDescriptor(VK_DESCRIPTOR_TYPE_SAMPLER);
+            BindlessDescriptorManager->UpdateSampler(BindlessHandle, Sampler);
+        } */
+}
+
 // 265
 void VulkanDepthStencilState::SetupCreateInfo(const GraphicsPipelineStateInitializer &GfxPSOInit, VkPipelineDepthStencilStateCreateInfo &OutDepthStencilState)
 {
@@ -247,5 +381,28 @@ void VulkanDepthStencilState::SetupCreateInfo(const GraphicsPipelineStateInitial
     else
     {
         OutDepthStencilState.front = OutDepthStencilState.back;
+    }
+}
+
+// 337
+std::shared_ptr<SamplerState> RHI::CreateSamplerState(const SamplerStateInitializer &Initializer)
+{
+    VkSamplerCreateInfo SamplerInfo;
+    VulkanSamplerState::SetupSamplerCreateInfo(Initializer, *device, SamplerInfo);
+
+    uint32 CRC = MemCrc32(&SamplerInfo, sizeof(SamplerInfo));
+
+    {
+        /* FScopeLock ScopeLock(&GSamplerHashLock); */
+        std::unordered_map<uint32, std::shared_ptr<SamplerState>> &SamplerMap = device->GetSamplerMap();
+        auto it = SamplerMap.find(CRC);
+        if (it != SamplerMap.end())
+        {
+            return it->second;
+        }
+
+        std::shared_ptr<SamplerState> New = std::shared_ptr<SamplerState>(new VulkanSamplerState(SamplerInfo, *device));
+        SamplerMap.insert(std::pair(CRC, New));
+        return New;
     }
 }

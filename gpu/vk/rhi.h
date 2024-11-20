@@ -54,6 +54,9 @@ public:
     void Shutdown();
 
     // FlushType: Thread safe
+    virtual std::shared_ptr<SamplerState> CreateSamplerState(const SamplerStateInitializer &Initializer);
+
+    // FlushType: Thread safe
     virtual std::shared_ptr<RasterizerState> CreateRasterizerState(const RasterizerStateInitializer &Initializer);
 
     // FlushType: Thread safe

@@ -46,3 +46,8 @@ __forceinline std::shared_ptr<UniformBuffer> CreateUniformBuffer(const void *Con
 {
     return rhi->CreateUniformBuffer(Contents, Layout, Usage, Validation);
 }
+
+__forceinline std::shared_ptr<SamplerState> CreateSamplerState(const SamplerStateInitializer &Initializer)
+{
+    return rhi->CreateSamplerState(Initializer);
+}

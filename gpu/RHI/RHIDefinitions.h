@@ -65,6 +65,11 @@ enum SamplerAddressMode
 };
 static_assert(SamplerAddressMode_Num <= (1 << SamplerAddressMode_NumBits), "ESamplerAddressMode_Num will not fit on ESamplerAddressMode_NumBits");
 
+enum SamplerCompareFunction
+{
+	SCF_Never,
+	SCF_Less
+};
 
 // 239
 enum ERasterizerFillMode
@@ -520,36 +525,6 @@ enum class ClearBinding
 enum
 {
 	MAX_TEXTURE_MIP_COUNT = 15
-};
-
-struct ClearValueBinding
-{
-	struct DSValue
-	{
-		float Depth;
-		uint32 Stencil;
-	};
-
-	LinearColor GetClearColor() const
-	{
-		ensure(ColorBinding == ClearBinding::EColorBound);
-		return LinearColor(Value.Color[0], Value.Color[1], Value.Color[2], Value.Color[3]);
-	}
-
-	void GetDepthStencil(float &OutDepth, uint32 &OutStencil) const
-	{
-		ensure(ColorBinding == ClearBinding::EDepthStencilBound);
-		OutDepth = Value.DSValue.Depth;
-		OutStencil = Value.DSValue.Stencil;
-	}
-
-	ClearBinding ColorBinding;
-
-	union ClearValueType
-	{
-		float Color[4];
-		DSValue DSValue;
-	} Value;
 };
 
 enum class ERHIDescriptorHeapType : uint8

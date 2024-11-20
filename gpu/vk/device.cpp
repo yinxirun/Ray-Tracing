@@ -13,6 +13,9 @@
 #include "pipeline.h"
 #include "context.h"
 #include "pending_state.h"
+#include "gpu/RHI/dynamic_rhi.h"
+
+const ClearValueBinding ClearValueBinding::None(ClearBinding::ENoneBound);
 
 bool GEnableAsyncCompute = true;
 
@@ -52,8 +55,9 @@ void PhysicalDeviceFeatures::Query(VkPhysicalDevice PhysicalDevice, uint32_t API
 }
 
 Device::Device(RHI *rhi, VkPhysicalDevice Gpu)
-    : device(VK_NULL_HANDLE), deferredDeletionQueue(this), gpu(Gpu), gfxQueue(nullptr), computeQueue(nullptr),
-      transferQueue(nullptr), presentQueue(nullptr), computeContext(nullptr), PipelineStateCache(nullptr)
+    : device(VK_NULL_HANDLE), deferredDeletionQueue(this), DefaultSampler(nullptr), DefaultTexture(nullptr),
+      gpu(Gpu), gfxQueue(nullptr), computeQueue(nullptr), transferQueue(nullptr), presentQueue(nullptr),
+      computeContext(nullptr), PipelineStateCache(nullptr)
 {
     this->rhi = rhi;
     {
@@ -157,6 +161,20 @@ void Device::InitGPU()
 
     std::vector<std::string> cacheFilename;
     PipelineStateCache->InitAndLoad(cacheFilename);
+
+    // Setup default resource
+    {
+        SamplerStateInitializer Default(SF_Point);
+        DefaultSampler = std::static_pointer_cast<VulkanSamplerState>(CreateSamplerState(Default));
+
+        const TextureCreateDesc Desc =
+            TextureCreateDesc::Create2D("VulkanDevice_DefaultImage", 1, 1, PF_B8G8R8A8)
+                .SetClearValue(ClearValueBinding::None)
+                .SetFlags(TextureCreateFlags::RenderTargetable | TextureCreateFlags::ShaderResource)
+                .SetInitialState(Access::SRVMask);
+
+        DefaultTexture = new VulkanTexture(*this, Desc);
+    }
 }
 
 void Device::CreateDevice(std::vector<const char *> &layers, std::vector<const char *> &extensions)
@@ -275,6 +293,9 @@ void Device::CreateDevice(std::vector<const char *> &layers, std::vector<const c
 
 void Device::Destroy()
 {
+    delete DefaultTexture;
+    DefaultTexture = nullptr;
+
     for (int32 Index = commandContexts.size() - 1; Index >= 0; --Index)
     {
         delete commandContexts[Index];

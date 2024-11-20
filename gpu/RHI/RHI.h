@@ -62,6 +62,7 @@ struct SamplerStateInitializer
     float MaxMipLevel = FLT_MAX;
     int32 MaxAnisotropy = 0;
     uint32 BorderColor = 0;
+    TEnumAsByte<SamplerCompareFunction> SamplerComparisonFunction = SCF_Never;
 
     friend uint32 GetTypeHash(const SamplerStateInitializer &Initializer);
     friend bool operator==(const SamplerStateInitializer &A, const SamplerStateInitializer &B);

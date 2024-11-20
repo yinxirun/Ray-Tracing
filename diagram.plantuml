@@ -1,13 +1,48 @@
+' 依赖 dependent ..> 指的是类与类之间的联接。依赖关系表示一个类依赖于另一个类的定义。一般而言，依赖关系在Java语言中体现为局域变量、方法的形参、方法返回值，或者对静态方法的调用。
+' 表示一个A类依赖于B类的定义,如果A对象离开B对象,A对象就不能正常编译,则A对象依赖于B对象(A类中使用到了B对象)；
+' 比如某人要过河，需要借用一条船，此时人与船之间的关系就是依赖； 表现在代码层面，类B作为参数被类A在某个method方法中使用。
+
+' 关联 association --> ：指的是类与类之间的联接，它使一个类知道另一个类的属性和方法（实例变量体现）。A类依赖于B对象,并且把B作为A的一个成员变量, 则A和B存在关联关系.
+' 关联可以是双向的，也可以是单向的。两个类之前是一个层次的，不存在部分跟整体之间的关系。
+
+' 聚合 aggregtion o-->
+
+' 组合 composition *-->
+
+' 泛化 generalization
+
+' 实现 realization ..|>
 @startuml dsf
 
 class VulkanPipelineLayout
 class VulkanGfxPipelineDescriptorInfo
+class VulkanGraphicsPipelineState
 class GraphicsPipelineDescriptorState
-class CommandListContext
+class CommonPipelineDescriptorState
+class PendingState
 
-GraphicsPipelineDescriptorState --.> VulkanGfxPipelineDescriptorInfo
-VulkanPipelineLayout *-- VulkanGfxPipelineDescriptorInfo
+class VulkanGfxLayout
 
+VulkanGfxLayout *--> VulkanGfxPipelineDescriptorInfo
+PendingState *--> GraphicsPipelineDescriptorState
+PendingState --> VulkanGraphicsPipelineState
+VulkanGraphicsPipelineState --> VulkanPipelineLayout
+GraphicsPipelineDescriptorState -> VulkanGraphicsPipelineState
+
+VulkanPipelineLayout <|.. VulkanGfxLayout
+CommonPipelineDescriptorState <|.. GraphicsPipelineDescriptorState
+
+GraphicsPipelineDescriptorState --> VulkanGfxPipelineDescriptorInfo
+
+@enduml
+
+@startuml descriptor_pool
+class TypedDescriptorPoolSet
+class DescriptorPoolSetContainer
+class CmdBuffer
+
+CmdBuffer o--> DescriptorPoolSetContainer
+DescriptorPoolSetContainer *--> TypedDescriptorPoolSet
 @enduml
 
 ' @startchen er

@@ -222,6 +222,85 @@ void VulkanPipelineLayout::Compile(DescriptorSetLayoutMap &DSetLayoutMap)
     }
 }
 
+// 719
+uint32 DescriptorSetWriter::SetupDescriptorWrites(
+    const std::vector<VkDescriptorType> &Types, HashableDescriptorInfo *InHashableDescriptorInfos,
+    VkWriteDescriptorSet *InWriteDescriptors, VkDescriptorImageInfo *InImageInfo, VkDescriptorBufferInfo *InBufferInfo,
+    uint8 *InBindingToDynamicOffsetMap,
+#if VULKAN_RHI_RAYTRACING
+    VkWriteDescriptorSetAccelerationStructureKHR *InAccelerationStructuresWriteDescriptors,
+    VkAccelerationStructureKHR *InAccelerationStructures,
+#endif // VULKAN_RHI_RAYTRACING
+    const VulkanSamplerState &DefaultSampler, const View::TextureView &DefaultImageView)
+{
+    this->HashableDescriptorInfos = InHashableDescriptorInfos;
+    this->WriteDescriptors = InWriteDescriptors;
+    this->NumWrites = Types.size();
+
+    this->BindingToDynamicOffsetMap = InBindingToDynamicOffsetMap;
+
+    InitWrittenMasks(NumWrites);
+
+    uint32 DynamicOffsetIndex = 0;
+
+    for (int32 Index = 0; Index < Types.size(); ++Index)
+    {
+        InWriteDescriptors->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        InWriteDescriptors->dstBinding = Index;
+        InWriteDescriptors->descriptorCount = 1;
+        InWriteDescriptors->descriptorType = Types[Index];
+
+        switch (Types[Index])
+        {
+        case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+            BindingToDynamicOffsetMap[Index] = DynamicOffsetIndex;
+            ++DynamicOffsetIndex;
+            InWriteDescriptors->pBufferInfo = InBufferInfo++;
+            break;
+        case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+        case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+            InWriteDescriptors->pBufferInfo = InBufferInfo++;
+            break;
+        case VK_DESCRIPTOR_TYPE_SAMPLER:
+            SetWrittenBase(Index); // samplers have a default setting, don't assert on those yet.
+        case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+        case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+        case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+        case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+            // Texture.Load() still requires a default sampler...
+            if (InHashableDescriptorInfos) // UseVulkanDescriptorCache()
+            {
+                InHashableDescriptorInfos[Index].Image.SamplerId = DefaultSampler.SamplerId;
+                InHashableDescriptorInfos[Index].Image.ImageViewId = DefaultImageView.ViewId;
+                InHashableDescriptorInfos[Index].Image.ImageLayout = static_cast<uint32>(VK_IMAGE_LAYOUT_GENERAL);
+            }
+            InImageInfo->sampler = DefaultSampler.sampler;
+            InImageInfo->imageView = DefaultImageView.View;
+            InImageInfo->imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            InWriteDescriptors->pImageInfo = InImageInfo++;
+            break;
+        case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+        case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+            break;
+#if VULKAN_RHI_RAYTRACING
+        case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+            InAccelerationStructuresWriteDescriptors->sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+            InAccelerationStructuresWriteDescriptors->pNext = nullptr;
+            InAccelerationStructuresWriteDescriptors->accelerationStructureCount = 1;
+            InAccelerationStructuresWriteDescriptors->pAccelerationStructures = InAccelerationStructures++;
+            InWriteDescriptors->pNext = InAccelerationStructuresWriteDescriptors++;
+            break;
+#endif // VULKAN_RHI_RAYTRACING
+        default:
+            check(0);
+            break;
+        }
+        ++InWriteDescriptors;
+    }
+
+    return DynamicOffsetIndex;
+}
+
 // 796
 void DescriptorSetsLayoutInfo::ProcessBindingsForStage(VkShaderStageFlagBits StageFlags, ShaderStage::Stage DescSetStage,
                                                        const ShaderHeader &CodeHeader, UniformBufferGatherInfo &OutUBGatherInfo) const
@@ -371,9 +450,9 @@ void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const Unif
                         if (CurrentImmutableSampler < ImmutableSamplers.size())
                         {
                             VulkanSamplerState *samplerState = static_cast<VulkanSamplerState *>(ImmutableSamplers[CurrentImmutableSampler]);
-                            if (samplerState && samplerState->Sampler != VK_NULL_HANDLE)
+                            if (samplerState && samplerState->sampler != VK_NULL_HANDLE)
                             {
-                                Binding.pImmutableSamplers = &samplerState->Sampler;
+                                Binding.pImmutableSamplers = &samplerState->sampler;
                             }
                             ++CurrentImmutableSampler;
                         }

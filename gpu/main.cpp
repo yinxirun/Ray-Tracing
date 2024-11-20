@@ -123,7 +123,7 @@ int main()
         UBInit.Resources.push_back({offsetof(PerCamera, proj), UniformBufferBaseType::UBMT_FLOAT32});
         UBInit.ComputeHash();
         auto UBLayout = std::make_shared<const UniformBufferLayout>(UBInit);
-        auto ub = CreateUniformBuffer(0, UBLayout, UniformBufferUsage::UniformBuffer_MultiFrame, UniformBufferValidation::None);
+        //auto ub = CreateUniformBuffer(0, UBLayout, UniformBufferUsage::UniformBuffer_MultiFrame, UniformBufferValidation::None);
 
         while (!glfwWindowShouldClose(window))
         {

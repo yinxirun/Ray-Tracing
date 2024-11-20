@@ -21,6 +21,59 @@ typedef std::vector<VertexElement> VertexDeclarationElementList;
 
 struct UniformBufferResource;
 
+// 222
+struct ClearValueBinding
+{
+    struct DSValue
+    {
+        float Depth;
+        uint32 Stencil;
+    };
+
+    ClearValueBinding() : ColorBinding(ClearBinding::EColorBound)
+    {
+        Value.Color[0] = 0.0f;
+        Value.Color[1] = 0.0f;
+        Value.Color[2] = 0.0f;
+        Value.Color[3] = 0.0f;
+    }
+
+    ClearValueBinding(ClearBinding NoBinding) : ColorBinding(NoBinding)
+    {
+        check(ColorBinding == ClearBinding::ENoneBound);
+        Value.Color[0] = 0.0f;
+        Value.Color[1] = 0.0f;
+        Value.Color[2] = 0.0f;
+        Value.Color[3] = 0.0f;
+        Value.DSValue.Depth = 0.0f;
+        Value.DSValue.Stencil = 0;
+    }
+
+    LinearColor GetClearColor() const
+    {
+        ensure(ColorBinding == ClearBinding::EColorBound);
+        return LinearColor(Value.Color[0], Value.Color[1], Value.Color[2], Value.Color[3]);
+    }
+
+    void GetDepthStencil(float &OutDepth, uint32 &OutStencil) const
+    {
+        ensure(ColorBinding == ClearBinding::EDepthStencilBound);
+        OutDepth = Value.DSValue.Depth;
+        OutStencil = Value.DSValue.Stencil;
+    }
+
+    ClearBinding ColorBinding;
+
+    union ClearValueType
+    {
+        float Color[4];
+        DSValue DSValue;
+    } Value;
+
+    // common clear values
+    static const ClearValueBinding None;
+};
+
 // 351
 struct ResourceCreateInfo
 {

@@ -218,6 +218,8 @@ VulkanRingBuffer::VulkanRingBuffer(Device *InDevice, uint64 TotalSize, VkFlags U
 VulkanRingBuffer::~VulkanRingBuffer()
 {
     vmaDestroyBuffer(device->GetAllocator(), handle, allocation);
+    handle = VK_NULL_HANDLE;
+    allocation = VK_NULL_HANDLE;
 }
 
 uint64 VulkanRingBuffer::WrapAroundAllocateMemory(uint64 Size, uint32 Alignment, CmdBuffer *InCmdBuffer)

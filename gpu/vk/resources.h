@@ -13,6 +13,7 @@
 #include "gpu/core/pixel_format.h"
 #include "gpu/core/assertion_macros.h"
 #include "gpu/core/templates/ref_counting.h"
+#include "gpu/RHI_core/RHI_core_shader.h"
 #include "vulkan_memory.h"
 #include "shader_resources.h"
 #include "common.h"
@@ -218,6 +219,8 @@ protected:
     /** External bindings for this shader. */
     ShaderHeader CodeHeader;
     const ShaderFrequency Frequency;
+
+    ShaderResourceTable ShaderResourceTable;
 
     class SpirvContainer
     {
@@ -608,6 +611,8 @@ public:
     void UpdateResourceTable(const UniformBufferLayout &InLayout, const void *Contents, int32 ResourceNum);
     void UpdateResourceTable(RHIResource **Resources, int32 ResourceNum);
 
+    inline uint32 GetOffset() const { return offset; }
+
     Device *device;
 
     VkBuffer handle = VK_NULL_HANDLE;
@@ -616,6 +621,8 @@ public:
     uint32 offset;
 
     UniformBufferUsage Usage;
+
+    bool bUniformView = false;
 };
 
 // 1258

@@ -1,6 +1,7 @@
 #pragma once
 #include "RHIDefinitions.h"
 #include "RHIAccess.h"
+#include <algorithm>
 
 /** Get the best default resource state for the given texture creation flags */
 extern Access RHIGetDefaultResourceState(TextureCreateFlags InUsage, bool bInHasInitialData);
@@ -19,4 +20,11 @@ inline uint32 GetVertexCountForPrimitiveCount(uint32 NumPrimitives, uint32 Primi
                                                                                             : 1;
     uint32 Offset = (PrimitiveType == PT_TriangleStrip) ? 2 : 0;
     return NumPrimitives * Factor + Offset;
+}
+
+// 585
+inline uint32 ComputeAnisotropyRT(int32 InitializerMaxAnisotropy)
+{
+    int32 CVarValue = 1;
+    return std::clamp(InitializerMaxAnisotropy > 0 ? InitializerMaxAnisotropy : CVarValue, 1, 16);
 }

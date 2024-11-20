@@ -106,6 +106,18 @@ protected:
 
     PendingGfxState *pendingGfxState;
 
+    // Match the D3D12 maximum of 16 constant buffers per shader stage.
+    enum
+    {
+        MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE = 16
+    };
+
+    // Track the currently bound uniform buffers.
+    VulkanUniformBuffer *BoundUniformBuffers[SF_NumStandardFrequencies][MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE] = {};
+
+    // Bit array to track which uniform buffers have changed since the last draw call.
+    uint16 DirtyUniformBuffers[SF_NumStandardFrequencies] = {};
+
     void PrepareForCPURead();
     void RequestSubmitCurrentCommands();
 

@@ -96,6 +96,8 @@ public:
 
     // #todo-rco: Hide this
     DescriptorPoolSetContainer *CurrentDescriptorPoolSetContainer = nullptr;
+    bool AcquirePoolSetAndDescriptorsIfNeeded(const class DescriptorSetsLayout &Layout,
+                                              bool bNeedDescriptors, VkDescriptorSet *OutDescriptors);
 
     struct PendingQuery
     {

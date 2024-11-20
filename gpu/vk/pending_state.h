@@ -1,6 +1,7 @@
 #pragma once
 #include "vulkan_memory.h"
 #include "pipeline.h"
+#include "pipeline_state.h"
 #include "gpu/RHI/RHIDefinitions.h"
 #include <iostream>
 
@@ -96,6 +97,13 @@ public:
 
     inline void Bind(VkCommandBuffer CmdBuffer) { CurrentPipeline->Bind(CmdBuffer); }
 
+    template <bool bDynamic>
+    inline void SetUniformBuffer(uint8 DescriptorSet, uint32 BindingIndex, const VulkanUniformBuffer *UniformBuffer)
+    {
+        CurrentState->SetUniformBuffer<bDynamic>(DescriptorSet, BindingIndex, UniformBuffer);
+    }
+
+    /// @brief 申请descriptor set，并写入
     void PrepareForDraw(CmdBuffer *CmdBuffer);
 
     bool SetGfxPipeline(VulkanGraphicsPipelineState *InGfxPipeline, bool bForceReset);

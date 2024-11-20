@@ -287,6 +287,38 @@ void CmdBuffer::EndUniformUpdateBarrier()
 	}
 }
 
+bool CmdBuffer::AcquirePoolSetAndDescriptorsIfNeeded(const class DescriptorSetsLayout &Layout, bool bNeedDescriptors,
+													 VkDescriptorSet *OutDescriptors)
+{
+	// #todo-rco: This only happens when we call draws outside a render pass...
+	if (!CurrentDescriptorPoolSetContainer)
+	{
+		AcquirePoolSetContainer();
+	}
+
+	const uint32 Hash = VULKAN_HASH_POOLS_WITH_TYPES_USAGE_ID ? Layout.GetTypesUsageID() : GetTypeHash(Layout);
+
+	auto it = TypedDescriptorPoolSets.find(Hash);
+	if (it == TypedDescriptorPoolSets.end())
+	{
+		TypedDescriptorPoolSets.insert(std::pair(Hash, nullptr));
+	}
+	TypedDescriptorPoolSet *&FoundTypedSet = TypedDescriptorPoolSets[Hash];
+
+	if (!FoundTypedSet)
+	{
+		FoundTypedSet = CurrentDescriptorPoolSetContainer->AcquireTypedPoolSet(Layout);
+		bNeedDescriptors = true;
+	}
+
+	if (bNeedDescriptors)
+	{
+		return FoundTypedSet->AllocateDescriptorSets(Layout, OutDescriptors);
+	}
+
+	return false;
+}
+
 void CmdBuffer::RefreshFenceStatus()
 {
 	if (State == EState::Submitted)

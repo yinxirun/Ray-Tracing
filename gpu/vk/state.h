@@ -13,7 +13,7 @@ public:
 
     virtual bool IsImmutable() const final override { return bIsImmutable; }
 
-    VkSampler Sampler;
+    VkSampler sampler;
     uint32 SamplerId;
     RHIDescriptorHandle BindlessHandle;
 

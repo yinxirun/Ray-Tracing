@@ -9,6 +9,8 @@
 #include "context.h"
 #include "pipeline.h"
 #include "state.h"
+#include "util.h"
+#include "configuration.h"
 #include "gpu/RHI/RHIResources.h"
 #include "gpu/core/hash/city_hash.h"
 #include "gpu/core/misc/secure_hash.h"
@@ -125,6 +127,15 @@ void RHI::Init()
 
 void RHI::Shutdown()
 {
+    {
+        for (auto &Pair : device->SamplerMap)
+        {
+            VulkanSamplerState *SamplerState = (VulkanSamplerState *)Pair.second.get();
+            vkDestroySampler(device->GetInstanceHandle(), SamplerState->sampler, VULKAN_CPU_ALLOCATOR);
+        }
+        device->SamplerMap.clear();
+    }
+
     device->Destroy();
     delete device;
     device = nullptr;
@@ -153,7 +164,7 @@ std::shared_ptr<BlendState> RHI::CreateBlendState(const BlendStateInitializerRHI
 
 CommandListContext *RHI::GetDefaultContext() { return &device->GetImmediateContext(); }
 
-GraphicsPipelineState* RHI::CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
+GraphicsPipelineState *RHI::CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
 {
     return device->PipelineStateCache->CreateGraphicsPipelineState(Initializer);
 }

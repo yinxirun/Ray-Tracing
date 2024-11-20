@@ -46,13 +46,33 @@ DescriptorPool::DescriptorPool(Device *InDevice, const DescriptorSetsLayout &InL
             Type.descriptorCount = NumTypesUsed * MaxSetsAllocations;
         }
     }
+
+#if VULKAN_RHI_RAYTRACING
+    {
+        uint32 NumTypesUsed = Layout.GetTypesUsed(VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR);
+        if (NumTypesUsed > 0)
+        {
+            VkDescriptorPoolSize &Type = Types.AddDefaulted_GetRef();
+            FMemory::Memzero(Type);
+            Type.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+            Type.descriptorCount = NumTypesUsed * MaxSetsAllocations;
+        }
+    }
+#endif
+
+    VkDescriptorPoolCreateInfo PoolInfo;
+    ZeroVulkanStruct(PoolInfo, VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
+    // you don't need this flag because pool reset feature. Also this flag increase pool size in memory and vkResetDescriptorPool time.
+    // PoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    PoolInfo.poolSizeCount = types.size();
+    PoolInfo.pPoolSizes = types.data();
+    PoolInfo.maxSets = MaxDescriptorSets;
+
+    VERIFYVULKANRESULT(vkCreateDescriptorPool(device->GetInstanceHandle(), &PoolInfo, VULKAN_CPU_ALLOCATOR, &descriptorPool));
 }
 
 DescriptorPool::~DescriptorPool()
 {
-    // DEC_DWORD_STAT_BY(STAT_VulkanNumDescSetsTotal, MaxDescriptorSets);
-    // DEC_DWORD_STAT(STAT_VulkanNumDescPools);
-
     if (descriptorPool != VK_NULL_HANDLE)
     {
         vkDestroyDescriptorPool(device->GetInstanceHandle(), descriptorPool, VULKAN_CPU_ALLOCATOR);
@@ -67,6 +87,31 @@ void DescriptorPool::Reset()
         VERIFYVULKANRESULT(vkResetDescriptorPool(device->GetInstanceHandle(), descriptorPool, 0));
     }
     NumAllocatedDescriptorSets = 0;
+}
+
+bool DescriptorPool::AllocateDescriptorSets(const VkDescriptorSetAllocateInfo &InDescriptorSetAllocateInfo, VkDescriptorSet *OutSets)
+{
+    VkDescriptorSetAllocateInfo DescriptorSetAllocateInfo = InDescriptorSetAllocateInfo;
+    DescriptorSetAllocateInfo.descriptorPool = descriptorPool;
+
+    return VK_SUCCESS == vkAllocateDescriptorSets(device->GetInstanceHandle(), &DescriptorSetAllocateInfo, OutSets);
+}
+
+DescriptorPool *TypedDescriptorPoolSet::GetFreePool(bool bForceNewPool)
+{
+    // Likely this
+    if (!bForceNewPool)
+    {
+        return poolListCurrent->Element;
+    }
+
+    if (poolListCurrent->Next)
+    {
+        poolListCurrent = poolListCurrent->Next;
+        return poolListCurrent->Element;
+    }
+
+    return PushNewPool();
 }
 
 DescriptorPool *TypedDescriptorPoolSet::PushNewPool()
@@ -106,6 +151,23 @@ TypedDescriptorPoolSet::~TypedDescriptorPoolSet()
     poolsCount = 0;
 }
 
+bool TypedDescriptorPoolSet::AllocateDescriptorSets(const DescriptorSetsLayout &InLayout, VkDescriptorSet *OutSets)
+{
+    const std::vector<VkDescriptorSetLayout> &LayoutHandles = InLayout.GetHandles();
+
+    if (LayoutHandles.size() > 0)
+    {
+        auto *Pool = poolListCurrent->Element;
+        while (!Pool->AllocateDescriptorSets(InLayout.GetAllocateInfo(), OutSets))
+        {
+            Pool = GetFreePool(true);
+        }
+        return true;
+    }
+
+    return true;
+}
+
 void TypedDescriptorPoolSet::Reset()
 {
     for (PoolList *Pool = poolListHead; Pool; Pool = Pool->Next)
@@ -124,18 +186,48 @@ void DescriptorPoolSetContainer::Reset()
     }
 }
 
+DescriptorPoolSetContainer::~DescriptorPoolSetContainer()
+{
+    for (auto &Pair : TypedDescriptorPools)
+    {
+        TypedDescriptorPoolSet *TypedPool = Pair.second;
+        delete TypedPool;
+    }
+    TypedDescriptorPools.clear();
+}
+
+TypedDescriptorPoolSet *DescriptorPoolSetContainer::AcquireTypedPoolSet(const DescriptorSetsLayout &Layout)
+{
+    const uint32 Hash = VULKAN_HASH_POOLS_WITH_TYPES_USAGE_ID ? Layout.GetTypesUsageID() : GetTypeHash(Layout);
+
+    TypedDescriptorPoolSet *TypedPool = 0;
+    auto it = TypedDescriptorPools.find(Hash);
+
+    if (it == TypedDescriptorPools.end())
+    {
+        TypedPool = new TypedDescriptorPoolSet(device, Layout);
+        TypedDescriptorPools.insert(std::pair(Hash, TypedPool));
+    }
+    else
+    {
+        TypedPool = it->second;
+    }
+
+    return TypedPool;
+}
+
 DescriptorPoolsManager::~DescriptorPoolsManager()
 {
-	for (auto* PoolSet : PoolSets)
-	{
-		delete PoolSet;
-	}
-	PoolSets.clear();
+    for (auto *PoolSet : PoolSets)
+    {
+        delete PoolSet;
+    }
+    PoolSets.clear();
 }
 
 DescriptorPoolSetContainer &DescriptorPoolsManager::AcquirePoolSetContainer()
 {
-    //FScopeLock ScopeLock(&CS);
+    // FScopeLock ScopeLock(&CS);
 
     for (auto *PoolSet : PoolSets)
     {
