@@ -169,7 +169,7 @@ class VulkanShader //: public IRefCountedObject
 {
 public:
     VulkanShader(Device *InDevice, ShaderFrequency InFrequency)
-        : ShaderKey(0), Frequency(InFrequency), device(InDevice) {}
+        : shaderKey(0), Frequency(InFrequency), device(InDevice) {}
 
     virtual ~VulkanShader();
 
@@ -194,7 +194,7 @@ public:
 
     __forceinline const ShaderHeader &GetCodeHeader() const { return CodeHeader; }
 
-    inline uint64 GetShaderKey() const { return ShaderKey; }
+    inline uint64 GetShaderKey() const { return shaderKey; }
 
     // This provides a view of the raw spirv bytecode.
     // If it is stored compressed then the result of GetSpirvCode will contain the decompressed spirv.
@@ -215,7 +215,7 @@ public:
     SpirvCode GetPatchedSpirvCode(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout);
 
 protected:
-    uint64 ShaderKey;
+    uint64 shaderKey;
     /** External bindings for this shader. */
     ShaderHeader CodeHeader;
     const ShaderFrequency Frequency;

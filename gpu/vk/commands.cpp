@@ -6,16 +6,13 @@
 #include "platform.h"
 
 static __forceinline ShaderStage::Stage GetAndVerifyShaderStageAndVulkanShader(
-    RHIGraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState,
-    VulkanShader *&OutShader)
+    RHIGraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState, VulkanShader *&OutShader)
 {
     switch (ShaderRHI->GetFrequency())
     {
     case SF_Vertex:
-        // check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Vertex) ==
-        // GetShaderKey<FVulkanVertexShader>(ShaderRHI));
-        OutShader = static_cast<VulkanVertexShader *>(
-            static_cast<VertexShader *>(ShaderRHI));
+        check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Vertex) == GetShaderKey<VulkanVertexShader>(ShaderRHI));
+        OutShader = static_cast<VulkanVertexShader *>(static_cast<VertexShader *>(ShaderRHI));
         return ShaderStage::Vertex;
     case SF_Geometry:
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
@@ -29,10 +26,9 @@ static __forceinline ShaderStage::Stage GetAndVerifyShaderStageAndVulkanShader(
         break;
 #endif
     case SF_Pixel:
-        // check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Pixel) ==
-        // GetShaderKey<FVulkanPixelShader>(ShaderRHI));
-        OutShader = static_cast<VulkanPixelShader *>(
-            static_cast<PixelShader *>(ShaderRHI));
+        check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Pixel) ==
+              GetShaderKey<VulkanPixelShader>(ShaderRHI));
+        OutShader = static_cast<VulkanPixelShader *>(static_cast<PixelShader *>(ShaderRHI));
         return ShaderStage::Pixel;
     default:
         check(0);
@@ -214,15 +210,11 @@ inline void CommandListContext::SetShaderUniformBuffer(
     }
 }
 
-void CommandListContext::SetShaderUniformBuffer(RHIGraphicsShader *ShaderRHI,
-                                                uint32 BufferIndex,
-                                                UniformBuffer *BufferRHI)
+void CommandListContext::SetShaderUniformBuffer(RHIGraphicsShader *ShaderRHI, uint32 BufferIndex, UniformBuffer *BufferRHI)
 {
     VulkanShader *shader = nullptr;
-    ShaderStage::Stage stage = GetAndVerifyShaderStageAndVulkanShader(
-        ShaderRHI, pendingGfxState, shader);
-    VulkanUniformBuffer *UniformBuffer =
-        static_cast<VulkanUniformBuffer *>(BufferRHI);
+    ShaderStage::Stage stage = GetAndVerifyShaderStageAndVulkanShader(ShaderRHI, pendingGfxState, shader);
+    VulkanUniformBuffer *UniformBuffer = static_cast<VulkanUniformBuffer *>(BufferRHI);
     SetShaderUniformBuffer(stage, UniformBuffer, BufferIndex, shader);
 }
 

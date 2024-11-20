@@ -43,9 +43,9 @@ std::vector<uint8> LoadShader(std::string filename, ShaderFrequency freq);
 
 struct PerCamera
 {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
+    Mat4 model;
+    Mat4 view;
+    Mat4 proj;
 };
 
 int main()
@@ -115,6 +115,9 @@ int main()
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
         PerCamera perCamera;
+        perCamera.model = Mat4();
+        perCamera.view = Lookat(Vec3(1, 0, 0), Vec3(0, 0, 0), Vec3(0, 1, 0));
+        perCamera.proj = Perspective(Radians(45), 1, 0.1, 100);
         UniformBufferLayoutInitializer UBInit;
         UBInit.BindingFlags = UniformBufferBindingFlags::Shader;
         UBInit.ConstantBufferSize = sizeof(PerCamera);
@@ -123,7 +126,10 @@ int main()
         UBInit.Resources.push_back({offsetof(PerCamera, proj), UniformBufferBaseType::UBMT_FLOAT32});
         UBInit.ComputeHash();
         auto UBLayout = std::make_shared<const UniformBufferLayout>(UBInit);
-        //auto ub = CreateUniformBuffer(0, UBLayout, UniformBufferUsage::UniformBuffer_MultiFrame, UniformBufferValidation::None);
+        auto ub = CreateUniformBuffer(0, UBLayout, UniformBufferUsage::UniformBuffer_MultiFrame, UniformBufferValidation::None);
+
+        context->SetGraphicsPipelineState(pso, 0, false);
+        context->SetShaderUniformBuffer(graphicsPSOInit.BoundShaderState.VertexShaderRHI, 0, ub.get());
 
         while (!glfwWindowShouldClose(window))
         {
@@ -134,7 +140,6 @@ int main()
             RenderPassInfo RPInfo(viewport->GetBackBuffer().get(), RenderTargetActions::Clear_Store);
             context->BeginRenderPass(RPInfo, "no name");
 
-            context->SetGraphicsPipelineState(pso, 0, false);
             context->SetStreamSource(0, positionBuffer.get(), 0);
             context->SetStreamSource(1, colorBuffer.get(), 0);
             context->DrawIndexedPrimitive(indexBuffer.get(), 0, 0, 3, 0, 1, 1);

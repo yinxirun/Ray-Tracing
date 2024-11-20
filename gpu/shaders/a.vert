@@ -5,7 +5,7 @@ layout(location = 1) in vec3 inColor;
 
 layout(location = 0) out vec3 color;
 
-layout(std140, set = 1, binding = 2) uniform Camera {
+layout(std140, set = 0, binding = 0) uniform Camera {
     mat4 model;
     mat4 view;
     mat4 proj;

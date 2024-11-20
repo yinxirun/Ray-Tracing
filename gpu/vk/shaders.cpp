@@ -120,7 +120,7 @@ void VulkanShader::Setup(ShaderHeader &&header, SpirvContainer &&spirv, uint64 s
     check(device);
     this->CodeHeader = std::move(header);
     this->spirvContainer = std::move(spirv);
-    this->ShaderKey = shaderKey;
+    this->shaderKey = shaderKey;
 }
 
 static std::shared_ptr<ShaderModule> CreateShaderModule(Device *device, VulkanShader::SpirvCode &SpirvCode)

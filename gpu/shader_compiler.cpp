@@ -100,7 +100,10 @@ std::vector<uint8> LoadShader(std::string spvFilename, ShaderFrequency freq)
 
             uint32 binding = glsl.get_decoration(res.id, spv::DecorationBinding);
             uint32 set = glsl.get_decoration(res.id, spv::DecorationDescriptorSet);
-            ubInfo.LayoutHash = (set << 8) | binding;
+            // ubInfo.LayoutHash = (set << 8) | binding;
+            ubInfo.LayoutHash = 0;
+            ubInfo.bOnlyHasResources = false;
+            ubInfo.ConstantDataOriginalBindingIndex = binding;
 
             spirv_cross::SPIRType type = glsl.get_type(res.base_type_id);
 
