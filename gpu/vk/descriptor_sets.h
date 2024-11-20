@@ -33,8 +33,17 @@ namespace std
     };
 }
 
+/// @brief 给DescriptorSetRemappingInfo用
+struct InputAttachmentData
+{
+    uint16 BindingIndex = UINT16_MAX;
+    uint8 DescriptorSet = UINT8_MAX;
+    ShaderHeader::AttachmentType Type = ShaderHeader::AttachmentType::Count;
+};
+
 // 49
 /// Information for remapping descriptor sets when combining layouts
+/// @remark 为什么需要这个？
 struct DescriptorSetRemappingInfo
 {
     struct RemappingInfo
@@ -93,6 +102,7 @@ struct DescriptorSetRemappingInfo
         }
     };
     std::array<StageInfo, ShaderStage::NumStages> StageInfos;
+    std::vector<InputAttachmentData> InputAttachmentData;
 
     inline bool IsEmpty() const
     {
@@ -112,10 +122,64 @@ struct DescriptorSetRemappingInfo
         return false;
     }
 
-    inline bool operator==(const DescriptorSetRemappingInfo &In) const { return true; }
+    uint32 AddGlobal(uint32 Stage, int32 GlobalIndex, uint32 NewDescriptorSet, VkDescriptorType InType, uint16 CombinedSamplerStateAlias)
+    {
+        // Combined Image Samplers point both the texture and the sampler to the same descriptor
+        check(CombinedSamplerStateAlias == UINT16_MAX || InType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+        uint32 NewBindingIndex;
+        if (CombinedSamplerStateAlias == UINT16_MAX)
+        {
+            NewBindingIndex = SetInfos[NewDescriptorSet].Types.size();
+            SetInfos[NewDescriptorSet].Types.push_back(InType);
+        }
+        else
+        {
+            NewBindingIndex = StageInfos[Stage].Globals[CombinedSamplerStateAlias].NewBindingIndex;
+        }
+
+        int32 RemappingIndex = StageInfos[Stage].Globals.size();
+        StageInfos[Stage].Globals.push_back({});
+        check(RemappingIndex == GlobalIndex);
+        DescriptorSetRemappingInfo::RemappingInfo &Remapping = StageInfos[Stage].Globals[RemappingIndex];
+        Remapping.NewDescriptorSet = NewDescriptorSet;
+        Remapping.NewBindingIndex = NewBindingIndex;
+
+        return NewBindingIndex;
+    }
+
+    DescriptorSetRemappingInfo::UBRemappingInfo AddUBWithData(uint32 Stage, int32 UniformBufferIndex, uint32 NewDescriptorSet, VkDescriptorType InType, uint32 &OutNewBindingIndex)
+    {
+        OutNewBindingIndex = SetInfos[NewDescriptorSet].Types.size();
+        SetInfos[NewDescriptorSet].Types.push_back(InType);
+
+        int32 UBRemappingIndex = StageInfos[Stage].UniformBuffers.size();
+        StageInfos[Stage].UniformBuffers.push_back(UBRemappingInfo());
+        check(UBRemappingIndex == UniformBufferIndex);
+        DescriptorSetRemappingInfo::UBRemappingInfo &UBRemapping = StageInfos[Stage].UniformBuffers[UBRemappingIndex];
+        UBRemapping.bHasConstantData = true;
+        UBRemapping.Remapping.NewDescriptorSet = NewDescriptorSet;
+        UBRemapping.Remapping.NewBindingIndex = OutNewBindingIndex;
+
+        return UBRemapping;
+    }
+
+    inline bool operator==(const DescriptorSetRemappingInfo &In) const
+    {
+        return true;
+    }
     inline bool operator!=(const DescriptorSetRemappingInfo &In) const
     {
         return !(*this == In);
+    }
+
+    void AddUBResourceOnly(uint32 Stage, int32 UniformBufferIndex)
+    {
+        int32 UBRemappingIndex = StageInfos[Stage].UniformBuffers.size();
+        StageInfos[Stage].UniformBuffers.push_back({});
+        check(UBRemappingIndex == UniformBufferIndex);
+        DescriptorSetRemappingInfo::UBRemappingInfo &UBRemapping = StageInfos[Stage].UniformBuffers[UBRemappingIndex];
+        UBRemapping.bHasConstantData = false;
     }
 };
 
@@ -124,13 +188,24 @@ struct DescriptorSetRemappingInfo
 class VulkanGfxPipelineDescriptorInfo
 {
 public:
+    VulkanGfxPipelineDescriptorInfo()
+        : HasDescriptorsInSetMask(0), RemappingInfo(nullptr), bInitialized(false)
+    {
+    }
     inline bool IsInitialized() const { return bInitialized; }
 
     void Initialize(const DescriptorSetRemappingInfo &InRemappingInfo);
 
 protected:
+    // Cached data from DescriptorSetRemappingInfo
+    std::vector<const DescriptorSetRemappingInfo::UBRemappingInfo *> RemappingUBInfos[ShaderStage::NumStages];
+    std::vector<const DescriptorSetRemappingInfo::RemappingInfo *> RemappingGlobalInfos[ShaderStage::NumStages];
+    std::vector<const uint16 *> RemappingPackedUBInfos[ShaderStage::NumStages];
     uint32 HasDescriptorsInSetMask;
+
+    const DescriptorSetRemappingInfo *RemappingInfo;
     bool bInitialized = true;
+
     friend class GraphicsPipelineDescriptorState;
 };
 
@@ -223,6 +298,8 @@ public:
     template <bool bIsCompute>
     void FinalizeBindings(const Device &device, const UniformBufferGatherInfo &UBGatherInfo, const std::vector<SamplerState *> &ImmutableSamplers);
 
+    void GenerateHash(const std::vector<SamplerState *> &ImmutableSamplers);
+
     /// UE的哈希表容器是通过GetTypeHash获得散列值的。在UE中，想要作为TMap的键，就必须支持这个函数。
     friend uint32 GetTypeHash(const DescriptorSetsLayoutInfo &In) { return In.hash; }
 
@@ -279,17 +356,18 @@ public:
     }
 
 protected:
-    // 每种类型descriptor各使用了多少个
+    /// 统计整个管线中每种类型descriptor各使用了多少个
     std::unordered_map<VkDescriptorType, uint32> layoutTypes;
     std::vector<SetLayout> setLayouts;
     uint32_t hash = 0;
     uint32_t typesUsageID = ~0;
     void CompileTypesUsageID();
+    void AddDescriptor(int32 DescriptorSetIndex, const VkDescriptorSetLayoutBinding &Descriptor);
     VkPipelineBindPoint BindPoint = VK_PIPELINE_BIND_POINT_MAX_ENUM;
     DescriptorSetRemappingInfo RemappingInfo;
 
     friend class PipelineStateCacheManager;
-    friend class VulkanLayout;
+    friend class VulkanPipelineLayout;
 };
 
 namespace std
@@ -333,6 +411,12 @@ public:
     void Compile(DescriptorSetLayoutMap &DSetLayoutMap);
 
     inline const std::vector<VkDescriptorSetLayout> &GetHandles() const { return layoutHandles; }
+
+    inline uint32 GetHash() const
+    {
+        check(hash != 0);
+        return hash;
+    }
 
 private:
     Device *device;
@@ -458,11 +542,11 @@ private:
 
 // 1278
 //  Layout for a Pipeline, also includes DescriptorSets layout
-class VulkanLayout : public VulkanRHI::DeviceChild
+class VulkanPipelineLayout : public VulkanRHI::DeviceChild
 {
 public:
-    VulkanLayout(Device *InDevice);
-    virtual ~VulkanLayout();
+    VulkanPipelineLayout(Device *InDevice);
+    virtual ~VulkanPipelineLayout();
 
     virtual bool IsGfxLayout() const = 0;
 
@@ -478,12 +562,7 @@ public:
     // 		return DescriptorSetLayout.GetLayouts().Num() > 0;
     // 	}
 
-    inline uint32 GetDescriptorSetLayoutHash() const
-    {
-        printf("Have not implement %s %d\n", __FILE__, __LINE__);
-        return -1;
-        // return DescriptorSetLayout.GetHash();
-    }
+    inline uint32 GetDescriptorSetLayoutHash() const { return descriptorSetsLayout.GetHash(); }
 
     // 	void PatchSpirvBindings(FVulkanShader::FSpirvCode& SpirvCode, EShaderFrequency Frequency, const FVulkanShaderHeader& CodeHeader) const;
 
@@ -518,10 +597,10 @@ protected:
 #endif
 };
 
-class VulkanGfxLayout : public VulkanLayout
+class VulkanGfxLayout : public VulkanPipelineLayout
 {
 public:
-    VulkanGfxLayout(Device *InDevice) : VulkanLayout(InDevice) {}
+    VulkanGfxLayout(Device *InDevice) : VulkanPipelineLayout(InDevice) {}
 
     virtual bool IsGfxLayout() const final override { return true; }
 

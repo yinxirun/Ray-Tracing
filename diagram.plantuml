@@ -1,0 +1,29 @@
+@startuml dsf
+
+class VulkanPipelineLayout
+class VulkanGfxPipelineDescriptorInfo
+class GraphicsPipelineDescriptorState
+class CommandListContext
+
+GraphicsPipelineDescriptorState --.> VulkanGfxPipelineDescriptorInfo
+VulkanPipelineLayout *-- VulkanGfxPipelineDescriptorInfo
+
+@enduml
+
+' @startchen er
+' entity Person{
+'     name<<key>>
+'     age
+'     gender
+' }
+
+' entity Car{
+'     name
+' }
+
+' relationship Own{
+' }
+
+' Person -1- Own
+' Own -n- Car
+' @endchen

@@ -4,6 +4,7 @@
 #include "gpu/core/containers/enum_as_byte.h"
 #include <array>
 #include <vector>
+#include <cfloat>
 
 // 164
 struct VertexElement
@@ -37,6 +38,33 @@ struct VertexElement
                 Stride == Other.Stride &&
                 bUseInstanceIndex == Other.bUseInstanceIndex);
     }
+};
+
+struct SamplerStateInitializer
+{
+    SamplerStateInitializer() {}
+    SamplerStateInitializer(SamplerFilter InFilter, SamplerAddressMode InAddressU = AM_Wrap,
+                            SamplerAddressMode InAddressV = AM_Wrap, SamplerAddressMode InAddressW = AM_Wrap,
+                            float InMipBias = 0, int32 InMaxAnisotropy = 0,
+                            float InMinMipLevel = 0, float InMaxMipLevel = FLT_MAX,
+                            uint32 InBorderColor = 0)
+        : Filter(InFilter), AddressU(InAddressU), AddressV(InAddressV),
+          AddressW(InAddressW), MipBias(InMipBias), MinMipLevel(InMinMipLevel),
+          MaxMipLevel(InMaxMipLevel), MaxAnisotropy(InMaxAnisotropy), BorderColor(InBorderColor) {}
+    TEnumAsByte<SamplerFilter> Filter = SF_Point;
+    TEnumAsByte<SamplerAddressMode> AddressU = AM_Wrap;
+    TEnumAsByte<SamplerAddressMode> AddressV = AM_Wrap;
+    TEnumAsByte<SamplerAddressMode> AddressW = AM_Wrap;
+    float MipBias = 0.0f;
+    /** Smallest mip map level that will be used, where 0 is the highest resolution mip level. */
+    float MinMipLevel = 0.0f;
+    /** Largest mip map level that will be used, where 0 is the highest resolution mip level. */
+    float MaxMipLevel = FLT_MAX;
+    int32 MaxAnisotropy = 0;
+    uint32 BorderColor = 0;
+
+    friend uint32 GetTypeHash(const SamplerStateInitializer &Initializer);
+    friend bool operator==(const SamplerStateInitializer &A, const SamplerStateInitializer &B);
 };
 
 struct RasterizerStateInitializer

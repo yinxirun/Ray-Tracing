@@ -4,6 +4,27 @@
 #include "gpu/RHI/RHI.h"
 #include "common.h"
 
+class Device;
+
+class VulkanSamplerState : public SamplerState
+{
+public:
+    VulkanSamplerState(const VkSamplerCreateInfo &InInfo, Device &InDevice, const bool bInIsImmutable = false);
+
+    virtual bool IsImmutable() const final override { return bIsImmutable; }
+
+    VkSampler Sampler;
+    uint32 SamplerId;
+    RHIDescriptorHandle BindlessHandle;
+
+    static void SetupSamplerCreateInfo(const SamplerStateInitializer &Initializer, Device &InDevice, VkSamplerCreateInfo &OutSamplerInfo);
+
+    virtual RHIDescriptorHandle GetBindlessHandle() const override final { return BindlessHandle; }
+
+private:
+    bool bIsImmutable;
+};
+
 class VulkanRasterizerState : public RasterizerState
 {
 public:

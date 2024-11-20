@@ -6,6 +6,7 @@
 #include "pending_state.h"
 
 #include <algorithm>
+#include <numeric>
 
 // Whether to use VK_ACCESS_SHADER_READ_BIT an input attachments to workaround rendering issues
 // 0 use: VK_ACCESS_INPUT_ATTACHMENT_READ_BIT (default)
@@ -28,6 +29,96 @@ DescriptorSetsLayout::~DescriptorSetsLayout()
 {
     // Handles are owned by FVulkanPipelineStateCacheManager
     layoutHandles.resize(0);
+}
+
+// Increments a value and asserts on overflow.
+// FSetInfo uses narrow integer types for descriptor counts,
+// which may feasibly overflow one day (for example if we add bindless resources).
+template <typename T>
+static void IncrementChecked(T &Value)
+{
+    check(Value < std::numeric_limits<T>::max());
+    ++Value;
+}
+
+void DescriptorSetsLayoutInfo::AddDescriptor(int32 DescriptorSetIndex, const VkDescriptorSetLayoutBinding &Descriptor)
+{
+    // Increment type usage
+    if (layoutTypes.count(Descriptor.descriptorType))
+    {
+        layoutTypes[Descriptor.descriptorType]++;
+    }
+    else
+    {
+        layoutTypes.insert(std::pair(Descriptor.descriptorType, 1));
+    }
+
+    if (DescriptorSetIndex >= setLayouts.size())
+    {
+        setLayouts.resize(DescriptorSetIndex + 1);
+    }
+
+    SetLayout &DescSetLayout = setLayouts[DescriptorSetIndex];
+
+    DescSetLayout.LayoutBindings.push_back(VkDescriptorSetLayoutBinding());
+    VkDescriptorSetLayoutBinding *Binding = &DescSetLayout.LayoutBindings.back();
+    *Binding = Descriptor;
+
+    const DescriptorSetRemappingInfo::SetInfo &SetInfo = RemappingInfo.SetInfos[DescriptorSetIndex];
+    check(SetInfo.Types[Descriptor.binding] == Descriptor.descriptorType);
+    switch (Descriptor.descriptorType)
+    {
+    case VK_DESCRIPTOR_TYPE_SAMPLER:
+    case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+    case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+    case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+        IncrementChecked(RemappingInfo.SetInfos[DescriptorSetIndex].NumImageInfos);
+        break;
+    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+        IncrementChecked(RemappingInfo.SetInfos[DescriptorSetIndex].NumBufferInfos);
+        break;
+#if VULKAN_RHI_RAYTRACING
+    case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+        IncrementChecked(RemappingInfo.SetInfos[DescriptorSetIndex].NumAccelerationStructures);
+        break;
+#endif
+    case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+    case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+        break;
+    default:
+        check(0);
+        break;
+    }
+}
+
+void DescriptorSetsLayoutInfo::GenerateHash(const std::vector<SamplerState *> &InImmutableSamplers)
+{
+    const int32 LayoutCount = setLayouts.size();
+    hash = MemCrc32(&typesUsageID, sizeof(uint32), LayoutCount);
+
+    for (int32 layoutIndex = 0; layoutIndex < LayoutCount; ++layoutIndex)
+    {
+        setLayouts[layoutIndex].GenerateHash();
+        hash = MemCrc32(&setLayouts[layoutIndex].Hash, sizeof(uint32), hash);
+    }
+
+    for (uint32 RemapingIndex = 0; RemapingIndex < ShaderStage::NumStages; ++RemapingIndex)
+    {
+        hash = ::MemCrc32(&RemappingInfo.StageInfos[RemapingIndex].PackedUBDescriptorSet, sizeof(uint16), hash);
+        hash = ::MemCrc32(&RemappingInfo.StageInfos[RemapingIndex].Pad0, sizeof(uint16), hash);
+
+        std::vector<DescriptorSetRemappingInfo::RemappingInfo> &Globals = RemappingInfo.StageInfos[RemapingIndex].Globals;
+        hash = ::MemCrc32(Globals.data(), sizeof(DescriptorSetRemappingInfo::RemappingInfo) * Globals.size(), hash);
+
+        std::vector<DescriptorSetRemappingInfo::UBRemappingInfo> &UniformBuffers = RemappingInfo.StageInfos[RemapingIndex].UniformBuffers;
+        hash = ::MemCrc32(UniformBuffers.data(), sizeof(DescriptorSetRemappingInfo::UBRemappingInfo) * UniformBuffers.size(), hash);
+
+        std::vector<uint16> &PackedUBBindingIndices = RemappingInfo.StageInfos[RemapingIndex].PackedUBBindingIndices;
+        hash = ::MemCrc32(PackedUBBindingIndices.data(), sizeof(uint16) * PackedUBBindingIndices.size(), hash);
+    }
 }
 
 void DescriptorSetsLayoutInfo::CompileTypesUsageID()

@@ -205,10 +205,7 @@ public:
 		bIsResourcesDirty = true;
 	}
 
-	// 	inline const FVulkanGfxPipelineDescriptorInfo& GetGfxPipelineDescriptorInfo() const
-	// 	{
-	// 		return *PipelineDescriptorInfo;
-	// 	}
+	inline const VulkanGfxPipelineDescriptorInfo &GetGfxPipelineDescriptorInfo() const { return *PipelineDescriptorInfo; }
 
 protected:
 	const VulkanGfxPipelineDescriptorInfo *PipelineDescriptorInfo;

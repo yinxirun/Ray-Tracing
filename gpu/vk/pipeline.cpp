@@ -365,6 +365,7 @@ VulkanGraphicsPipelineState::~VulkanGraphicsPipelineState()
 {
     for (int ShaderStageIndex = 0; ShaderStageIndex < ShaderStage::NumStages; ShaderStageIndex++)
     {
+        printf("Have not implement VulkanShaders[ShaderStageIndex]->Release() %s %d\n", __FILE__, __LINE__);
         //         if (VulkanShaders[ShaderStageIndex] != nullptr)
         //         {
         //             VulkanShaders[ShaderStageIndex]->Release();
@@ -442,11 +443,8 @@ void PipelineStateCacheManager::CreateGfxEntry(const GraphicsPipelineStateInitia
 
         DescriptorSetLayoutInfo.ProcessBindingsForStage(VK_SHADER_STAGE_VERTEX_BIT, ShaderStage::Vertex, VSHeader, UBGatherInfo);
 
-        if (Shaders[ShaderStage::Pixel])
-        {
-            const ShaderHeader &PSHeader = Shaders[ShaderStage::Pixel]->GetCodeHeader();
-            DescriptorSetLayoutInfo.ProcessBindingsForStage(VK_SHADER_STAGE_FRAGMENT_BIT, ShaderStage::Pixel, PSHeader, UBGatherInfo);
-        }
+        const ShaderHeader &PSHeader = Shaders[ShaderStage::Pixel]->GetCodeHeader();
+        DescriptorSetLayoutInfo.ProcessBindingsForStage(VK_SHADER_STAGE_FRAGMENT_BIT, ShaderStage::Pixel, PSHeader, UBGatherInfo);
 
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
         if (Shaders[ShaderStage::Geometry])
@@ -458,21 +456,23 @@ void PipelineStateCacheManager::CreateGfxEntry(const GraphicsPipelineStateInitia
 
         // Second pass
         const int32 NumImmutableSamplers = PSOInitializer.ImmutableSamplerState.ImmutableSamplers.size();
-        std::vector<SamplerState *> ImmutableSamplers(NumImmutableSamplers,
-                                                      NumImmutableSamplers > 0
-                                                          ? PSOInitializer.ImmutableSamplerState.ImmutableSamplers[0]
-                                                          : nullptr);
+        std::vector<SamplerState *> ImmutableSamplers(NumImmutableSamplers, nullptr);
+        for (int i = 0; i < NumImmutableSamplers; ++i)
+        {
+            ImmutableSamplers[i] = PSOInitializer.ImmutableSamplerState.ImmutableSamplers[i];
+        }
+
         DescriptorSetLayoutInfo.FinalizeBindings<false>(*device, UBGatherInfo, ImmutableSamplers);
     }
 
-    // FDescriptorSetRemappingInfo &RemappingInfo = DescriptorSetLayoutInfo.RemappingInfo;
+    DescriptorSetRemappingInfo &RemappingInfo = DescriptorSetLayoutInfo.RemappingInfo;
 
-    // if (RemappingInfo.InputAttachmentData.Num())
-    // {
-    //     // input attachements can't exist in a first sub-pass
-    //     check(PSOInitializer.SubpassHint != SubpassHint::None);
-    //     check(PSOInitializer.SubpassIndex != 0);
-    // }
+    if (RemappingInfo.InputAttachmentData.size())
+    {
+        // input attachements can't exist in a first sub-pass
+        check(PSOInitializer.SubpassHint != SubpassHint::None);
+        check(PSOInitializer.SubpassIndex != 0);
+    }
 
     OutGfxEntry->SubpassIndex = PSOInitializer.SubpassIndex;
 
@@ -605,7 +605,7 @@ void PipelineStateCacheManager::CreateGfxEntry(const GraphicsPipelineStateInitia
 }
 
 // 1705
-VulkanLayout *PipelineStateCacheManager::FindOrAddLayout(const DescriptorSetsLayoutInfo &DescriptorSetLayoutInfo, bool bGfxLayout)
+VulkanPipelineLayout *PipelineStateCacheManager::FindOrAddLayout(const DescriptorSetsLayoutInfo &DescriptorSetLayoutInfo, bool bGfxLayout)
 {
     /* FScopeLock Lock(&LayoutMapCS); */
 
@@ -616,7 +616,7 @@ VulkanLayout *PipelineStateCacheManager::FindOrAddLayout(const DescriptorSetsLay
         return it->second;
     }
 
-    VulkanLayout *Layout = nullptr;
+    VulkanPipelineLayout *Layout = nullptr;
     VulkanGfxLayout *GfxLayout = nullptr;
 
     if (bGfxLayout)
@@ -632,10 +632,10 @@ VulkanLayout *PipelineStateCacheManager::FindOrAddLayout(const DescriptorSetsLay
     Layout->descriptorSetsLayout.CopyFrom(DescriptorSetLayoutInfo);
     Layout->Compile(DSetLayoutMap);
 
-    /*     if (GfxLayout)
-        {
-            GfxLayout->GfxPipelineDescriptorInfo.Initialize(GfxLayout->GetDescriptorSetsLayout().RemappingInfo);
-        } */
+    if (GfxLayout)
+    {
+        GfxLayout->GfxPipelineDescriptorInfo.Initialize(GfxLayout->GetDescriptorSetsLayout().RemappingInfo);
+    }
 
     LayoutMap.insert(std::pair(DescriptorSetLayoutInfo, Layout));
     return Layout;
@@ -732,7 +732,7 @@ GraphicsPipelineState *PipelineStateCacheManager::CreateGraphicsPipelineState(co
 
         NewPSO = new VulkanGraphicsPipelineState(device, Initializer, Desc, &Key);
         {
-            VulkanLayout *Layout = FindOrAddLayout(DescriptorSetLayoutInfo, true);
+            VulkanPipelineLayout *Layout = FindOrAddLayout(DescriptorSetLayoutInfo, true);
             VulkanGfxLayout *GfxLayout = (VulkanGfxLayout *)Layout;
             check(GfxLayout->GfxPipelineDescriptorInfo.IsInitialized());
             NewPSO->Layout = GfxLayout;

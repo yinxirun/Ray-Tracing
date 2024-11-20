@@ -20,8 +20,8 @@ public:
         check(false);
     }
 
-	/// Submit the current command buffer to the GPU if possible.
-	virtual void SubmitCommandsHint() = 0;
+    /// Submit the current command buffer to the GPU if possible.
+    virtual void SubmitCommandsHint() = 0;
 };
 
 class CommandContext : public ComputeContext
@@ -43,9 +43,11 @@ public:
     // without an RHI thread there is no benefit to queuing this frame advance commands
     virtual void EndFrame() = 0;
 
-    virtual void SetStreamSource(uint32 StreamIndex, Buffer* VertexBuffer, uint32 Offset) = 0;
+    virtual void SetStreamSource(uint32 StreamIndex, Buffer *VertexBuffer, uint32 Offset) = 0;
 
-    virtual void SetGraphicsPipelineState(GraphicsPipelineState* GraphicsState, uint32 StencilRef, bool bApplyAdditionalState) = 0;
+    virtual void SetGraphicsPipelineState(GraphicsPipelineState *GraphicsState, uint32 StencilRef, bool bApplyAdditionalState) = 0;
+
+    virtual void SetShaderUniformBuffer(RHIGraphicsShader *Shader, uint32 BufferIndex, UniformBuffer *Buffer) = 0;
 
     virtual void DrawIndexedPrimitive(Buffer *IndexBuffer, int32 BaseVertexIndex, uint32 FirstInstance,
                                       uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances) = 0;

@@ -33,7 +33,7 @@ class RHICommandListBase;
 class CommandListContext;
 class CmdBuffer;
 struct GfxPipelineDesc;
-class VulkanLayout;
+class VulkanPipelineLayout;
 
 // Converts the internal texture dimension to Vulkan view type
 inline VkImageViewType UETextureDimensionToVkImageViewType(ETextureDimension Dimension)
@@ -172,7 +172,7 @@ public:
 
     virtual ~VulkanShader();
 
-    std::shared_ptr<ShaderModule> GetOrCreateHandle(const GfxPipelineDesc &Desc, const VulkanLayout *Layout, uint32 LayoutHash)
+    std::shared_ptr<ShaderModule> GetOrCreateHandle(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout, uint32 LayoutHash)
     {
         // FScopeLock Lock(&VulkanShaderModulesMapCS);
         if (NeedsSpirvInputAttachmentPatching(Desc))
@@ -211,7 +211,7 @@ public:
         std::vector<uint32> GetCodeView() { return CodeView; }
     };
 
-    SpirvCode GetPatchedSpirvCode(const GfxPipelineDesc &Desc, const VulkanLayout *Layout);
+    SpirvCode GetPatchedSpirvCode(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout);
 
 protected:
     uint64 ShaderKey;
@@ -236,7 +236,7 @@ protected:
     void Setup(ShaderHeader &&header, SpirvContainer &&spirv, uint64 shaderKey);
     Device *device;
 
-    std::shared_ptr<ShaderModule> CreateHandle(const GfxPipelineDesc &Desc, const VulkanLayout *Layout, uint32 LayoutHash);
+    std::shared_ptr<ShaderModule> CreateHandle(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout, uint32 LayoutHash);
 
     bool NeedsSpirvInputAttachmentPatching(const GfxPipelineDesc &Desc) const;
 

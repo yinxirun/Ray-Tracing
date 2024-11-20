@@ -97,7 +97,10 @@ std::vector<uint8> LoadShader(std::string spvFilename, ShaderFrequency freq)
         for (auto &res : resources.uniform_buffers)
         {
             ShaderHeader::UniformBufferInfo ubInfo;
-            ubInfo.LayoutHash=0;
+
+            uint32 binding = glsl.get_decoration(res.id, spv::DecorationBinding);
+            uint32 set = glsl.get_decoration(res.id, spv::DecorationDescriptorSet);
+            ubInfo.LayoutHash = (set << 8) | binding;
 
             spirv_cross::SPIRType type = glsl.get_type(res.base_type_id);
 
@@ -117,9 +120,6 @@ std::vector<uint8> LoadShader(std::string spvFilename, ShaderFrequency freq)
 
                 ubInfo.ResourceEntries.push_back(ubResInfo);
             }
-
-            unsigned binding = glsl.get_decoration(res.id, spv::DecorationBinding);
-            unsigned set = glsl.get_decoration(res.id, spv::DecorationDescriptorSet);
 
             header.UniformBuffers.push_back(ubInfo);
         }

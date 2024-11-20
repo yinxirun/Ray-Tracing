@@ -1,5 +1,6 @@
 #pragma once
 #include "gpu/definitions.h"
+#include "gpu/core/containers/enum_as_byte.h"
 #include <iostream>
 
 #define PLATFORM_LITTLE_ENDIAN 1
@@ -81,6 +82,20 @@ public:
     using ArchiveState::SetError;
     using ArchiveState::TotalSize;
 
+    // Serializes an unsigned 8-bit integer value from or into an archive.
+    __forceinline friend Archive &operator<<(Archive &Ar, uint8 &Value)
+    {
+        Ar.Serialize(&Value, 1);
+        return Ar;
+    }
+
+    // Serializes an unsigned 16-bit integer value from or into an archive.
+    __forceinline friend Archive &operator<<(Archive &Ar, uint16 &Value)
+    {
+        Ar.ByteOrderSerialize(Value);
+        return Ar;
+    }
+
     // Serializes an unsigned 32-bit integer value from or into an archive.
     __forceinline friend Archive &operator<<(Archive &Ar, uint32 &Value)
     {
@@ -109,3 +124,16 @@ public:
         // return SerializeByteOrderSwapped(Value); // Slowest and unlikely path (but fastest than SerializeByteOrderSwapped(void*, int32)).
     }
 };
+
+/**
+ * Serializes an enumeration value from or into an archive.
+ *
+ * @param Ar The archive to serialize from or to.
+ * @param Value The value to serialize.
+ */
+template <class TEnum>
+__forceinline Archive &operator<<(Archive &Ar, TEnumAsByte<TEnum> &Value)
+{
+    Ar.Serialize(&Value, 1);
+    return Ar;
+}

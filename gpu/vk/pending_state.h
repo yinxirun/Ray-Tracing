@@ -29,14 +29,24 @@ public:
         StencilRef = 0;
         bScissorEnable = false;
 
-        // CurrentPipeline = nullptr;
-        // CurrentState = nullptr;
+        CurrentPipeline = nullptr;
+        CurrentState = nullptr;
         bDirtyVertexStreams = true;
 
         primitiveType = PT_Num;
 
         // #todo-rco: Would this cause issues?
         // FMemory::Memzero(PendingStreams);
+    }
+
+    const uint64 GetCurrentShaderKey(ShaderFrequency Frequency) const
+    {
+        return (CurrentPipeline ? CurrentPipeline->GetShaderKey(Frequency) : 0);
+    }
+
+    const uint64 GetCurrentShaderKey(ShaderStage::Stage Stage) const
+    {
+        return GetCurrentShaderKey(ShaderStage::GetFrequencyForGfxStage(Stage));
     }
 
     const VulkanShader *GetCurrentShader(ShaderFrequency Frequency) const

@@ -21,11 +21,10 @@ inline bool IsInRenderingThread() { return true; }
 /// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
 inline bool IsInRHIThread() { return true; }
 
-// RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.  
+// RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.
 // Enforce a min size of 64 bits on pointer types in uniform buffer structs to guarantee layout matching between languages.
 #define SHADER_PARAMETER_POINTER_ALIGNMENT sizeof(uint64)
-static_assert(sizeof(void*) <= SHADER_PARAMETER_POINTER_ALIGNMENT, "The alignment of pointer needs to match the largest pointer.");
-
+static_assert(sizeof(void *) <= SHADER_PARAMETER_POINTER_ALIGNMENT, "The alignment of pointer needs to match the largest pointer.");
 
 // 180
 enum class ERHIZBuffer
@@ -39,6 +38,33 @@ enum class ERHIZBuffer
 	// 'bool' for knowing if the API is using Inverted Z buffer
 	IsInverted = (int32)((int32)ERHIZBuffer::FarPlane < (int32)ERHIZBuffer::NearPlane),
 };
+
+enum SamplerFilter
+{
+	SF_Point,
+	SF_Bilinear,
+	SF_Trilinear,
+	SF_AnisotropicPoint,
+	SF_AnisotropicLinear,
+
+	SamplerFilter_Num,
+	SamplerFilter_NumBits = 3,
+};
+static_assert(SamplerFilter_Num <= (1 << SamplerFilter_NumBits), "ESamplerFilter_Num will not fit on ESamplerFilter_NumBits");
+
+enum SamplerAddressMode
+{
+	AM_Wrap,
+	AM_Clamp,
+	AM_Mirror,
+	/** Not supported on all platforms */
+	AM_Border,
+
+	SamplerAddressMode_Num,
+	SamplerAddressMode_NumBits = 2,
+};
+static_assert(SamplerAddressMode_Num <= (1 << SamplerAddressMode_NumBits), "ESamplerAddressMode_Num will not fit on ESamplerAddressMode_NumBits");
+
 
 // 239
 enum ERasterizerFillMode

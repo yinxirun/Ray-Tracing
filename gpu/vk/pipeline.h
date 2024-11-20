@@ -446,7 +446,7 @@ private:
 
     // 	static FString ShaderHashesToString(FVulkanShader* Shaders[ShaderStage::NumStages]);
 
-    VulkanLayout *FindOrAddLayout(const DescriptorSetsLayoutInfo &DescriptorSetLayoutInfo, bool bGfxLayout);
+    VulkanPipelineLayout *FindOrAddLayout(const DescriptorSetsLayoutInfo &DescriptorSetLayoutInfo, bool bGfxLayout);
     // 	FVulkanComputePipeline* CreateComputePipelineFromShader(FVulkanComputeShader* Shader);
 
     /** LRU Related functions */
@@ -510,7 +510,7 @@ private:
     // 	TSet<FGuid> CompiledPSOCaches;
 
     // 	FCriticalSection LayoutMapCS;
-    std::unordered_map<DescriptorSetsLayoutInfo, VulkanLayout *> LayoutMap;
+    std::unordered_map<DescriptorSetsLayoutInfo, VulkanPipelineLayout *> LayoutMap;
     DescriptorSetLayoutMap DSetLayoutMap;
 
     // 	FCriticalSection GraphicsPSOLockedCS;
@@ -553,20 +553,11 @@ public:
                                 GfxPipelineDesc &Desc, VulkanPSOKey *Key);
     ~VulkanGraphicsPipelineState();
 
-    inline const VulkanVertexInputStateInfo &GetVertexInputState() const
-    {
-        return VertexInputState;
-    }
+    inline const VulkanVertexInputStateInfo &GetVertexInputState() const { return VertexInputState; }
 
-    inline const VulkanLayout &GetLayout() const
-    {
-        return *Layout;
-    }
+    inline const VulkanPipelineLayout &GetLayout() const { return *Layout; }
 
-    inline const VulkanGfxLayout &GetGfxLayout() const
-    {
-        return *(VulkanGfxLayout *)&GetLayout();
-    }
+    inline const VulkanGfxLayout &GetGfxLayout() const { return *(VulkanGfxLayout *)&GetLayout(); }
 
     inline void Bind(VkCommandBuffer CmdBuffer)
     {
@@ -585,10 +576,7 @@ public:
         return VulkanShaders[Stage];
     }
 
-    inline VkPipeline GetVulkanPipeline() const
-    {
-        return VulkanPipeline;
-    }
+    inline VkPipeline GetVulkanPipeline() const { return VulkanPipeline; }
 
     void DeleteVkPipeline(bool bImmediate);
     void GetOrCreateShaderModules(std::shared_ptr<ShaderModule> (&ShaderModulesOUT)[ShaderStage::NumStages], VulkanShader *const *Shaders);
@@ -603,7 +591,7 @@ public:
 
     VkPipeline VulkanPipeline;
     VulkanVertexInputStateInfo VertexInputState;
-    VulkanLayout *Layout;
+    VulkanPipelineLayout *Layout;
     Device *device;
     GfxPipelineDesc Desc;
     VulkanShader *VulkanShaders[ShaderStage::NumStages];

@@ -371,6 +371,7 @@ class SamplerState : public RHIResource
 public:
     SamplerState() : RHIResource(RRT_SamplerState) {}
     virtual bool IsImmutable() const { return false; }
+    virtual RHIDescriptorHandle GetBindlessHandle() const { return RHIDescriptorHandle(); }
 };
 
 class RasterizerState : public RHIResource
@@ -412,15 +413,17 @@ public:
     SHAHash GetHash() const { return Hash; }
 
     RHIShader(ERHIResourceType InResourceType, ShaderFrequency InFrequency)
-        : RHIResource(InResourceType)
-    // , Frequency(InFrequency)
+        : RHIResource(InResourceType), Frequency(InFrequency)
     // , bNoDerivativeOps(false)
     // , bHasShaderBundleUsage(false)
     {
     }
 
+    inline ShaderFrequency GetFrequency() const { return Frequency; }
+
 private:
     SHAHash Hash;
+    ShaderFrequency Frequency;
 };
 
 class RHIGraphicsShader : public RHIShader
@@ -551,6 +554,12 @@ struct UniformBufferLayout : public RHIResource
           Resources(Initializer.Resources), Hash(Initializer.GetHash()), ConstantBufferSize(Initializer.ConstantBufferSize),
           StaticSlot(Initializer.StaticSlot), BindingFlags(Initializer.BindingFlags)
     {
+    }
+
+    inline uint32 GetHash() const
+    {
+        check(Hash != 0);
+        return Hash;
     }
 
     /** The list of all resource inlined into the shader parameter structure. */

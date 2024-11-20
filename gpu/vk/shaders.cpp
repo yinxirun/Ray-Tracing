@@ -1,6 +1,9 @@
 #include <vector>
 #include <memory>
+#include "gpu/core/serialization/memory_reader.h"
 #include "gpu/core/misc/crc.h"
+#include "gpu/RHI/RHI.h"
+
 #include "descriptor_sets.h"
 #include "resources.h"
 #include "device.h"
@@ -8,7 +11,7 @@
 #include "pipeline.h"
 #include "util.h"
 #include "configuration.h"
-#include "gpu/core/serialization/memory_reader.h"
+#include "state.h"
 
 // 0 to not change layouts (eg Set 0 = Vertex, 1 = Pixel, etc)
 // 1 to use a new set for common Uniform Buffers
@@ -137,7 +140,7 @@ static std::shared_ptr<ShaderModule> CreateShaderModule(Device *device, VulkanSh
     return ReturnPtr;
 }
 
-std::shared_ptr<ShaderModule> VulkanShader::CreateHandle(const GfxPipelineDesc &Desc, const VulkanLayout *Layout, uint32 LayoutHash)
+std::shared_ptr<ShaderModule> VulkanShader::CreateHandle(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout, uint32 LayoutHash)
 {
     // FScopeLock Lock(&VulkanShaderModulesMapCS);
     SpirvCode Spirv = GetPatchedSpirvCode(Desc, Layout);
@@ -145,7 +148,7 @@ std::shared_ptr<ShaderModule> VulkanShader::CreateHandle(const GfxPipelineDesc &
     return Module;
 }
 
-VulkanShader::SpirvCode VulkanShader::GetPatchedSpirvCode(const GfxPipelineDesc &Desc, const VulkanLayout *Layout)
+VulkanShader::SpirvCode VulkanShader::GetPatchedSpirvCode(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout)
 {
     SpirvCode Spirv = GetSpirvCode(spirvContainer);
 
@@ -186,12 +189,12 @@ ShaderModule::~ShaderModule()
 Device *ShaderModule::device = nullptr;
 
 // 670
-VulkanLayout::VulkanLayout(Device *InDevice)
+VulkanPipelineLayout::VulkanPipelineLayout(Device *InDevice)
     : VulkanRHI::DeviceChild(InDevice), descriptorSetsLayout(InDevice), PipelineLayout(VK_NULL_HANDLE)
 {
 }
 
-VulkanLayout::~VulkanLayout()
+VulkanPipelineLayout::~VulkanPipelineLayout()
 {
     if (PipelineLayout != VK_NULL_HANDLE)
     {
@@ -200,7 +203,7 @@ VulkanLayout::~VulkanLayout()
     }
 }
 
-void VulkanLayout::Compile(DescriptorSetLayoutMap &DSetLayoutMap)
+void VulkanPipelineLayout::Compile(DescriptorSetLayoutMap &DSetLayoutMap)
 {
     check(PipelineLayout == VK_NULL_HANDLE);
 
@@ -246,7 +249,6 @@ void DescriptorSetsLayoutInfo::ProcessBindingsForStage(VkShaderStageFlagBits Sta
 template <bool bIsCompute>
 void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const UniformBufferGatherInfo &UBGatherInfo, const std::vector<SamplerState *> &ImmutableSamplers)
 {
-    printf("Have not implement FinalizeBindings %s %d\n", __FILE__, __LINE__);
     check(!bIsCompute);
     check(RemappingInfo.IsEmpty());
 
@@ -260,13 +262,23 @@ void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const Unif
     const bool bConvertAllUBsToDynamic = (GDynamicGlobalUBs > 1);
     const bool bConvertPackedUBsToDynamic = bConvertAllUBsToDynamic || GDynamicGlobalUBs == 1;
     const bool bConsolidateAllIntoOneSet = GDescriptorSetLayoutMode == 2;
-    const uint32 MaxDescriptorSetUniformBuffersDynamic = Device.GetLimits().maxDescriptorSetUniformBuffersDynamic;
+    const uint32 MaxDescriptorSetUniformBuffersDynamic = device.GetLimits().maxDescriptorSetUniformBuffersDynamic;
 
     uint8 DescriptorStageToSetMapping[ShaderStage::NumStages];
-    FMemory::Memset(DescriptorStageToSetMapping, UINT8_MAX);
+    memset(DescriptorStageToSetMapping, UINT8_MAX, sizeof(uint8) * ShaderStage::NumStages);
 
     const bool bMoveCommonUBsToExtraSet = (UBGatherInfo.CommonUBLayoutsToStageMap.size() > 0) || bConsolidateAllIntoOneSet;
-    const uint32 CommonUBDescriptorSet = bMoveCommonUBsToExtraSet ? RemappingInfo.SetInfos.AddDefaulted() : UINT32_MAX;
+
+    uint32 CommonUBDescriptorSet;
+    if (bMoveCommonUBsToExtraSet)
+    {
+        CommonUBDescriptorSet = RemappingInfo.SetInfos.size();
+        RemappingInfo.SetInfos.push_back(DescriptorSetRemappingInfo::SetInfo());
+    }
+    else
+    {
+        CommonUBDescriptorSet = UINT32_MAX;
+    }
 
     auto FindOrAddDescriptorSet = [&](int32 Stage) -> uint8
     {
@@ -275,9 +287,11 @@ void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const Unif
             return 0;
         }
 
+        // 每个阶段一个set
         if (DescriptorStageToSetMapping[Stage] == UINT8_MAX)
         {
-            uint32 NewSet = RemappingInfo.SetInfos.AddDefaulted();
+            uint32 NewSet = RemappingInfo.SetInfos.size();
+            RemappingInfo.SetInfos.push_back(DescriptorSetRemappingInfo::SetInfo());
             DescriptorStageToSetMapping[Stage] = (uint8)NewSet;
             return NewSet;
         }
@@ -339,7 +353,7 @@ void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const Unif
                 }
             }
 
-            RemappingInfo.StageInfos[Stage].Globals.Reserve(ShaderHeader->Globals.Num());
+            RemappingInfo.StageInfos[Stage].Globals.reserve(ShaderHeader->Globals.size());
             Binding.stageFlags = StageFlags;
             for (int32 Index = 0; Index < ShaderHeader->Globals.size(); ++Index)
             {
@@ -354,12 +368,12 @@ void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const Unif
                 {
                     if (GlobalInfo.bImmutableSampler)
                     {
-                        if (CurrentImmutableSampler < ImmutableSamplers.Num())
+                        if (CurrentImmutableSampler < ImmutableSamplers.size())
                         {
-                            FVulkanSamplerState *SamplerState = ResourceCast(ImmutableSamplers[CurrentImmutableSampler]);
-                            if (SamplerState && SamplerState->Sampler != VK_NULL_HANDLE)
+                            VulkanSamplerState *samplerState = static_cast<VulkanSamplerState *>(ImmutableSamplers[CurrentImmutableSampler]);
+                            if (samplerState && samplerState->Sampler != VK_NULL_HANDLE)
                             {
-                                Binding.pImmutableSamplers = &SamplerState->Sampler;
+                                Binding.pImmutableSamplers = &samplerState->Sampler;
                             }
                             ++CurrentImmutableSampler;
                         }
@@ -408,6 +422,51 @@ void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const Unif
             check(RemappingInfo.SetInfos[Index].Types.size() > 0);
         }
     }
+}
+
+void VulkanGfxPipelineDescriptorInfo::Initialize(const DescriptorSetRemappingInfo &InRemappingInfo)
+{
+    check(!bInitialized);
+
+    for (int32 StageIndex = 0; StageIndex < ShaderStage::NumStages; ++StageIndex)
+    {
+        // #todo-rco: Enable this!
+        RemappingUBInfos[StageIndex].resize(InRemappingInfo.StageInfos[StageIndex].UniformBuffers.size());
+        for (int i = 0; i < RemappingUBInfos[StageIndex].size(); ++i)
+        {
+            RemappingUBInfos[StageIndex][i] = &InRemappingInfo.StageInfos[StageIndex].UniformBuffers[i];
+        }
+
+        RemappingGlobalInfos[StageIndex].resize(InRemappingInfo.StageInfos[StageIndex].Globals.size());
+        for (int i = 0; i < RemappingGlobalInfos[StageIndex].size(); ++i)
+        {
+            RemappingGlobalInfos[StageIndex][i] = &InRemappingInfo.StageInfos[StageIndex].Globals[i];
+        }
+
+        RemappingPackedUBInfos[StageIndex].resize(InRemappingInfo.StageInfos[StageIndex].PackedUBBindingIndices.size());
+        for (int i = 0; i < RemappingPackedUBInfos[StageIndex].size(); ++i)
+        {
+            RemappingPackedUBInfos[StageIndex][i] = &InRemappingInfo.StageInfos[StageIndex].PackedUBBindingIndices[i];
+        }
+    }
+
+    RemappingInfo = &InRemappingInfo;
+
+    for (int32 Index = 0; Index < InRemappingInfo.SetInfos.size(); ++Index)
+    {
+        const DescriptorSetRemappingInfo::SetInfo &SetInfo = InRemappingInfo.SetInfos[Index];
+        if (SetInfo.Types.size() > 0)
+        {
+            check(Index < sizeof(HasDescriptorsInSetMask) * 8);
+            HasDescriptorsInSetMask = HasDescriptorsInSetMask | (1 << Index);
+        }
+        else
+        {
+            ensure(0);
+        }
+    }
+
+    bInitialized = true;
 }
 
 template void DescriptorSetsLayoutInfo::FinalizeBindings<true>(const Device &Device, const UniformBufferGatherInfo &UBGatherInfo, const std::vector<SamplerState *> &ImmutableSamplers);

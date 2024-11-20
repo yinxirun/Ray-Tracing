@@ -2,7 +2,38 @@
 #include "pending_state.h"
 #include "pipeline.h"
 #include "platform.h"
+#include "pipeline_state.h"
 #include "gpu/RHI/RHIGlobals.h"
+
+static __forceinline ShaderStage::Stage GetAndVerifyShaderStageAndVulkanShader(RHIGraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState, VulkanShader *&OutShader)
+{
+    switch (ShaderRHI->GetFrequency())
+    {
+    case SF_Vertex:
+        // check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Vertex) == GetShaderKey<FVulkanVertexShader>(ShaderRHI));
+        OutShader = static_cast<VulkanVertexShader *>(static_cast<VertexShader *>(ShaderRHI));
+        return ShaderStage::Vertex;
+    case SF_Geometry:
+#if VULKAN_SUPPORTS_GEOMETRY_SHADERS
+        // check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Geometry) == GetShaderKey<FVulkanGeometryShader>(ShaderRHI));
+        OutShader = static_cast<FVulkanGeometryShader *>(static_cast<FRHIGeometryShader *>(ShaderRHI));
+        return ShaderStage::Geometry;
+#else
+        check(0);
+        break;
+#endif
+    case SF_Pixel:
+        // check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Pixel) == GetShaderKey<FVulkanPixelShader>(ShaderRHI));
+        OutShader = static_cast<VulkanPixelShader *>(static_cast<PixelShader *>(ShaderRHI));
+        return ShaderStage::Pixel;
+    default:
+        check(0);
+        break;
+    }
+
+    OutShader = nullptr;
+    return ShaderStage::Invalid;
+}
 
 void CommandListContext::WriteGPUFence(GPUFence *FenceRHI)
 {
@@ -30,9 +61,7 @@ void CommandListContext::SetResourcesFromTables(const ShaderType *Shader)
     check(Shader);
 
     static constexpr ShaderFrequency Frequency = static_cast<ShaderFrequency>(ShaderType::StaticFrequency);
-#ifdef PRINT_UNIMPLEMENT
-    printf("Have not implement CommandListContext::SetResourcesFromTables %s\n", __FILE__);
-#endif
+    printf("Have not implement CommandListContext::SetResourcesFromTables %s %d\n", __FILE__, __LINE__);
 
     if (Frequency == SF_Compute)
     {
@@ -97,6 +126,57 @@ void CommandListContext::CommitGraphicsResourceTables()
         SetResourcesFromTables(GeometryShader);
     }
 #endif
+}
+
+inline void CommandListContext::SetShaderUniformBuffer(ShaderStage::Stage Stage, const VulkanUniformBuffer *UniformBuffer, int32 BufferIndex, const VulkanShader *Shader)
+{
+    check(Shader->GetShaderKey() == pendingGfxState->GetCurrentShaderKey(Stage));
+
+    const ShaderHeader &CodeHeader = Shader->GetCodeHeader();
+    const ShaderHeader::UniformBufferInfo &HeaderUBInfo = CodeHeader.UniformBuffers[BufferIndex];
+    check(!HeaderUBInfo.LayoutHash || HeaderUBInfo.LayoutHash == UniformBuffer->GetLayout().GetHash());
+    const VulkanGfxPipelineDescriptorInfo &DescriptorInfo = pendingGfxState->CurrentState->GetGfxPipelineDescriptorInfo();
+    if (!HeaderUBInfo.bOnlyHasResources)
+    {
+        check(UniformBuffer->GetLayout().ConstantBufferSize > 0);
+
+        uint8 DescriptorSet;
+        uint32 BindingIndex;
+        if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(ShaderHeader::UniformBuffer, Stage, BufferIndex, DescriptorSet, BindingIndex))
+        {
+            return;
+        }
+
+        const VkDescriptorType DescriptorType = DescriptorInfo.GetDescriptorType(DescriptorSet, BindingIndex);
+
+        if (DescriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+        {
+            pendingGfxState->SetUniformBuffer<true>(DescriptorSet, BindingIndex, UniformBuffer);
+        }
+        else
+        {
+            check(DescriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER && false);
+            /* pendingGfxState->SetUniformBuffer<false>(DescriptorSet, BindingIndex, UniformBuffer); */
+        }
+    }
+
+    if (HeaderUBInfo.ResourceEntries.size())
+    {
+        SetShaderUniformBufferResources(this, pendingGfxState, Shader, CodeHeader.Globals, CodeHeader.GlobalDescriptorTypes, HeaderUBInfo, UniformBuffer, DescriptorInfo.GetGlobalRemappingInfo(Stage));
+    }
+    else
+    {
+        // Internal error: Completely empty UB!
+        check(!HeaderUBInfo.bOnlyHasResources);
+    }
+}
+
+void CommandListContext::SetShaderUniformBuffer(RHIGraphicsShader *ShaderRHI, uint32 BufferIndex, UniformBuffer *BufferRHI)
+{
+    VulkanShader *shader = nullptr;
+    ShaderStage::Stage stage = GetAndVerifyShaderStageAndVulkanShader(ShaderRHI, pendingGfxState, shader);
+    VulkanUniformBuffer *UniformBuffer = static_cast<VulkanUniformBuffer *>(BufferRHI);
+    SetShaderUniformBuffer(stage, UniformBuffer, BufferIndex, shader);
 }
 
 // 661
