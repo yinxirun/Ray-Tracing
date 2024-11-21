@@ -316,6 +316,111 @@ namespace VulkanRHI
         delete fence;
     }
 
+    TempFrameAllocationBuffer::TempFrameAllocationBuffer(Device *InDevice)
+        : DeviceChild(InDevice), BufferIndex(0)
+    {
+        for (int32 Index = 0; Index < NUM_BUFFERS; ++Index)
+        {
+            Entries[Index].InitBuffer(device, ALLOCATION_SIZE);
+        }
+    }
+    TempFrameAllocationBuffer::~TempFrameAllocationBuffer()
+    {
+        Destroy();
+    }
+    void TempFrameAllocationBuffer::FrameEntry::InitBuffer(Device *InDevice, uint32 InSize)
+    {
+        Size = InSize;
+        PeakUsed = 0;
+
+        VkBufferCreateInfo bufferCI{};
+        bufferCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferCI.size = Size;
+        bufferCI.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                         VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+                         VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        VmaAllocationCreateInfo allocationCI{};
+        allocationCI.usage = VMA_MEMORY_USAGE_AUTO;
+        allocationCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        VmaAllocationInfo info{};
+        VkResult result = vmaCreateBuffer(InDevice->GetAllocator(), &bufferCI, &allocationCI, &buffer, &allocation, &info);
+
+        if (result == VK_SUCCESS)
+        {
+            MappedData = (uint8 *)info.pMappedData;
+            CurrentData = MappedData;
+        }
+        else
+        {
+            throw std::runtime_error("Fail to allocate Temp Frame Buffer.");
+        }
+    }
+    void TempFrameAllocationBuffer::Destroy()
+    {
+        for (int32 Index = 0; Index < NUM_BUFFERS; ++Index)
+        {
+            Entries[Index].Reset(device);
+            vmaDestroyBuffer(device->GetAllocator(), Entries[Index].buffer, Entries[Index].allocation);
+        }
+    }
+    bool TempFrameAllocationBuffer::FrameEntry::TryAlloc(uint32 InSize, uint32 InAlignment, TempAllocInfo &OutInfo)
+    {
+        uint8 *AlignedData = (uint8 *)Align((uintptr_t)CurrentData, (uintptr_t)InAlignment);
+        if (AlignedData + InSize <= MappedData + Size)
+        {
+            OutInfo.Data = AlignedData;
+            OutInfo.allocation = allocation;
+            OutInfo.buffer = buffer;
+            OutInfo.CurrentOffset = (uint32)(AlignedData - MappedData);
+            OutInfo.Size = InSize;
+            CurrentData = AlignedData + InSize;
+            PeakUsed = std::max(PeakUsed, (uint32)(CurrentData - MappedData));
+            return true;
+        }
+        return false;
+    }
+    void TempFrameAllocationBuffer::Alloc(uint32 InSize, uint32 InAlignment, TempAllocInfo &OutInfo)
+    {
+        /* FScopeLock ScopeLock(&CS); */
+
+        if (Entries[BufferIndex].TryAlloc(InSize, InAlignment, OutInfo))
+        {
+            return;
+        }
+
+        // Couldn't fit in the current buffers; allocate a new bigger one and schedule the current one for deletion
+        uint32 NewSize = Align(ALLOCATION_SIZE + InSize + InAlignment, ALLOCATION_SIZE);
+
+        Entries[BufferIndex].pendingDeletionAlloc.push_back({});
+        Entries[BufferIndex].pendingDeletionBuf.push_back({});
+        VmaAllocation &PendingDeleteAlloc = Entries[BufferIndex].pendingDeletionAlloc.back();
+        VkBuffer &PendingDeleteBuf = Entries[BufferIndex].pendingDeletionBuf.back();
+        std::swap(Entries[BufferIndex].allocation, PendingDeleteAlloc);
+        std::swap(Entries[BufferIndex].buffer, PendingDeleteBuf);
+        Entries[BufferIndex].InitBuffer(device, NewSize);
+        if (!Entries[BufferIndex].TryAlloc(InSize, InAlignment, OutInfo))
+        {
+            check(0);
+        }
+    }
+    void TempFrameAllocationBuffer::Reset()
+    {
+        /* FScopeLock ScopeLock(&CS); */
+        BufferIndex = (BufferIndex + 1) % NUM_BUFFERS;
+        Entries[BufferIndex].Reset(device);
+    }
+    void TempFrameAllocationBuffer::FrameEntry::Reset(Device *InDevice)
+    {
+        CurrentData = MappedData;
+        for (int i = 0; i < pendingDeletionAlloc.size(); ++i)
+        {
+            vmaDestroyBuffer(InDevice->GetAllocator(), pendingDeletionBuf[i], pendingDeletionAlloc[i]);
+        }
+        pendingDeletionBuf.clear();
+        pendingDeletionAlloc.clear();
+    }
+
     Semaphore::Semaphore(Device &InDevice) : device(InDevice),
                                              semaphoreHandle(VK_NULL_HANDLE),
                                              bExternallyOwned(false)

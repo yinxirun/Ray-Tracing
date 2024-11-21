@@ -10,7 +10,7 @@ extern RHI *rhi;
 
 CommandListContext::CommandListContext(RHI *InRHI, Device *InDevice, Queue *InQueue, CommandListContext *InImmediate)
     : rhi(InRHI), Immediate(InImmediate), device(InDevice), queue(InQueue), bSubmitAtNextSafePoint(false),
-      UniformBufferUploader(nullptr), commandBufferManager(nullptr), pendingGfxState(nullptr)
+      UniformBufferUploader(nullptr), tempFrameAllocationBuffer(InDevice), commandBufferManager(nullptr), pendingGfxState(nullptr)
 {
     // Create CommandBufferManager, contain all active buffers
     commandBufferManager = new CommandBufferManager(InDevice, this);
@@ -47,7 +47,7 @@ CommandListContext::~CommandListContext()
     delete pendingGfxState;
     // delete PendingComputeState;
 
-    // TempFrameAllocationBuffer.Destroy();
+    tempFrameAllocationBuffer.Destroy();
 }
 
 void CommandListContext::RHIPushEvent(const char *Name, int Color)

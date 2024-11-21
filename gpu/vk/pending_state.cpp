@@ -45,8 +45,6 @@ void PendingGfxState::PrepareForDraw(CmdBuffer *CmdBuffer)
 
 		if (bHasDescriptorSets)
 		{
-			printf("Error: Don't support DescriptorSets %s\n", __FILE__);
-			exit(-1);
 			CurrentState->BindDescriptorSets(CmdBuffer->GetHandle());
 		}
 	}

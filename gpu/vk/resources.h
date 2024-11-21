@@ -175,7 +175,7 @@ public:
 
     std::shared_ptr<ShaderModule> GetOrCreateHandle(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout, uint32 LayoutHash)
     {
-        // FScopeLock Lock(&VulkanShaderModulesMapCS);
+        /* FScopeLock Lock(&VulkanShaderModulesMapCS); */
         if (NeedsSpirvInputAttachmentPatching(Desc))
         {
             LayoutHash = HashCombine(LayoutHash, 1);

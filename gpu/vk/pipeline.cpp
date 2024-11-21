@@ -363,15 +363,7 @@ VulkanGraphicsPipelineState::VulkanGraphicsPipelineState(Device *device, const G
 
 VulkanGraphicsPipelineState::~VulkanGraphicsPipelineState()
 {
-    for (int ShaderStageIndex = 0; ShaderStageIndex < ShaderStage::NumStages; ShaderStageIndex++)
-    {
-        printf("Have not implement VulkanShaders[ShaderStageIndex]->Release() %s %d\n", __FILE__, __LINE__);
-        //         if (VulkanShaders[ShaderStageIndex] != nullptr)
-        //         {
-        //             VulkanShaders[ShaderStageIndex]->Release();
-        //         }
-    }
-
+    // 所有shader由shader factory负责回收
     device->PipelineStateCache->NotifyDeletedGraphicsPSO(this);
 }
 

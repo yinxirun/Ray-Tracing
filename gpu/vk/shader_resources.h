@@ -74,6 +74,7 @@ struct ShaderHeader
     {
         uint32 LayoutHash = 0;
         uint16 ConstantDataOriginalBindingIndex;
+        /// @brief Completely empty UB
         uint8 bOnlyHasResources;
         uint8 Pad0 = 0;
         std::vector<UBResourceInfo> ResourceEntries;

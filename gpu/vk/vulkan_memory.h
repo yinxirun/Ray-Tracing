@@ -5,6 +5,7 @@
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 0
 #include "vma/vk_mem_alloc.h"
 #include "gpu/definitions.h"
+#include "gpu/core/assertion_macros.h"
 #include <atomic>
 #include <cassert>
 #include <vector>
@@ -238,6 +239,64 @@ namespace VulkanRHI
         bool CheckFenceState(Fence *fence);
 
         void DestroyFence(Fence *fence);
+    };
+
+    /// Simple tape allocation per frame for a VkBuffer, used for Volatile allocations
+    class TempFrameAllocationBuffer : public DeviceChild
+    {
+        enum
+        {
+            ALLOCATION_SIZE = (4 * 1024 * 1024)
+        };
+
+    public:
+        TempFrameAllocationBuffer(Device *InDevice);
+        virtual ~TempFrameAllocationBuffer();
+        void Destroy();
+
+        struct TempAllocInfo
+        {
+            VkBuffer buffer;
+            VmaAllocation allocation;
+            void *Data = 0;
+            uint32 CurrentOffset = 0;
+            uint32 Size = 0;
+            uint32 LockCounter = 0;
+
+            uint32 GetBindOffset()
+            {
+                checkNoEntry();
+                return 0;
+            }
+        };
+
+        void Alloc(uint32 InSize, uint32 InAlignment, TempAllocInfo &OutInfo);
+        void Reset();
+
+    protected:
+        uint32 BufferIndex;
+        enum
+        {
+            NUM_BUFFERS = 3,
+        };
+
+        struct FrameEntry
+        {
+            VmaAllocation allocation;
+            VkBuffer buffer;
+            std::vector<VmaAllocation> pendingDeletionAlloc;
+            std::vector<VkBuffer> pendingDeletionBuf;
+            uint8 *MappedData = nullptr;
+            uint8 *CurrentData = nullptr;
+            uint32 Size = 0;
+            uint32 PeakUsed = 0;
+
+            void InitBuffer(Device *InDevice, uint32 InSize);
+            void Reset(Device *Device);
+            bool TryAlloc(uint32 InSize, uint32 InAlignment, TempAllocInfo &OutInfo);
+        };
+        FrameEntry Entries[NUM_BUFFERS];
+        friend class CommandListContext;
     };
 
     class Semaphore : public RefCount

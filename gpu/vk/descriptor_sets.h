@@ -11,6 +11,8 @@
 #include "gpu/RHI/RHIDefinitions.h"
 #include "gpu/core/misc/crc.h"
 #include "vulkan_memory.h"
+#include "util.h"
+#include "private.h"
 
 extern uint32 GFrameNumberRenderThread;
 
@@ -679,9 +681,58 @@ protected:
     bool WriteBuffer(uint32 DescriptorIndex, VkBuffer BufferHandle, uint32 HandleId, VkDeviceSize Offset,
                      VkDeviceSize Range, uint32 DynamicOffset = 0)
     {
-        printf("Have not implement WriteBuffer %s %d\n", __FILE__, __LINE__);
-        check(0);
-        return false;
+        check(DescriptorIndex < NumWrites);
+        SetWritten(DescriptorIndex);
+        if (DescriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+        {
+            check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER || WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC);
+        }
+        else
+        {
+            check(WriteDescriptors[DescriptorIndex].descriptorType == DescriptorType);
+        }
+        VkDescriptorBufferInfo *BufferInfo = const_cast<VkDescriptorBufferInfo *>(WriteDescriptors[DescriptorIndex].pBufferInfo);
+        check(BufferInfo);
+
+        bool bChanged = false;
+        if (UseVulkanDescriptorCache())
+        {
+            check(0);
+            /* HashableDescriptorInfo &HashableInfo = HashableDescriptorInfos[DescriptorIndex];
+            check(HandleId > 0);
+            if (HashableInfo.Buffer.Id != HandleId)
+            {
+                HashableInfo.Buffer.Id = HandleId;
+                BufferInfo->buffer = BufferHandle;
+                bChanged = true;
+            }
+            if (HashableInfo.Buffer.Offset != static_cast<uint32>(Offset))
+            {
+                HashableInfo.Buffer.Offset = static_cast<uint32>(Offset);
+                BufferInfo->offset = Offset;
+                bChanged = true;
+            }
+            if (HashableInfo.Buffer.Range != static_cast<uint32>(Range))
+            {
+                HashableInfo.Buffer.Range = static_cast<uint32>(Range);
+                BufferInfo->range = Range;
+                bChanged = true;
+            }
+            bIsKeyDirty |= bChanged; */
+        }
+        else
+        {
+            bChanged = CopyAndReturnNotEqual(BufferInfo->buffer, BufferHandle);
+            bChanged |= CopyAndReturnNotEqual(BufferInfo->offset, Offset);
+            bChanged |= CopyAndReturnNotEqual(BufferInfo->range, Range);
+        }
+
+        if (DescriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
+        {
+            const uint8 DynamicOffsetIndex = BindingToDynamicOffsetMap[DescriptorIndex];
+            DynamicOffsets[DynamicOffsetIndex] = DynamicOffset;
+        }
+        return bChanged;
     }
 
     // A view into someone else's descriptors
@@ -715,6 +766,7 @@ protected:
     friend class DescriptorSetCache;
 
     void Reset();
+    void SetWritten(uint32 DescriptorIndex);
     void SetWrittenBase(uint32 DescriptorIndex);
     void InitWrittenMasks(uint32 NumDescriptorWrites);
 };

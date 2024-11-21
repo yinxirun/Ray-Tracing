@@ -293,6 +293,9 @@ void Device::CreateDevice(std::vector<const char *> &layers, std::vector<const c
 
 void Device::Destroy()
 {
+    delete descriptorPoolsManager;
+    descriptorPoolsManager = nullptr;
+
     delete DefaultTexture;
     DefaultTexture = nullptr;
 

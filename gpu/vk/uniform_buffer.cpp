@@ -75,8 +75,20 @@ static void UpdateUniformBufferHelper(CommandListContext &Context, VulkanUniform
     }
     else
     {
-        printf("Don't support  %s %d\n", __FILE__, __LINE__);
-        exit(-1);
+        check(CmdBuffer->IsOutsideRenderPass());
+
+        VulkanRHI::TempFrameAllocationBuffer::TempAllocInfo LockInfo;
+        Context.GetTempFrameAllocationBuffer().Alloc(DataSize, 16, LockInfo);
+        CopyUniformBufferData(LockInfo.Data, Data);
+
+        VkBufferCopy Region;
+        Region.size = DataSize;
+        Region.srcOffset = LockInfo.CurrentOffset;
+        Region.dstOffset = VulkanUniformBuffer->GetOffset();
+        VkBuffer UBBuffer = VulkanUniformBuffer->handle;
+        VkBuffer LockHandle = LockInfo.buffer;
+
+        vkCmdCopyBuffer(CmdBuffer->GetHandle(), LockHandle, UBBuffer, 1, &Region);
     }
 }
 
@@ -169,6 +181,28 @@ void VulkanUniformBuffer::UpdateResourceTable(RHIResource **Resources, int32 Res
 std::shared_ptr<UniformBuffer> RHI::CreateUniformBuffer(const void *Contents, std::shared_ptr<const UniformBufferLayout> Layout, UniformBufferUsage Usage, UniformBufferValidation Validation)
 {
     return std::make_shared<VulkanUniformBuffer>(*device, Layout, Contents, Usage, Validation);
+}
+
+inline void RHI::UpdateUniformBuffer(RHICommandListBase &RHICmdList, VulkanUniformBuffer *UniformBuffer, const void *Contents)
+{
+    const UniformBufferLayout &Layout = UniformBuffer->GetLayout();
+
+    const int32 ConstantBufferSize = Layout.ConstantBufferSize;
+    const int32 NumResources = Layout.Resources.size();
+
+    if (ConstantBufferSize > 0)
+    {
+        CommandListContext &Context = device->GetImmediateContext();
+        UpdateUniformBufferHelper(Context, UniformBuffer, Contents);
+    }
+
+    UniformBuffer->UpdateResourceTable(Layout, Contents, NumResources);
+}
+
+void RHI::UpdateUniformBuffer(RHICommandListBase &RHICmdList, UniformBuffer *UniformBufferRHI, const void *Contents)
+{
+    VulkanUniformBuffer *uniformBuffer = static_cast<VulkanUniformBuffer *>(UniformBufferRHI);
+    UpdateUniformBuffer(RHICmdList, uniformBuffer, Contents);
 }
 
 VulkanUniformBufferUploader::VulkanUniformBufferUploader(Device *InDevice)

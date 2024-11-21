@@ -486,6 +486,7 @@ public:
         : RHIShader(InResourceType, InFrequency) {}
 };
 
+/// 由shader factory负责回收
 class VertexShader : public RHIGraphicsShader
 {
 public:
@@ -498,6 +499,7 @@ public:
     RHIMeshShader() : RHIGraphicsShader(RRT_MeshShader, SF_Mesh) {}
 };
 
+/// 由shader factory负责回收
 class PixelShader : public RHIGraphicsShader
 {
 public:

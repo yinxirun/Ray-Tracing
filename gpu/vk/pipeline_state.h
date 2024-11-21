@@ -94,7 +94,6 @@ public:
 		}
 		else
 		{
-			check(0);
 			MarkDirty(DSWriter[DescriptorSet].WriteUniformBuffer(BindingIndex, UniformBuffer->handle, -1, UniformBuffer->GetOffset(), Range));
 		}
 	}
@@ -190,9 +189,7 @@ public:
 
 	inline void BindDescriptorSets(VkCommandBuffer CmdBuffer)
 	{
-		printf("ERROR %s\n", __FILE__);
-		check(0);
-		// 		Bind(CmdBuffer, GfxPipeline->GetLayout().GetPipelineLayout(), VK_PIPELINE_BIND_POINT_GRAPHICS);
+		Bind(CmdBuffer, GfxPipeline->GetLayout().GetPipelineLayout(), VK_PIPELINE_BIND_POINT_GRAPHICS);
 	}
 
 	void Reset()
@@ -200,6 +197,16 @@ public:
 		memcpy(PackedUniformBuffersDirty.data(), PackedUniformBuffersMask.data(), sizeof(uint64) * ShaderStage::NumStages);
 		CommonPipelineDescriptorState::Reset();
 		bIsResourcesDirty = true;
+	}
+
+	inline void Bind(VkCommandBuffer CmdBuffer, VkPipelineLayout PipelineLayout, VkPipelineBindPoint BindPoint)
+	{
+		// Bindless will replace with global sets
+		if (!bUseBindless)
+		{
+			vkCmdBindDescriptorSets(CmdBuffer, BindPoint, PipelineLayout, 0, DescriptorSetHandles.size(), DescriptorSetHandles.data(),
+									(uint32)DynamicOffsets.size(), DynamicOffsets.data());
+		}
 	}
 
 	inline const VulkanGfxPipelineDescriptorInfo &GetGfxPipelineDescriptorInfo() const { return *PipelineDescriptorInfo; }

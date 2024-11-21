@@ -30,6 +30,7 @@ class VertexElement;
 typedef std::vector<VertexElement> VertexDeclarationElementList;
 class PixelShader;
 class VertexShader;
+class VulkanUniformBuffer;
 
 extern RHI *rhi;
 
@@ -100,11 +101,10 @@ public:
     // FlushType: Thread safe, but varies depending on the RHI
     virtual std::shared_ptr<UniformBuffer> CreateUniformBuffer(const void *Contents, std::shared_ptr<const UniformBufferLayout> Layout, UniformBufferUsage Usage, UniformBufferValidation Validation);
 
+    virtual void UpdateUniformBuffer(RHICommandListBase &RHICmdList, UniformBuffer *UniformBufferRHI, const void *Contents);
+
     // 339
     virtual std::shared_ptr<Buffer> CreateBuffer(BufferDesc const &Desc, Access ResourceState, ResourceCreateInfo &CreateInfo);
-    /*virtual void *LockBuffer(RHICommandListBase &RHICmdList, Buffer *Buffer, uint32 Offset, uint32 Size, ResourceLockMode LockMode);
-    // FlushType: Flush RHI Thread
-    virtual void UnlockBuffer(RHICommandListBase &RHICmdList, Buffer *Buffer);*/
 
     // 673
     //  Compute the hash of the state components of the PSO initializer for PSO Precaching (only hash data relevant for the RHI specific PSO)
@@ -154,4 +154,7 @@ protected:
     VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
     void SetupDebugLayerCallback();
     void RemoveDebugLayerCallback();
+
+    /// @brief 不能再render pass中调用
+    void UpdateUniformBuffer(RHICommandListBase& RHICmdList, VulkanUniformBuffer* UniformBuffer, const void* Contents);
 };

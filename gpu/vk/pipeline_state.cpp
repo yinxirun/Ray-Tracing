@@ -15,6 +15,15 @@ void DescriptorSetWriter::Reset()
 #endif
 }
 
+void DescriptorSetWriter::SetWritten(uint32 DescriptorIndex)
+{
+#if VULKAN_VALIDATE_DESCRIPTORS_WRITTEN
+	uint32 Index = DescriptorIndex / 32;
+	uint32 Mask = DescriptorIndex % 32;
+	WrittenMask[Index] |= (1 << Mask);
+#endif
+}
+
 // 710
 void DescriptorSetWriter::SetWrittenBase(uint32 DescriptorIndex)
 {

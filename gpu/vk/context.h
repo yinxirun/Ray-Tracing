@@ -1,5 +1,4 @@
-/// @file 一个 CommandListContext 对应着一个 CommandBufferManager，也对应着一个 CommandBufferPool 。这三者一一对应。\
-///
+/// @file 一个 CommandListContext 对应着一个 CommandBufferManager，也对应着一个 CommandBufferPool 。这三者一一对应。
 #pragma once
 #include <memory>
 #include <iostream>
@@ -62,6 +61,8 @@ public:
 
     inline CommandBufferManager *GetCommandBufferManager() { return commandBufferManager; }
 
+    inline VulkanRHI::TempFrameAllocationBuffer &GetTempFrameAllocationBuffer() { return tempFrameAllocationBuffer; }
+
     inline PendingGfxState *GetPendingGfxState() { return pendingGfxState; }
 
     inline void NotifyDeletedRenderTarget(VkImage Image)
@@ -99,7 +100,7 @@ protected:
     bool bSubmitAtNextSafePoint;
     VulkanUniformBufferUploader *UniformBufferUploader;
 
-    void SetShaderUniformBuffer(ShaderStage::Stage Stage, const VulkanUniformBuffer *UniformBuffer, int32 ParameterIndex, const VulkanShader *Shader);
+    VulkanRHI::TempFrameAllocationBuffer tempFrameAllocationBuffer;
 
     RenderPass *CurrentRenderPass = nullptr;
     Framebuffer *CurrentFramebuffer = nullptr;

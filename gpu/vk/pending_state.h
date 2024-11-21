@@ -103,7 +103,7 @@ public:
         CurrentState->SetUniformBuffer<bDynamic>(DescriptorSet, BindingIndex, UniformBuffer);
     }
 
-    /// @brief 申请descriptor set，并写入
+    /// @brief 申请descriptor set，并写入。绑定动态状态（视口、裁剪等）。绑定descriptor set
     void PrepareForDraw(CmdBuffer *CmdBuffer);
 
     bool SetGfxPipeline(VulkanGraphicsPipelineState *InGfxPipeline, bool bForceReset);
