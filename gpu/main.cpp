@@ -115,9 +115,9 @@ int main()
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
         PerCamera perCamera;
-        perCamera.model = Rotate(Mat4(), Radians(45), Vec3(0, 0, 1));
-        perCamera.view = Lookat(Vec3(0, 0, 1), Vec3(0, 0, 0), Vec3(0, 1, 0));
-        perCamera.proj = Perspective(Radians(45), 1, 0.1, 100);
+        perCamera.model = Rotate(Mat4(1), Radians(45), Vec3(0, 0, 1));
+        perCamera.view = Mat4(1);
+        perCamera.proj = Mat4(1);
         UniformBufferLayoutInitializer UBInit;
         UBInit.BindingFlags = UniformBufferBindingFlags::Shader;
         UBInit.ConstantBufferSize = sizeof(PerCamera);

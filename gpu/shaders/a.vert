@@ -12,6 +12,6 @@ layout(std140, set = 0, binding = 0) uniform Camera {
 } camera;
 
 void main() {
-    gl_Position = vec4(inPosition, 1.0);
+    gl_Position = camera.proj * camera.view * camera.model * vec4(inPosition, 1.0);
     color = inColor;
 }

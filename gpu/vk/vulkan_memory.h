@@ -283,7 +283,7 @@ namespace VulkanRHI
         struct FrameEntry
         {
             VmaAllocation allocation;
-            VkBuffer buffer;
+            VkBuffer buffer = VK_NULL_HANDLE;
             std::vector<VmaAllocation> pendingDeletionAlloc;
             std::vector<VkBuffer> pendingDeletionBuf;
             uint8 *MappedData = nullptr;

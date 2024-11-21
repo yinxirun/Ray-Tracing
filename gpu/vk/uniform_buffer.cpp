@@ -88,6 +88,7 @@ static void UpdateUniformBufferHelper(CommandListContext &Context, VulkanUniform
         VkBuffer UBBuffer = VulkanUniformBuffer->handle;
         VkBuffer LockHandle = LockInfo.buffer;
 
+        printf("没同步？？\n");
         vkCmdCopyBuffer(CmdBuffer->GetHandle(), LockHandle, UBBuffer, 1, &Region);
     }
 }
@@ -135,7 +136,7 @@ VulkanUniformBuffer::VulkanUniformBuffer(Device &InDevice, std::shared_ptr<const
             VkBufferCreateInfo bufferCI{};
             bufferCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
             bufferCI.size = InLayout->ConstantBufferSize;
-            bufferCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+            bufferCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
             VmaAllocationCreateInfo allocationCI{};
             allocationCI.usage = VMA_MEMORY_USAGE_AUTO;
             allocationCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;

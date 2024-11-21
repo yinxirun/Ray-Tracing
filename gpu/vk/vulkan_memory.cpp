@@ -344,7 +344,9 @@ namespace VulkanRHI
         allocationCI.usage = VMA_MEMORY_USAGE_AUTO;
         allocationCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
         VmaAllocationInfo info{};
+        check(buffer == VK_NULL_HANDLE);
         VkResult result = vmaCreateBuffer(InDevice->GetAllocator(), &bufferCI, &allocationCI, &buffer, &allocation, &info);
+        printf("%d\n", buffer);
 
         if (result == VK_SUCCESS)
         {
@@ -362,6 +364,8 @@ namespace VulkanRHI
         {
             Entries[Index].Reset(device);
             vmaDestroyBuffer(device->GetAllocator(), Entries[Index].buffer, Entries[Index].allocation);
+            Entries[Index].buffer = VK_NULL_HANDLE;
+            Entries[Index].allocation = VK_NULL_HANDLE;
         }
     }
     bool TempFrameAllocationBuffer::FrameEntry::TryAlloc(uint32 InSize, uint32 InAlignment, TempAllocInfo &OutInfo)
