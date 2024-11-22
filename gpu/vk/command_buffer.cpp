@@ -533,8 +533,9 @@ void CommandBufferManager::SubmitUploadCmdBuffer(uint32_t NumSignalSemaphores, V
 
 		uploadCmdBuffer->End();
 
-		if (0)
+		if (GVulkanUploadCmdBufferSemaphore)
 		{
+			check(0);
 			// // Add semaphores associated with the recent active cmdbuf(s), if any. That will prevent
 			// // the overlap, delaying execution of this cmdbuf until the graphics one(s) is complete.
 			// for (FSemaphore *WaitForThis : RenderingCompletedSemaphores)

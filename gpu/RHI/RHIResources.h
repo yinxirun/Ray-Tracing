@@ -89,10 +89,10 @@ struct ResourceCreateInfo
 struct TextureDesc
 {
     TextureDesc() = default;
-    TextureDesc(ETextureDimension InDimension) : Dimension(InDimension) {}
+    TextureDesc(TextureDimension InDimension) : Dimension(InDimension) {}
 
     /** Texture dimension to use when creating the RHI texture. */
-    ETextureDimension Dimension = ETextureDimension::Texture2D;
+    TextureDimension Dimension = TextureDimension::Texture2D;
 
     /** Pixel format used to create RHI texture. */
     PixelFormat Format = PixelFormat::PF_Unknown;
@@ -123,7 +123,7 @@ struct TextureCreateDesc : public TextureDesc
 {
     static TextureCreateDesc Create2D(const char *InDebugName)
     {
-        return TextureCreateDesc(InDebugName, ETextureDimension::Texture2D);
+        return TextureCreateDesc(InDebugName, TextureDimension::Texture2D);
     }
 
     static TextureCreateDesc Create2D(const char *DebugName, int32 SizeX, int32 SizeY, PixelFormat Format)
@@ -131,8 +131,10 @@ struct TextureCreateDesc : public TextureDesc
         return Create2D(DebugName).SetExtent(SizeX, SizeY).SetFormat(Format);
     }
 
+    TextureCreateDesc() = default;
+
     // Constructor with minimal argument set. Name and dimension are always required.
-    TextureCreateDesc(const char *InDebugName, ETextureDimension InDimension) : TextureDesc(InDimension), DebugName(InDebugName) {}
+    TextureCreateDesc(const char *InDebugName, TextureDimension InDimension) : TextureDesc(InDimension), DebugName(InDebugName) {}
 
     TextureCreateDesc &SetExtent(int32 InExtentX, int32 InExtentY)
     {

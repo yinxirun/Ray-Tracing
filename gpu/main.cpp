@@ -114,6 +114,7 @@ int main()
         // PSO的回收还没写，目前是会泄漏的
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
+        // 相机参数
         PerCamera perCamera;
         perCamera.model = Rotate(Mat4(1), Radians(90), Vec3(0, 0, 1));
         perCamera.view = Mat4(1);
@@ -129,6 +130,10 @@ int main()
         auto ub = CreateUniformBuffer(0, UBLayout, UniformBufferUsage::UniformBuffer_MultiFrame, UniformBufferValidation::None);
         rhi->UpdateUniformBuffer(dummy, ub.get(), &perCamera);
         context->SubmitCommandsHint();
+
+        // 纹理
+        TextureCreateDesc texDesc = TextureCreateDesc::Create2D("BaseColor", 100, 100, PF_B8G8R8A8);
+        auto tex = CreateTexture(dummy, texDesc);
 
         while (!glfwWindowShouldClose(window))
         {

@@ -9,6 +9,11 @@
 class ComputeContext;
 class CommandContext;
 
+extern bool GIsRunningRHIInSeparateThread_InternalUseOnly;
+
+/// Whether the RHI commands are being run in a thread other than the render thread
+bool __forceinline IsRunningRHIInSeparateThread() { return GIsRunningRHIInSeparateThread_InternalUseOnly; }
+
 class RHICommandListBase
 {
 public:

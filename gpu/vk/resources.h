@@ -37,19 +37,19 @@ struct GfxPipelineDesc;
 class VulkanPipelineLayout;
 
 // Converts the internal texture dimension to Vulkan view type
-inline VkImageViewType UETextureDimensionToVkImageViewType(ETextureDimension Dimension)
+inline VkImageViewType UETextureDimensionToVkImageViewType(TextureDimension Dimension)
 {
     switch (Dimension)
     {
-    case ETextureDimension::Texture2D:
+    case TextureDimension::Texture2D:
         return VK_IMAGE_VIEW_TYPE_2D;
-    case ETextureDimension::Texture2DArray:
+    case TextureDimension::Texture2DArray:
         return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-    case ETextureDimension::Texture3D:
+    case TextureDimension::Texture3D:
         return VK_IMAGE_VIEW_TYPE_3D;
-    case ETextureDimension::TextureCube:
+    case TextureDimension::TextureCube:
         return VK_IMAGE_VIEW_TYPE_CUBE;
-    case ETextureDimension::TextureCubeArray:
+    case TextureDimension::TextureCubeArray:
         return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
     default:
         checkNoEntry();
@@ -345,9 +345,7 @@ public:
     VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, const TextureCreateDesc &InCreateDesc, bool bIsTransientResource = false);
 
     VulkanTexture(Device &InDevice, const TextureCreateDesc &InCreateDesc)
-        : VulkanTexture(nullptr, InDevice, InCreateDesc)
-    {
-    }
+        : VulkanTexture(nullptr, InDevice, InCreateDesc) {}
 
     // Construct from external resource.
     // FIXME: HUGE HACK: the bUnused argument is there to disambiguate this overload from the one above when passing nullptr, since nullptr is a valid VkImage. Get rid of this code smell when unifying FVulkanSurface and FVulkanTexture.
@@ -388,6 +386,12 @@ public:
         bool bForceLinearTexture = false);
 
     void DestroySurface();
+
+	/// Returns one of the texture's mip-maps stride.
+	void GetMipStride(uint32 MipIndex, uint32& Stride);
+    /// Returns the memory offset to the texture's mip-map.
+	void GetMipOffset(uint32 MipIndex, uint32& Offset);
+    void GetMipSize(uint32 MipIndex, uint32& MipBytes);
 
     inline VkImageViewType GetViewType() const
     {
@@ -618,7 +622,7 @@ public:
     VkBuffer handle = VK_NULL_HANDLE;
     VmaAllocation allocation = VK_NULL_HANDLE;
     VmaAllocationInfo info;
-    uint32 offset;
+    uint32 offset = 0;
 
     UniformBufferUsage Usage;
 

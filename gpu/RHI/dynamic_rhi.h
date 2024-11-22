@@ -51,3 +51,8 @@ __forceinline std::shared_ptr<SamplerState> CreateSamplerState(const SamplerStat
 {
     return rhi->CreateSamplerState(Initializer);
 }
+
+__forceinline std::shared_ptr<Texture> CreateTexture(RHICommandListBase &RHICmdList, const TextureCreateDesc &CreateDesc)
+{
+    return rhi->CreateTexture(RHICmdList, CreateDesc);
+}

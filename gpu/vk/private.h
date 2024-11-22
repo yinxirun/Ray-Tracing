@@ -26,7 +26,7 @@ constexpr bool VKHasAnyFlags(VkFlags Flags, BitsType Contains)
 }
 
 extern VkFormat GVulkanSRGBFormat[PF_MAX];
-extern VkFormat GPixelFormats[PF_MAX];
+
 inline VkFormat UEToVkTextureFormat(PixelFormat UEFormat, const bool bIsSRGB)
 {
 	if (bIsSRGB)
@@ -35,7 +35,7 @@ inline VkFormat UEToVkTextureFormat(PixelFormat UEFormat, const bool bIsSRGB)
 	}
 	else
 	{
-		return (VkFormat)GPixelFormats[UEFormat];
+		return (VkFormat)GPixelFormats[UEFormat].PlatformFormat;
 	}
 }
 

@@ -20,9 +20,10 @@ const ClearValueBinding ClearValueBinding::None(ClearBinding::ENoneBound);
 bool GEnableAsyncCompute = true;
 
 // Mirror GPixelFormats with format information for buffers
-VkFormat GVulkanSRGBFormat[PF_MAX];
+VkFormat GVulkanBufferFormat[PF_MAX];
 
-VkFormat GPixelFormats[PF_MAX];
+// Mirror GPixelFormats with format information for buffers
+VkFormat GVulkanSRGBFormat[PF_MAX];
 
 EDelayAcquireImageType GVulkanDelayAcquireImage = EDelayAcquireImageType::DelayAcquire;
 
@@ -496,15 +497,20 @@ void Device::SetupFormats()
     // Initialize the platform pixel format map.
     for (int32 Index = 0; Index < PF_MAX; ++Index)
     {
-        // GPixelFormats[Index].PlatformFormat = VK_FORMAT_UNDEFINED;
-        // GPixelFormats[Index].Supported = false;
-        // GVulkanBufferFormat[Index] = VK_FORMAT_UNDEFINED;
+        GPixelFormats[Index].PlatformFormat = VK_FORMAT_UNDEFINED;
+        GPixelFormats[Index].Supported = false;
+        GVulkanBufferFormat[Index] = VK_FORMAT_UNDEFINED;
 
         // Set default component mapping
         PixelFormatComponentMapping[Index] = ComponentMappingRGBA;
     }
 
-    GPixelFormats[PF_Unknown] = VK_FORMAT_UNDEFINED;
-    GPixelFormats[PF_A32B32G32R32F] = VK_FORMAT_R32G32B32A32_SFLOAT;
-    GPixelFormats[PF_B8G8R8A8] = VK_FORMAT_B8G8R8A8_UNORM;
+    GPixelFormats[PF_Unknown].PlatformFormat = (uint32)VK_FORMAT_UNDEFINED;
+    GPixelFormats[PF_A32B32G32R32F].PlatformFormat = (uint32)VK_FORMAT_R32G32B32A32_SFLOAT;
+
+    GPixelFormats[PF_B8G8R8A8].PlatformFormat = (uint32)VK_FORMAT_B8G8R8A8_UNORM;
+    GPixelFormats[PF_B8G8R8A8].Supported = true;
+    GVulkanSRGBFormat[PF_B8G8R8A8] = VK_FORMAT_B8G8R8A8_SRGB;
+    
+    GPixelFormats[PF_G8].PlatformFormat = (uint32)VK_FORMAT_R8_UNORM;
 }

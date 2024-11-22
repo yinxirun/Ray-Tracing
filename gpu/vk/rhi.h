@@ -79,7 +79,7 @@ public:
 
     virtual CommandContext *GetDefaultContext();
 
-    virtual ComputeContext* GetCommandContext(RHIPipeline Pipeline, RHIGPUMask GPUMask);
+    virtual ComputeContext *GetCommandContext(RHIPipeline Pipeline, RHIGPUMask GPUMask);
 
     std::shared_ptr<Viewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
                                              bool bIsFullscreen, PixelFormat PreferredPixelFormat);
@@ -111,6 +111,32 @@ public:
 
     // 339
     virtual std::shared_ptr<Buffer> CreateBuffer(BufferDesc const &Desc, Access ResourceState, ResourceCreateInfo &CreateInfo);
+
+    virtual std::shared_ptr<Texture> CreateTexture(RHICommandListBase &RHICmdList, const TextureCreateDesc &CreateDesc);
+
+    /**
+     * Locks an RHI texture's mip-map for read/write operations on the CPU
+     * @param Texture - the RHI texture resource to lock, must not be 0
+     * @param MipIndex - index of the mip level to lock
+     * @param LockMode - Whether to lock the texture read-only instead of write-only
+     * @param DestStride - output to retrieve the textures row stride (pitch)
+     * @param bLockWithinMiptail - for platforms that support packed miptails allow locking of individual mip levels within the miptail
+     * @return pointer to the CPU accessible resource data
+     */
+    // FlushType: Flush RHI Thread
+    virtual void *LockTexture2D(Texture *Texture, uint32 MipIndex, ResourceLockMode LockMode, uint32 &DestStride, bool bLockWithinMiptail, uint64 *OutLockedByteCount = nullptr);
+
+    /**
+     * Unlocks a previously locked RHI texture resource
+     * @param Texture - the RHI texture resource to unlock, must not be 0
+     * @param MipIndex - index of the mip level to unlock
+     * @param bLockWithinMiptail - for platforms that support packed miptails allow locking of individual mip levels within the miptail
+     */
+    // FlushType: Flush RHI Thread
+    virtual void UnlockTexture2D(Texture *Texture, uint32 MipIndex, bool bLockWithinMiptail)
+    {
+        InternalUnlockTexture2D(false, Texture, MipIndex, bLockWithinMiptail);
+    }
 
     // 673
     //  Compute the hash of the state components of the PSO initializer for PSO Precaching (only hash data relevant for the RHI specific PSO)
@@ -161,6 +187,8 @@ protected:
     void SetupDebugLayerCallback();
     void RemoveDebugLayerCallback();
 
-    /// @brief 不能再render pass中调用
-    void UpdateUniformBuffer(RHICommandListBase& RHICmdList, VulkanUniformBuffer* UniformBuffer, const void* Contents);
+    void InternalUnlockTexture2D(bool bFromRenderingThread, Texture *Texture, uint32 MipIndex, bool bLockWithinMiptail);
+
+    /// @brief 不能再render pass中调用。我的修改导致的？
+    void UpdateUniformBuffer(RHICommandListBase &RHICmdList, VulkanUniformBuffer *UniformBuffer, const void *Contents);
 };

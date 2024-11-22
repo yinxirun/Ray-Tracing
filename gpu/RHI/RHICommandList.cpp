@@ -6,6 +6,8 @@
 #include <cmath>
 #include <atomic>
 
+bool GIsRunningRHIInSeparateThread_InternalUseOnly = false;
+
 RHICommandListExecutor GRHICommandListExecutor;
 
 template <typename T>

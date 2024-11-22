@@ -4,9 +4,11 @@
 #include "command_buffer.h"
 #include "context.h"
 #include "vulkan_memory.h"
+#include "rhi.h"
 #include "gpu/RHI/RHIResources.h"
-
-extern VkFormat GPixelFormats[PF_MAX];
+#include "gpu/RHI/RHICommandList.h"
+#include "gpu/core/pixel_format.h"
+#include <unordered_map>
 
 static const VkImageTiling GVulkanViewTypeTilingMode[7] =
     {
@@ -21,6 +23,34 @@ static const VkImageTiling GVulkanViewTypeTilingMode[7] =
 
 int32 GVulkanDepthStencilForceStorageBit = 0;
 
+struct TextureLock
+{
+    RHIResource *Texture;
+    uint32 MipIndex;
+    uint32 LayerIndex;
+    TextureLock(RHIResource *InTexture, uint32 InMipIndex, uint32 InLayerIndex = 0)
+        : Texture(InTexture), MipIndex(InMipIndex), LayerIndex(InLayerIndex) {}
+};
+
+inline bool operator==(const TextureLock &A, const TextureLock &B)
+{
+    return A.Texture == B.Texture && A.MipIndex == B.MipIndex && A.LayerIndex == B.LayerIndex;
+}
+
+namespace std
+{
+    template <>
+    struct hash<TextureLock>
+    {
+        size_t operator()(const TextureLock &value) const
+        {
+            return GetTypeHash(value.Texture) ^ (value.MipIndex << 16) ^ (value.LayerIndex << 8);
+        }
+    };
+}
+
+static std::unordered_map<TextureLock, VulkanRHI::StagingBuffer *> GPendingLockedBuffers;
+
 // Seperate method for creating VkImageCreateInfo
 void VulkanTexture::GenerateImageCreateInfo(
     ImageCreateInfo &OutImageCreateInfo,
@@ -31,7 +61,7 @@ void VulkanTexture::GenerateImageCreateInfo(
     bool bForceLinearTexture)
 {
     const VkPhysicalDeviceProperties &DeviceProperties = InDevice.GetDeviceProperties();
-    VkFormat TextureFormat = GPixelFormats[InDesc.Format];
+    VkFormat TextureFormat = (VkFormat)GPixelFormats[InDesc.Format].PlatformFormat;
 
     const TextureCreateFlags UEFlags = InDesc.Flags;
     if (EnumHasAnyFlags(UEFlags, TexCreate_CPUReadback))
@@ -516,6 +546,57 @@ void VulkanTexture::InternalLockWrite(CommandListContext &Context, VulkanTexture
     Context.GetCommandBufferManager()->SubmitUploadCmdBuffer();
 }
 
+void VulkanTexture::GetMipStride(uint32 MipIndex, uint32 &Stride)
+{
+    // Calculate the width of the MipMap.
+    const TextureDesc &Desc = GetDesc();
+    const PixelFormat PixelFormat = Desc.Format;
+    const uint32 BlockSizeX = GPixelFormats[PixelFormat].BlockSizeX;
+    const uint32 MipSizeX = std::max<uint32>(Desc.Extent.x >> MipIndex, BlockSizeX);
+    uint32 NumBlocksX = (MipSizeX + BlockSizeX - 1) / BlockSizeX;
+    if (PixelFormat == PF_PVRTC2 || PixelFormat == PF_PVRTC4)
+    {
+        // PVRTC has minimum 2 blocks width
+        NumBlocksX = std::max<uint32>(NumBlocksX, 2);
+    }
+    const uint32 BlockBytes = GPixelFormats[PixelFormat].BlockBytes;
+    Stride = NumBlocksX * BlockBytes;
+}
+
+void VulkanTexture::GetMipOffset(uint32 MipIndex, uint32 &Offset)
+{
+    uint32 offset = Offset = 0;
+    for (uint32 i = 0; i < MipIndex; i++)
+    {
+        GetMipSize(i, offset);
+        Offset += offset;
+    }
+}
+
+void VulkanTexture::GetMipSize(uint32 MipIndex, uint32 &MipBytes)
+{
+    // Calculate the dimensions of mip-map level.
+    const TextureDesc &Desc = GetDesc();
+    const PixelFormat PixelFormat = Desc.Format;
+    const uint32 BlockSizeX = GPixelFormats[PixelFormat].BlockSizeX;
+    const uint32 BlockSizeY = GPixelFormats[PixelFormat].BlockSizeY;
+    const uint32 BlockBytes = GPixelFormats[PixelFormat].BlockBytes;
+    const uint32 MipSizeX = std::max<uint32>(Desc.Extent.x >> MipIndex, BlockSizeX);
+    const uint32 MipSizeY = std::max<uint32>(Desc.Extent.y >> MipIndex, BlockSizeY);
+    uint32 NumBlocksX = (MipSizeX + BlockSizeX - 1) / BlockSizeX;
+    uint32 NumBlocksY = (MipSizeY + BlockSizeY - 1) / BlockSizeY;
+
+    if (PixelFormat == PF_PVRTC2 || PixelFormat == PF_PVRTC4)
+    {
+        // PVRTC has minimum 2 blocks width and height
+        NumBlocksX = std::max<uint32>(NumBlocksX, 2);
+        NumBlocksY = std::max<uint32>(NumBlocksY, 2);
+    }
+
+    // Size in bytes
+    MipBytes = NumBlocksX * NumBlocksY * BlockBytes * Desc.Depth;
+}
+
 void VulkanTexture::SetInitialImageState(CommandListContext &Context, VkImageLayout InitialLayout,
                                          bool bClear, const ClearValueBinding &ClearValueBinding, bool bIsTransientResource)
 {
@@ -567,4 +648,107 @@ void VulkanTexture::SetInitialImageState(CommandListContext &Context, VkImageLay
     }
 
     CmdBuffer->GetLayoutManager().SetFullLayout(*this, InitialLayout);
+}
+
+/*-----------------------------------------------------------------------------
+    2D texture support.
+-----------------------------------------------------------------------------*/
+
+// 1015
+std::shared_ptr<Texture> RHI::CreateTexture(RHICommandListBase &RHICmdList, const TextureCreateDesc &CreateDesc)
+{
+    Texture *tex = new VulkanTexture(&RHICmdList, *device, CreateDesc);
+    return std::shared_ptr<Texture>(tex);
+}
+
+// 1183
+void *RHI::LockTexture2D(Texture *TextureRHI, uint32 MipIndex, ResourceLockMode LockMode, uint32 &DestStride, bool bLockWithinMiptail, uint64 *OutLockedByteCount)
+{
+    VulkanTexture *texture = static_cast<VulkanTexture *>(TextureRHI);
+    check(texture);
+
+    VulkanRHI::StagingBuffer **StagingBuffer = nullptr;
+    {
+        /* FScopeLock Lock(&GTextureMapLock); */
+        TextureLock lock(TextureRHI, MipIndex);
+        auto it = GPendingLockedBuffers.find(lock);
+        if (it == GPendingLockedBuffers.end())
+        {
+            GPendingLockedBuffers.insert(std::pair(lock, nullptr));
+        }
+        StagingBuffer = &GPendingLockedBuffers[lock];
+
+        checkf(!StagingBuffer, "Can't lock the same texture twice!");
+    }
+
+    // No locks for read allowed yet
+    check(LockMode == RLM_WriteOnly);
+
+    uint32 BufferSize = 0;
+    DestStride = 0;
+    texture->GetMipSize(MipIndex, BufferSize);
+    texture->GetMipStride(MipIndex, DestStride);
+    *StagingBuffer = device->GetStagingManager().AcquireBuffer(BufferSize);
+
+    if (OutLockedByteCount)
+    {
+        *OutLockedByteCount = BufferSize;
+    }
+
+    void *Data = (*StagingBuffer)->GetMappedPointer();
+    return Data;
+}
+
+void RHI::InternalUnlockTexture2D(bool bFromRenderingThread, Texture *TextureRHI, uint32 MipIndex, bool bLockWithinMiptail)
+{
+    VulkanTexture *texture = static_cast<VulkanTexture *>(TextureRHI);
+    check(texture);
+
+    VkDevice LogicalDevice = device->GetInstanceHandle();
+
+    VulkanRHI::StagingBuffer *StagingBuffer = nullptr;
+    {
+        /* FScopeLock Lock(&GTextureMapLock); */
+        auto it = GPendingLockedBuffers.find(TextureLock(TextureRHI, MipIndex));
+        bool bFound = it != GPendingLockedBuffers.end();
+        if (bFound)
+        {
+            StagingBuffer = it->second;
+            GPendingLockedBuffers.erase(it);
+        }
+        checkf(bFound, "Texture was not locked!");
+    }
+
+    const TextureDesc &Desc = texture->GetDesc();
+    const PixelFormat Format = Desc.Format;
+    uint32 MipWidth = std::max<uint32>(Desc.Extent.x >> MipIndex, 0);
+    uint32 MipHeight = std::max<uint32>(Desc.Extent.x >> MipIndex, 0);
+    ensure(!(MipHeight == 0 && MipWidth == 0));
+    MipWidth = std::max<uint32>(MipWidth, 1);
+    MipHeight = std::max<uint32>(MipHeight, 1);
+    uint32 LayerCount = texture->GetNumberOfArrayLevels();
+
+    VkBufferImageCopy Region;
+    memset(&Region, 0, sizeof(Region));
+    // #todo-rco: Might need an offset here?
+    // Region.bufferOffset = 0;
+    Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    Region.imageSubresource.mipLevel = MipIndex;
+    Region.imageSubresource.layerCount = LayerCount;
+    Region.imageExtent.width = MipWidth;
+    Region.imageExtent.height = MipHeight;
+    Region.imageExtent.depth = 1;
+
+    RHICommandList &RHICmdList = RHICommandListExecutor::GetImmediateCommandList();
+    if (!bFromRenderingThread || (RHICmdList.Bypass() || !IsRunningRHIInSeparateThread()))
+    {
+        VulkanTexture::InternalLockWrite(device->GetImmediateContext(), texture, Region, StagingBuffer);
+    }
+    else
+    {
+        check(0);
+        /* check(IsInRenderingThread());
+        ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)
+        (texture, Region, StagingBuffer); */
+    }
 }

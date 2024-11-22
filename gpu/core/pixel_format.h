@@ -19,7 +19,11 @@ enum PixelFormat : uint8
     PF_DepthStencil = 11,
     PF_ShadowDepth = 12,
     PF_R32_FLOAT = 13,
+    PF_A2B10G10R10 = 18,
+    PF_A16B16G16R16 = 19,
     PF_D24 = 20,
+    PF_PVRTC2 = 30,
+    PF_PVRTC4 = 31,
     PF_X24_G8 = 44, // Used for creating SRVs to alias a DepthStencil buffer to read Stencil. Don't use for creating textures.
     PF_R32G32_UINT = 68,
     PF_R64_UINT = 84,
@@ -73,16 +77,9 @@ ENUM_CLASS_FLAGS(EPixelFormatCapabilities);
  */
 struct PixelFormatInfo
 {
-    // FPixelFormatInfo() = delete;
-    // FPixelFormatInfo(
-    //     EPixelFormat InUnrealFormat,
-    //     const char *InName,
-    //     int32 InBlockSizeX,
-    //     int32 InBlockSizeY,
-    //     int32 InBlockSizeZ,
-    //     int32 InBlockBytes,
-    //     int32 InNumComponents,
-    //     bool InSupported);
+    PixelFormatInfo() = default;
+    PixelFormatInfo(PixelFormat InUnrealFormat, const char *InName, int32 InBlockSizeX, int32 InBlockSizeY,
+                    int32 InBlockSizeZ, int32 InBlockBytes, int32 InNumComponents, bool InSupported);
 
     const char *Name;
     PixelFormat UnrealFormat;
@@ -104,3 +101,5 @@ struct PixelFormatInfo
     // If false, 32 bit float is assumed (initialized by RHI module - invalid otherwise)
     uint8 bIs24BitUnormDepthStencil : 1;
 };
+
+extern PixelFormatInfo GPixelFormats[PF_MAX];

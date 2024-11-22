@@ -581,7 +581,7 @@ enum ERHIResourceType : uint8
 };
 
 /** Describes the dimension of a texture. */
-enum class ETextureDimension : uint8
+enum class TextureDimension : uint8
 {
 	Texture2D,
 	Texture2DArray,
