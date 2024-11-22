@@ -406,6 +406,28 @@ void Device::NotifyDeletedGfxPipeline(class VulkanGraphicsPipelineState *Pipelin
     }
 }
 
+/* static FCriticalSection GContextCS; */
+CommandListContext *Device::AcquireDeferredContext()
+{
+    /* FScopeLock Lock(&GContextCS); */
+    if (commandContexts.size() == 0)
+    {
+        return new CommandListContext(rhi, this, gfxQueue, immediateContext);
+    }
+    CommandListContext *res = commandContexts.back();
+    commandContexts.pop_back();
+    return res;
+}
+
+void Device::ReleaseDeferredContext(CommandListContext *InContext)
+{
+    check(InContext);
+    {
+        /* FScopeLock Lock(&GContextCS); */
+        commandContexts.push_back(InContext);
+    }
+}
+
 void Device::SetupPresentQueue(VkSurfaceKHR Surface)
 {
     if (!presentQueue)

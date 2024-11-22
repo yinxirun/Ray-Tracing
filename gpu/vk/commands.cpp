@@ -1,9 +1,12 @@
-#include "context.h"
+#include "gpu/core/assertion_macros.h"
 #include "gpu/RHI/RHIGlobals.h"
+#include "gpu/RHI/RHIPipeline.h"
+#include "context.h"
 #include "pending_state.h"
 #include "pipeline.h"
 #include "pipeline_state.h"
 #include "platform.h"
+#include "rhi.h"
 
 static __forceinline ShaderStage::Stage GetAndVerifyShaderStageAndVulkanShader(
     RHIGraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState, VulkanShader *&OutShader)
@@ -254,4 +257,31 @@ void CommandListContext::SubmitCommandsHint()
         SafePointSubmit();
     }
     commandBufferManager->RefreshFenceStatus();
+}
+
+ComputeContext *RHI::GetCommandContext(RHIPipeline Pipeline, RHIGPUMask GPUMask)
+{
+    // @todo: RHI command list refactor - fix async compute
+    checkf(Pipeline == RHIPipeline::Graphics, "Async compute command contexts not currently implemented.");
+
+    CommandListContext *CmdContext = device->AcquireDeferredContext();
+
+    CommandBufferManager *CmdMgr = CmdContext->GetCommandBufferManager();
+    CmdBuffer *cmdBuffer = CmdMgr->GetActiveCmdBuffer();
+    if (!cmdBuffer)
+    {
+        CmdMgr->PrepareForNewActiveCommandBuffer();
+        cmdBuffer = CmdMgr->GetActiveCmdBuffer();
+    }
+    else if (cmdBuffer->IsSubmitted())
+    {
+        CmdMgr->PrepareForNewActiveCommandBuffer();
+        cmdBuffer = CmdMgr->GetActiveCmdBuffer();
+    }
+    if (!cmdBuffer->HasBegun())
+    {
+        cmdBuffer->Begin();
+    }
+
+    return CmdContext;
 }

@@ -14,12 +14,6 @@
 
 #define DEPRECATED(x, y)
 
-/// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
-inline bool IsInGameThread() { return true; }
-/// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
-inline bool IsInRenderingThread() { return true; }
-/// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
-inline bool IsInRHIThread() { return true; }
 
 // RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.
 // Enforce a min size of 64 bits on pointer types in uniform buffer structs to guarantee layout matching between languages.

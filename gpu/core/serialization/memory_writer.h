@@ -1,3 +1,4 @@
+#include "gpu/core/assertion_macros.h"
 #include "memory_archive.h"
 #include <type_traits>
 #include <vector>

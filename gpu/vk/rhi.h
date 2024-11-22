@@ -7,11 +7,15 @@
 #include "gpu/RHI/RHIAccess.h"
 #include "gpu/RHI/RHIDefinitions.h"
 #include "gpu/RHI/RHIResources.h"
+#include "gpu/RHI/RHIPipeline.h"
+#include "gpu/RHI/multi_gpu.h"
 #include "gpu/core/assertion_macros.h"
 
 class Device;
 class Viewport;
+class CommandContext;
 class CommandListContext;
+class ComputeContext;
 class RHI;
 class RHICommandListBase;
 class ResourceCreateInfo;
@@ -73,7 +77,9 @@ public:
 
     virtual VertexShader *CreateVertexShader(std::vector<uint8> Code);
 
-    CommandListContext *GetDefaultContext();
+    virtual CommandContext *GetDefaultContext();
+
+    virtual ComputeContext* GetCommandContext(RHIPipeline Pipeline, RHIGPUMask GPUMask);
 
     std::shared_ptr<Viewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
                                              bool bIsFullscreen, PixelFormat PreferredPixelFormat);

@@ -162,7 +162,7 @@ std::shared_ptr<BlendState> RHI::CreateBlendState(const BlendStateInitializerRHI
     return std::make_shared<VulkanBlendState>(Initializer);
 }
 
-CommandListContext *RHI::GetDefaultContext() { return &device->GetImmediateContext(); }
+CommandContext *RHI::GetDefaultContext() { return &device->GetImmediateContext(); }
 
 GraphicsPipelineState *RHI::CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
 {

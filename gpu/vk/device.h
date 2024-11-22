@@ -238,6 +238,9 @@ public:
 
     void NotifyDeletedGfxPipeline(class VulkanGraphicsPipelineState *Pipeline);
 
+    CommandListContext *AcquireDeferredContext();
+    void ReleaseDeferredContext(CommandListContext *InContext);
+
     inline const OptionalVulkanDeviceExtensions &GetOptionalExtensions() const { return OptionalDeviceExtensions; }
 
     inline bool SupportsParallelRendering() const { return false; }

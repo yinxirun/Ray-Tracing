@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include "gpu/RHI/RHIDefinitions.h"
+#include "gpu/core/assertion_macros.h"
 
 namespace ShaderStage
 {

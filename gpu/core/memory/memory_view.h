@@ -4,6 +4,7 @@
 #include <algorithm>
 #include "gpu/definitions.h"
 #include "gpu/core/templates/choose_class.h"
+#include "gpu/core/assertion_macros.h"
 
 /**
  * A non-owning view of a contiguous region of memory.

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gpu/core/assertion_macros.h"
 #include "archive.h"
 #include <vector>
 #include <type_traits>

@@ -11,11 +11,16 @@ typedef int32_t int32;
 typedef int64_t int64;
 typedef uint8_t uint8;
 typedef uint16_t uint16;
-#define check assert
-#define ensure assert
 /** NEED TO RENAME, for RT version of GFrameTime use View.ViewFamily->FrameNumber or pass down from RT from GFrameTime). */
 #define VK_DESCRIPTOR_TYPE_BEGIN_RANGE VK_DESCRIPTOR_TYPE_SAMPLER
 #define VK_DESCRIPTOR_TYPE_END_RANGE VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT
+
+/// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
+inline bool IsInGameThread() { return true; }
+/// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
+inline bool IsInRenderingThread() { return true; }
+/// 不区分工作线程、渲染线程和RHI线程，所以全部返回true
+inline bool IsInRHIThread() { return true; }
 
 /*----------------------------------------------------------------------------
     TList.

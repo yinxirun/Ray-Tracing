@@ -4,7 +4,7 @@
 
 extern RHI *rhi;
 
-__forceinline CommandListContext *GetDefaultContext() { return rhi->GetDefaultContext(); }
+__forceinline CommandContext *GetDefaultContext() { return rhi->GetDefaultContext(); }
 
 __forceinline std::shared_ptr<Viewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
                                                        bool bIsFullscreen, PixelFormat PreferredPixelFormat)

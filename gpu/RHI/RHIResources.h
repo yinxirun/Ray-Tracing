@@ -1,6 +1,7 @@
 #pragma once
 #include "Volk/volk.h"
 #include "gpu/core/templates/alignment_template.h"
+#include "gpu/core/assertion_macros.h"
 #include "gpu/math/color.h"
 #include "gpu/math/vec.h"
 #include "gpu/definitions.h"

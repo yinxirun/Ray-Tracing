@@ -346,7 +346,6 @@ namespace VulkanRHI
         VmaAllocationInfo info{};
         check(buffer == VK_NULL_HANDLE);
         VkResult result = vmaCreateBuffer(InDevice->GetAllocator(), &bufferCI, &allocationCI, &buffer, &allocation, &info);
-        printf("%d\n", buffer);
 
         if (result == VK_SUCCESS)
         {

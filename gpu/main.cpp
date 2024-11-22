@@ -13,7 +13,6 @@
 #include "gpu/vk/viewport.h"
 
 Viewport *drawingViewport = nullptr;
-RHICommandList dummy;
 
 void OnSizeChanged(GLFWwindow *window, int width, int height)
 {
@@ -57,8 +56,9 @@ int main()
     glfwSetFramebufferSizeCallback(window, OnSizeChanged);
 
     RHIInit();
+    RHICommandListImmediate dummy = RHICommandListExecutor::GetImmediateCommandList();
     {
-        CommandListContext *context = GetDefaultContext();
+        CommandContext *context = GetDefaultContext();
         std::shared_ptr<Viewport> viewport = CreateViewport(window, 800, 600, false, PixelFormat::PF_B8G8R8A8);
         drawingViewport = viewport.get();
 
@@ -115,7 +115,7 @@ int main()
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
         PerCamera perCamera;
-        perCamera.model = Rotate(Mat4(1), Radians(45), Vec3(0, 0, 1));
+        perCamera.model = Rotate(Mat4(1), Radians(90), Vec3(0, 0, 1));
         perCamera.view = Mat4(1);
         perCamera.proj = Mat4(1);
         UniformBufferLayoutInitializer UBInit;
@@ -128,6 +128,7 @@ int main()
         auto UBLayout = std::make_shared<const UniformBufferLayout>(UBInit);
         auto ub = CreateUniformBuffer(0, UBLayout, UniformBufferUsage::UniformBuffer_MultiFrame, UniformBufferValidation::None);
         rhi->UpdateUniformBuffer(dummy, ub.get(), &perCamera);
+        context->SubmitCommandsHint();
 
         while (!glfwWindowShouldClose(window))
         {

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "gpu/definitions.h"
+#include "gpu/core/assertion_macros.h"
+#include "gpu/RHI/multi_gpu.h"
 #include "RHIResources.h"
 
 class Viewport;
@@ -22,6 +24,9 @@ public:
 
     /// Submit the current command buffer to the GPU if possible.
     virtual void SubmitCommandsHint() = 0;
+
+    virtual void SetGPUMask(RHIGPUMask GPUMask) { ensure(GPUMask == RHIGPUMask::GPU0()); }
+    virtual RHIGPUMask GetGPUMask() const { return RHIGPUMask::GPU0(); }
 };
 
 class CommandContext : public ComputeContext
