@@ -51,6 +51,9 @@ public:
     virtual void SetStreamSource(uint32 StreamIndex, Buffer *VertexBuffer, uint32 Offset) = 0;
 
     virtual void SetGraphicsPipelineState(GraphicsPipelineState *GraphicsState, uint32 StencilRef, bool bApplyAdditionalState) = 0;
+    
+    /** Set the shader resource view of a surface. */
+    virtual void SetShaderTexture(RHIGraphicsShader *Shader, uint32 TextureIndex, Texture *NewTexture) = 0;
 
     virtual void SetShaderUniformBuffer(RHIGraphicsShader *Shader, uint32 BufferIndex, UniformBuffer *Buffer) = 0;
 

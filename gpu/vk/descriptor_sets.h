@@ -13,6 +13,7 @@
 #include "vulkan_memory.h"
 #include "util.h"
 #include "private.h"
+#include "configuration.h"
 
 extern uint32 GFrameNumberRenderThread;
 
@@ -668,6 +669,16 @@ public:
         return WriteBuffer<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER>(DescriptorIndex, BufferHandle, HandleId, Offset, Range);
     }
 
+    bool WriteImage(uint32 DescriptorIndex, const View::TextureView &textureView, VkImageLayout Layout)
+    {
+        return WriteTextureView<VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE>(DescriptorIndex, textureView, Layout);
+    }
+
+    bool WriteStorageImage(uint32 DescriptorIndex, const View::TextureView &TextureView, VkImageLayout Layout)
+    {
+        return WriteTextureView<VK_DESCRIPTOR_TYPE_STORAGE_IMAGE>(DescriptorIndex, TextureView, Layout);
+    }
+
 protected:
     void SetDescriptorSet(VkDescriptorSet DescriptorSet)
     {
@@ -732,6 +743,50 @@ protected:
             const uint8 DynamicOffsetIndex = BindingToDynamicOffsetMap[DescriptorIndex];
             DynamicOffsets[DynamicOffsetIndex] = DynamicOffset;
         }
+        return bChanged;
+    }
+
+    template <VkDescriptorType DescriptorType>
+    bool WriteTextureView(uint32 DescriptorIndex, const View::TextureView &TextureView, VkImageLayout Layout)
+    {
+        check(DescriptorIndex < NumWrites);
+        SetWritten(DescriptorIndex);
+        if (DescriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+        {
+            checkf(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   "DescriptorType mismatch at index %d: called WriteTextureView<%d> and was expecting %d.",
+                   DescriptorIndex, (uint32)DescriptorType, (uint32)WriteDescriptors[DescriptorIndex].descriptorType);
+
+            ensureMsgf(Layout == VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL ||
+                           Layout == VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR ||
+                           Layout == VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL ||
+                           Layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL ||
+                           Layout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL ||
+                           Layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL ||
+                           Layout == VK_IMAGE_LAYOUT_GENERAL,
+                       "Invalid Layout %s, Index %d, Type %s\n",
+                       VK_TYPE_TO_STRING(VkImageLayout, Layout), DescriptorIndex, VK_TYPE_TO_STRING(VkDescriptorType, WriteDescriptors[DescriptorIndex].descriptorType));
+        }
+        else
+        {
+            checkf(WriteDescriptors[DescriptorIndex].descriptorType == DescriptorType,
+                   "DescriptorType mismatch at index %d: called WriteTextureView<%s> and was expecting %s.",
+                   DescriptorIndex, VK_TYPE_TO_STRING(VkDescriptorType, DescriptorType), VK_TYPE_TO_STRING(VkDescriptorType, WriteDescriptors[DescriptorIndex].descriptorType));
+        }
+        VkDescriptorImageInfo *ImageInfo = const_cast<VkDescriptorImageInfo *>(WriteDescriptors[DescriptorIndex].pImageInfo);
+        check(ImageInfo);
+
+        bool bChanged = false;
+        if (UseVulkanDescriptorCache())
+        {
+            check(0);
+        }
+        else
+        {
+            bChanged = CopyAndReturnNotEqual(ImageInfo->imageView, TextureView.View);
+            bChanged |= CopyAndReturnNotEqual(ImageInfo->imageLayout, Layout);
+        }
+
         return bChanged;
     }
 

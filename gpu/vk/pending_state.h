@@ -97,6 +97,19 @@ public:
 
     inline void Bind(VkCommandBuffer CmdBuffer) { CurrentPipeline->Bind(CmdBuffer); }
 
+    inline void SetTextureForStage(ShaderStage::Stage Stage, uint32 ParameterIndex, const VulkanTexture *Texture, VkImageLayout Layout)
+    {
+        const VulkanGfxPipelineDescriptorInfo &DescriptorInfo = CurrentState->GetGfxPipelineDescriptorInfo();
+        uint8 DescriptorSet;
+        uint32 BindingIndex;
+        if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(ShaderHeader::Global, Stage, ParameterIndex, DescriptorSet, BindingIndex))
+        {
+            return;
+        }
+
+        CurrentState->SetTexture(DescriptorSet, BindingIndex, Texture, Layout);
+    }
+
     template <bool bDynamic>
     inline void SetUniformBuffer(uint8 DescriptorSet, uint32 BindingIndex, const VulkanUniformBuffer *UniformBuffer)
     {

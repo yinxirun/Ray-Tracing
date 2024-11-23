@@ -43,13 +43,13 @@ public:
 class VulkanDepthStencilState : public DepthStencilState
 {
 public:
-    VulkanDepthStencilState(const DepthStencilStateInitializerRHI &InInitializer)
+    VulkanDepthStencilState(const DepthStencilStateInitializer &InInitializer)
     {
         Initializer = InInitializer;
     }
     void SetupCreateInfo(const GraphicsPipelineStateInitializer &GfxPSOInit,
                          VkPipelineDepthStencilStateCreateInfo &OutDepthStencilState);
-    DepthStencilStateInitializerRHI Initializer;
+    DepthStencilStateInitializer Initializer;
 };
 
 class VulkanBlendState : public BlendState

@@ -152,7 +152,7 @@ std::shared_ptr<RasterizerState> RHI::CreateRasterizerState(const RasterizerStat
     return std::make_shared<VulkanRasterizerState>(Initializer);
 }
 
-std::shared_ptr<DepthStencilState> RHI::CreateDepthStencilState(const DepthStencilStateInitializerRHI &Initializer)
+std::shared_ptr<DepthStencilState> RHI::CreateDepthStencilState(const DepthStencilStateInitializer &Initializer)
 {
     return std::make_shared<VulkanDepthStencilState>(Initializer);
 }
@@ -248,7 +248,7 @@ uint64 RHI::ComputeStatePrecachePSOHash(const GraphicsPipelineStateInitializer &
     {
         HashKey.RasterizerState = GetTypeHash(RasterizerStateInitializerRHI);
     }
-    DepthStencilStateInitializerRHI DepthStencilStateInitializerRHI;
+    DepthStencilStateInitializer DepthStencilStateInitializerRHI;
     if (Initializer.DepthStencilState && Initializer.DepthStencilState->GetInitializer(DepthStencilStateInitializerRHI))
     {
         HashKey.DepthStencilState = GetTypeHash(DepthStencilStateInitializerRHI);

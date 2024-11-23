@@ -441,7 +441,7 @@ class DepthStencilState : public RHIResource
 {
 public:
     DepthStencilState() : RHIResource(RRT_DepthStencilState) {}
-    virtual bool GetInitializer(struct DepthStencilStateInitializerRHI &Init) { return false; }
+    virtual bool GetInitializer(struct DepthStencilStateInitializer &Init) { return false; }
 };
 
 class BlendState : public RHIResource

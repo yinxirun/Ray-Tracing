@@ -89,7 +89,7 @@ struct RasterizerStateInitializer
     friend uint32 GetTypeHash(const RasterizerStateInitializer &Initializer);
 };
 
-struct DepthStencilStateInitializerRHI
+struct DepthStencilStateInitializer
 {
     bool bEnableDepthWrite;
     TEnumAsByte<ECompareFunction> DepthTest;
@@ -107,7 +107,7 @@ struct DepthStencilStateInitializerRHI
     uint8 StencilReadMask;
     uint8 StencilWriteMask;
 
-    DepthStencilStateInitializerRHI(
+    DepthStencilStateInitializer(
         bool bInEnableDepthWrite = true,
         ECompareFunction InDepthTest = CF_LessEqual,
         bool bInEnableFrontFaceStencil = false,
@@ -132,7 +132,7 @@ struct DepthStencilStateInitializerRHI
     {
     }
 
-    friend uint32 GetTypeHash(const DepthStencilStateInitializerRHI &Initializer);
+    friend uint32 GetTypeHash(const DepthStencilStateInitializer &Initializer);
 };
 
 class BlendStateInitializerRHI

@@ -52,21 +52,21 @@ public:
 	// 	void SetSRV(FVulkanCmdBuffer* CmdBuffer, bool bCompute, uint8 DescriptorSet, uint32 BindingIndex, FVulkanShaderResourceView* SRV);
 	// 	void SetUAV(FVulkanCmdBuffer* CmdBuffer, bool bCompute, uint8 DescriptorSet, uint32 BindingIndex, FVulkanUnorderedAccessView* UAV);
 
-	// 	inline void SetTexture(uint8 DescriptorSet, uint32 BindingIndex, const FVulkanTexture* Texture, VkImageLayout Layout)
-	// 	{
-	// 		check(!bUseBindless);
-	// 		check(Texture && Texture->PartialView);
+	inline void SetTexture(uint8 DescriptorSet, uint32 BindingIndex, const VulkanTexture *Texture, VkImageLayout Layout)
+	{
+		check(!bUseBindless);
+		check(Texture && Texture->PartialView);
 
-	// 		// If the texture doesn't support sampling, then we read it through a UAV
-	// 		if (Texture->SupportsSampling())
-	// 		{
-	// 			MarkDirty(DSWriter[DescriptorSet].WriteImage(BindingIndex, Texture->PartialView->GetTextureView(), Layout));
-	// 		}
-	// 		else
-	// 		{
-	// 			MarkDirty(DSWriter[DescriptorSet].WriteStorageImage(BindingIndex, Texture->PartialView->GetTextureView(), Layout));
-	// 		}
-	// 	}
+		// If the texture doesn't support sampling, then we read it through a UAV
+		if (Texture->SupportsSampling())
+		{
+			MarkDirty(DSWriter[DescriptorSet].WriteImage(BindingIndex, Texture->PartialView->GetTextureView(), Layout));
+		}
+		else
+		{
+			MarkDirty(DSWriter[DescriptorSet].WriteStorageImage(BindingIndex, Texture->PartialView->GetTextureView(), Layout));
+		}
+	}
 
 	// 	inline void SetSamplerState(uint8 DescriptorSet, uint32 BindingIndex, const FVulkanSamplerState* Sampler)
 	// 	{

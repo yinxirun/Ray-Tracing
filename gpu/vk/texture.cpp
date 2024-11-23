@@ -98,6 +98,7 @@ void VulkanTexture::GenerateImageCreateInfo(
         break;
     default:
         printf("Unhandled image type %d", (int32)ResourceType);
+        check(0);
         break;
     }
 
@@ -410,12 +411,15 @@ static VkImageLayout GetInitialLayoutFromRHIAccess(Access RHIAccess, bool bIsDep
 }
 
 VulkanTexture::VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, const TextureCreateDesc &InCreateDesc, bool bIsTransientResource)
-    : Texture(InCreateDesc), device(&InDevice), Image(VK_NULL_HANDLE),
-      StorageFormat(VK_FORMAT_UNDEFINED), ViewFormat(VK_FORMAT_UNDEFINED), MemProps(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+    : Texture(InCreateDesc), PartialView(nullptr), device(&InDevice), Image(VK_NULL_HANDLE),
+      StorageFormat(VK_FORMAT_UNDEFINED), ViewFormat(VK_FORMAT_UNDEFINED), MemProps(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+      Tiling(VK_IMAGE_TILING_MAX_ENUM), FullAspectMask(0), PartialAspectMask(0),
+      cpuReadbackBuffer(nullptr), DefaultLayout(VK_IMAGE_LAYOUT_UNDEFINED)
 {
     if (EnumHasAnyFlags(InCreateDesc.Flags, TexCreate_CPUReadback))
     {
         check(InCreateDesc.NumSamples == 1); // not implemented
+        check(InCreateDesc.Depth == 1);      // not implemented
         check(InCreateDesc.ArraySize == 1);  // not implemented
         printf("Don't support CPU Readback Texture %s %d\n", __FILE__, __LINE__);
         exit(-1);
@@ -449,7 +453,18 @@ VulkanTexture::VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, c
 
     if (InitialLayout != VK_IMAGE_LAYOUT_UNDEFINED || bDoInitialClear)
     {
-        SetInitialImageState(device->GetImmediateContext(), InitialLayout, bDoInitialClear, InCreateDesc.ClearValue, bIsTransientResource);
+        printf("look here!! About RHICmdList %s %d\n", __FILE__, __LINE__);
+        if (!RHICmdList || !IsInRenderingThread() || (RHICmdList->Bypass() || !IsRunningRHIInSeparateThread()))
+        {
+            SetInitialImageState(device->GetImmediateContext(), InitialLayout, bDoInitialClear, InCreateDesc.ClearValue, bIsTransientResource);
+        }
+        else
+        {
+            check(0);
+            /* check(IsInRenderingThread());
+            ALLOC_COMMAND_CL(RHICmdList, FRHICommandSetInitialImageState)
+            (this, InitialLayout, false, bDoInitialClear, InCreateDesc.ClearValue, bIsTransientResource); */
+        }
     }
 
     DefaultLayout = InitialLayout;
@@ -511,7 +526,17 @@ VulkanTexture::VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, c
     Region.imageExtent.height = Region.bufferImageHeight;
     Region.imageExtent.depth = InCreateDesc.Depth;
 
-    VulkanTexture::InternalLockWrite(InDevice.GetImmediateContext(), this, Region, StagingBuffer);
+    printf("look here!! About RHICmdList %s %d\n", __FILE__, __LINE__);
+    if (!RHICmdList || RHICmdList->Bypass() || !IsRunningRHIInSeparateThread())
+    {
+        VulkanTexture::InternalLockWrite(InDevice.GetImmediateContext(), this, Region, StagingBuffer);
+    }
+    else
+    {
+        check(0);
+        /* check(IsInRenderingThread());
+        ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)(this, Region, StagingBuffer); */
+    }
 }
 
 void VulkanTexture::InternalLockWrite(CommandListContext &Context, VulkanTexture *Surface,

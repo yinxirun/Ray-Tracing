@@ -100,7 +100,7 @@ class TStaticDepthStencilState : public TStaticStateRHI<
 public:
     static std::shared_ptr<DepthStencilState> CreateRHI()
     {
-        DepthStencilStateInitializerRHI Initializer(
+        DepthStencilStateInitializer Initializer(
             bEnableDepthWrite,
             DepthTest,
             bEnableFrontFaceStencil,

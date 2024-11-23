@@ -21,3 +21,8 @@
 #define VULKAN_ENABLE_AGGRESSIVE_STATS 0
 
 #define VULKAN_HASH_POOLS_WITH_TYPES_USAGE_ID 1
+
+
+#define VK_TYPE_TO_STRING(Type, Value) "Hello Kitty"
+
+#define VK_FLAGS_TO_STRING(Type, Value) "Hello Kitty"

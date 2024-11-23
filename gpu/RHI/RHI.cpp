@@ -35,7 +35,7 @@ uint32 GetTypeHash(const RasterizerStateInitializer &Initializer)
     return Hash;
 }
 
-uint32 GetTypeHash(const DepthStencilStateInitializerRHI &Initializer)
+uint32 GetTypeHash(const DepthStencilStateInitializer &Initializer)
 {
     uint32 Hash = GetTypeHash(Initializer.bEnableDepthWrite);
     Hash = HashCombine(Hash, GetTypeHash(Initializer.DepthTest));

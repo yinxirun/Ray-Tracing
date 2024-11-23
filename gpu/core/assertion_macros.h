@@ -16,6 +16,7 @@
     }
 
 #define ensure(expr) assert(expr)
+#define ensureMsgf(expr,format,...) ensure(expr)
 
 /**
  * Denotes code paths that should never be reached.

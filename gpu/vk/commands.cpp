@@ -8,6 +8,32 @@
 #include "platform.h"
 #include "rhi.h"
 
+static __forceinline ShaderStage::Stage GetAndVerifyShaderStage(RHIGraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState)
+{
+    switch (ShaderRHI->GetFrequency())
+    {
+    case SF_Vertex:
+        check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Vertex) == GetShaderKey<VulkanVertexShader>(ShaderRHI));
+        return ShaderStage::Vertex;
+    case SF_Geometry:
+#if VULKAN_SUPPORTS_GEOMETRY_SHADERS
+        check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Geometry) == GetShaderKey<FVulkanGeometryShader>(ShaderRHI));
+        return ShaderStage::Geometry;
+#else
+        checkf(0, "Geometry shaders not supported on this platform!");
+        break;
+#endif
+    case SF_Pixel:
+        check(PendingGfxState->GetCurrentShaderKey(ShaderStage::Pixel) == GetShaderKey<VulkanPixelShader>(ShaderRHI));
+        return ShaderStage::Pixel;
+    default:
+        checkf(0, "Undefined FRHIShader Type %d!", (int32)ShaderRHI->GetFrequency());
+        break;
+    }
+
+    return ShaderStage::Invalid;
+}
+
 static __forceinline ShaderStage::Stage GetAndVerifyShaderStageAndVulkanShader(
     RHIGraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState, VulkanShader *&OutShader)
 {
@@ -162,6 +188,16 @@ void CommandListContext::CommitGraphicsResourceTables()
         SetResourcesFromTables(GeometryShader);
     }
 #endif
+}
+
+void CommandListContext::SetShaderTexture(RHIGraphicsShader *ShaderRHI, uint32 TextureIndex, Texture *NewTextureRHI)
+{
+    VulkanTexture *vulkanTexture = static_cast<VulkanTexture *>(NewTextureRHI);
+    const VkImageLayout ExpectedLayout = LayoutManager::GetDefaultLayout(GetCommandBufferManager()->GetActiveCmdBuffer(),
+                                                                         *vulkanTexture, Access::SRVGraphics);
+
+    ShaderStage::Stage Stage = GetAndVerifyShaderStage(ShaderRHI, pendingGfxState);
+    pendingGfxState->SetTextureForStage(Stage, TextureIndex, vulkanTexture, ExpectedLayout);
 }
 
 void CommandListContext::SetShaderUniformBuffer(RHIGraphicsShader *ShaderRHI, uint32 BufferIndex, UniformBuffer *BufferRHI)

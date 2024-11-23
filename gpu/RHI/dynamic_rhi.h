@@ -56,3 +56,14 @@ __forceinline std::shared_ptr<Texture> CreateTexture(RHICommandListBase &RHICmdL
 {
     return rhi->CreateTexture(RHICmdList, CreateDesc);
 }
+
+__forceinline void *LockTexture2D(Texture *Texture, uint32 MipIndex, ResourceLockMode LockMode,
+                                  uint32 &DestStride, bool bLockWithinMiptail, uint64 *OutLockedByteCount = nullptr)
+{
+    return rhi->LockTexture2D(Texture, MipIndex, LockMode, DestStride, bLockWithinMiptail, OutLockedByteCount);
+}
+
+__forceinline void Unlock(Texture *Texture, uint32 MipIndex, bool bLockWithinMiptail)
+{
+    rhi->UnlockTexture2D(Texture, MipIndex, bLockWithinMiptail);
+}

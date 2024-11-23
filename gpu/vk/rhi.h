@@ -27,7 +27,7 @@ class RasterizerStateInitializer;
 class RasterizerState;
 class BlendStateInitializerRHI;
 class BlendState;
-class DepthStencilStateInitializerRHI;
+class DepthStencilStateInitializer;
 class DepthStencilState;
 class VertexDeclaration;
 class VertexElement;
@@ -65,7 +65,7 @@ public:
     virtual std::shared_ptr<RasterizerState> CreateRasterizerState(const RasterizerStateInitializer &Initializer);
 
     // FlushType: Thread safe
-    virtual std::shared_ptr<DepthStencilState> CreateDepthStencilState(const DepthStencilStateInitializerRHI &Initializer);
+    virtual std::shared_ptr<DepthStencilState> CreateDepthStencilState(const DepthStencilStateInitializer &Initializer);
 
     // FlushType: Thread safe
     virtual std::shared_ptr<BlendState> CreateBlendState(const BlendStateInitializerRHI &Initializer);
