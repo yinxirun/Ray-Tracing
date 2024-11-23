@@ -7,7 +7,9 @@
 #include "rhi.h"
 #include "gpu/RHI/RHIResources.h"
 #include "gpu/RHI/RHICommandList.h"
+#include "gpu/RHI/RHITypes.h"
 #include "gpu/core/pixel_format.h"
+#include "gpu/math/utility.h"
 #include <unordered_map>
 
 static const VkImageTiling GVulkanViewTypeTilingMode[7] =
@@ -453,17 +455,24 @@ VulkanTexture::VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, c
 
     if (InitialLayout != VK_IMAGE_LAYOUT_UNDEFINED || bDoInitialClear)
     {
-        printf("look here!! About RHICmdList %s %d\n", __FILE__, __LINE__);
-        if (!RHICmdList || !IsInRenderingThread() || (RHICmdList->Bypass() || !IsRunningRHIInSeparateThread()))
+        if (RHICmdList && RHICmdList->IsTopOfPipe())
         {
-            SetInitialImageState(device->GetImmediateContext(), InitialLayout, bDoInitialClear, InCreateDesc.ClearValue, bIsTransientResource);
+            check(0);
         }
         else
         {
-            check(0);
-            /* check(IsInRenderingThread());
-            ALLOC_COMMAND_CL(RHICmdList, FRHICommandSetInitialImageState)
-            (this, InitialLayout, false, bDoInitialClear, InCreateDesc.ClearValue, bIsTransientResource); */
+            RHICmdList = &RHICommandListExecutor::GetImmediateCommandList();
+            if (!IsInRenderingThread() || (RHICmdList->Bypass() || !IsRunningRHIInSeparateThread()))
+            {
+                SetInitialImageState(device->GetImmediateContext(), InitialLayout, bDoInitialClear, InCreateDesc.ClearValue, bIsTransientResource);
+            }
+            else
+            {
+                check(0);
+                /* check(IsInRenderingThread());
+                ALLOC_COMMAND_CL(RHICmdList, FRHICommandSetInitialImageState)
+                (this, InitialLayout, false, bDoInitialClear, InCreateDesc.ClearValue, bIsTransientResource); */
+            }
         }
     }
 
@@ -526,16 +535,16 @@ VulkanTexture::VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, c
     Region.imageExtent.height = Region.bufferImageHeight;
     Region.imageExtent.depth = InCreateDesc.Depth;
 
-    printf("look here!! About RHICmdList %s %d\n", __FILE__, __LINE__);
-    if (!RHICmdList || RHICmdList->Bypass() || !IsRunningRHIInSeparateThread())
-    {
-        VulkanTexture::InternalLockWrite(InDevice.GetImmediateContext(), this, Region, StagingBuffer);
-    }
-    else
+    checkf(RHICmdList, "FVulkanTexture requires a command list for creating bulk data.");
+    if (RHICmdList->IsTopOfPipe())
     {
         check(0);
         /* check(IsInRenderingThread());
         ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)(this, Region, StagingBuffer); */
+    }
+    else
+    {
+        VulkanTexture::InternalLockWrite(InDevice.GetImmediateContext(), this, Region, StagingBuffer);
     }
 }
 
@@ -775,5 +784,62 @@ void RHI::InternalUnlockTexture2D(bool bFromRenderingThread, Texture *TextureRHI
         /* check(IsInRenderingThread());
         ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)
         (texture, Region, StagingBuffer); */
+    }
+}
+
+void RHI::InternalUpdateTexture2D(RHICommandListBase &RHICmdList, Texture *TextureRHI, uint32 MipIndex, const UpdateTextureRegion2D &UpdateRegion, uint32 SourcePitch, const uint8 *SourceData)
+{
+    const PixelFormatInfo &FormatInfo = GPixelFormats[TextureRHI->GetDesc().Format];
+
+    check(UpdateRegion.Width % FormatInfo.BlockSizeX == 0);
+    check(UpdateRegion.Height % FormatInfo.BlockSizeY == 0);
+    check(UpdateRegion.DestX % FormatInfo.BlockSizeX == 0);
+    check(UpdateRegion.DestY % FormatInfo.BlockSizeY == 0);
+    check(UpdateRegion.SrcX % FormatInfo.BlockSizeX == 0);
+    check(UpdateRegion.SrcY % FormatInfo.BlockSizeY == 0);
+
+    const uint32 SrcXInBlocks = Math::DivideAndRoundUp<uint32>(UpdateRegion.SrcX, FormatInfo.BlockSizeX);
+    const uint32 SrcYInBlocks = Math::DivideAndRoundUp<uint32>(UpdateRegion.SrcY, FormatInfo.BlockSizeY);
+    const uint32 WidthInBlocks = Math::DivideAndRoundUp<uint32>(UpdateRegion.Width, FormatInfo.BlockSizeX);
+    const uint32 HeightInBlocks = Math::DivideAndRoundUp<uint32>(UpdateRegion.Height, FormatInfo.BlockSizeY);
+
+    const VkPhysicalDeviceLimits &Limits = device->GetLimits();
+
+    const size_t StagingPitch = static_cast<size_t>(WidthInBlocks) * FormatInfo.BlockBytes;
+    const size_t StagingBufferSize = Align(StagingPitch * HeightInBlocks, Limits.minMemoryMapAlignment);
+
+    VulkanRHI::StagingBuffer *StagingBuffer = device->GetStagingManager().AcquireBuffer(StagingBufferSize);
+    void *StagingMemory = StagingBuffer->GetMappedPointer();
+
+    const uint8 *CopySrc = SourceData + FormatInfo.BlockBytes * SrcXInBlocks + SourcePitch * SrcYInBlocks * FormatInfo.BlockSizeY;
+    uint8 *CopyDst = (uint8 *)StagingMemory;
+    for (uint32 BlockRow = 0; BlockRow < HeightInBlocks; BlockRow++)
+    {
+        memcpy(CopyDst, CopySrc, WidthInBlocks * FormatInfo.BlockBytes);
+        CopySrc += SourcePitch;
+        CopyDst += StagingPitch;
+    }
+
+    const IntVec3 MipDimensions = TextureRHI->GetMipDimensions(MipIndex);
+    VkBufferImageCopy Region{};
+    Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    Region.imageSubresource.mipLevel = MipIndex;
+    Region.imageSubresource.layerCount = 1;
+    Region.imageOffset.x = UpdateRegion.DestX;
+    Region.imageOffset.y = UpdateRegion.DestY;
+    Region.imageExtent.width = std::min(UpdateRegion.Width, static_cast<uint32>(MipDimensions.x) - UpdateRegion.DestX);
+    Region.imageExtent.height = std::min(UpdateRegion.Height, static_cast<uint32>(MipDimensions.y) - UpdateRegion.DestY);
+    Region.imageExtent.depth = 1;
+
+    VulkanTexture *texture = static_cast<VulkanTexture *>(TextureRHI);
+
+    if (RHICmdList.IsBottomOfPipe())
+    {
+        VulkanTexture::InternalLockWrite(CommandListContext::GetVulkanContext(RHICmdList.GetContext()), texture, Region, StagingBuffer);
+    }
+    else
+    {
+        check(0);
+        /* ALLOC_COMMAND_CL(RHICmdList, FRHICommandLockWriteTexture)(Texture, Region, StagingBuffer); */
     }
 }

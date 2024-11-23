@@ -669,6 +669,26 @@ public:
         return WriteBuffer<VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER>(DescriptorIndex, BufferHandle, HandleId, Offset, Range);
     }
 
+    bool WriteSampler(uint32 DescriptorIndex, const VulkanSamplerState &Sampler)
+    {
+        check(DescriptorIndex < NumWrites);
+        check(WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER || WriteDescriptors[DescriptorIndex].descriptorType == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        VkDescriptorImageInfo *ImageInfo = const_cast<VkDescriptorImageInfo *>(WriteDescriptors[DescriptorIndex].pImageInfo);
+        check(ImageInfo);
+
+        bool bChanged = false;
+        if (UseVulkanDescriptorCache())
+        {
+            check(0);
+        }
+        else
+        {
+            bChanged = CopyAndReturnNotEqual(ImageInfo->sampler, Sampler.sampler);
+        }
+
+        return bChanged;
+    }
+
     bool WriteImage(uint32 DescriptorIndex, const View::TextureView &textureView, VkImageLayout Layout)
     {
         return WriteTextureView<VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE>(DescriptorIndex, textureView, Layout);

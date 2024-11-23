@@ -24,6 +24,7 @@ enum PixelFormat : uint8
     PF_D24 = 20,
     PF_PVRTC2 = 30,
     PF_PVRTC4 = 31,
+    PF_R8G8B8A8 = 37,
     PF_X24_G8 = 44, // Used for creating SRVs to alias a DepthStencil buffer to read Stencil. Don't use for creating textures.
     PF_R32G32_UINT = 68,
     PF_R64_UINT = 84,

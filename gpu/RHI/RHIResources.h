@@ -292,6 +292,15 @@ public:
     /// @return	The pointer to the platform-specific RHI texture baseclass or NULL if it not initialized or not supported for this RHI
     virtual void *GetTextureBaseRHI() { return nullptr; }
 
+    IntVec3 GetMipDimensions(uint8 MipIndex) const
+    {
+        const TextureDesc &Desc = GetDesc();
+        return IntVec3(
+            std::max<int32>(Desc.Extent.x >> MipIndex, 1),
+            std::max<int32>(Desc.Extent.y >> MipIndex, 1),
+            std::max<int32>(Desc.Depth >> MipIndex, 1));
+    }
+
     /** @return Whether the texture is multi sampled. */
     bool IsMultisampled() const { return GetDesc().NumSamples > 1; }
 
@@ -482,37 +491,37 @@ private:
     ShaderFrequency Frequency;
 };
 
-class RHIGraphicsShader : public RHIShader
+class GraphicsShader : public RHIShader
 {
 public:
-    explicit RHIGraphicsShader(ERHIResourceType InResourceType, ShaderFrequency InFrequency)
+    explicit GraphicsShader(ERHIResourceType InResourceType, ShaderFrequency InFrequency)
         : RHIShader(InResourceType, InFrequency) {}
 };
 
 /// 由shader factory负责回收
-class VertexShader : public RHIGraphicsShader
+class VertexShader : public GraphicsShader
 {
 public:
-    VertexShader() : RHIGraphicsShader(RRT_VertexShader, SF_Vertex) {}
+    VertexShader() : GraphicsShader(RRT_VertexShader, SF_Vertex) {}
 };
 
-class RHIMeshShader : public RHIGraphicsShader
+class RHIMeshShader : public GraphicsShader
 {
 public:
-    RHIMeshShader() : RHIGraphicsShader(RRT_MeshShader, SF_Mesh) {}
+    RHIMeshShader() : GraphicsShader(RRT_MeshShader, SF_Mesh) {}
 };
 
 /// 由shader factory负责回收
-class PixelShader : public RHIGraphicsShader
+class PixelShader : public GraphicsShader
 {
 public:
-    PixelShader() : RHIGraphicsShader(RRT_PixelShader, SF_Pixel) {}
+    PixelShader() : GraphicsShader(RRT_PixelShader, SF_Pixel) {}
 };
 
-class RHIGeometryShader : public RHIGraphicsShader
+class RHIGeometryShader : public GraphicsShader
 {
 public:
-    RHIGeometryShader() : RHIGraphicsShader(RRT_GeometryShader, SF_Geometry) {}
+    RHIGeometryShader() : GraphicsShader(RRT_GeometryShader, SF_Geometry) {}
 };
 
 class RHIComputeShader : public RHIShader

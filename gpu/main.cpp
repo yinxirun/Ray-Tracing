@@ -13,7 +13,11 @@
 #include "gpu/vk/context.h"
 #include "gpu/vk/viewport.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 Viewport *drawingViewport = nullptr;
+extern RHICommandListExecutor GRHICommandListExecutor;
 
 void OnSizeChanged(GLFWwindow *window, int width, int height)
 {
@@ -39,7 +43,7 @@ std::vector<uint8> readFile(const std::string &filename)
 #define WIDTH 800
 #define HEIGHT 600
 
-std::vector<uint8> LoadShader(std::string filename, ShaderFrequency freq);
+std::vector<uint8> ProcessShader(std::string filename, ShaderFrequency freq);
 
 struct PerCamera
 {
@@ -58,35 +62,44 @@ int main()
 
     RHIInit();
     RHICommandListImmediate dummy = RHICommandListExecutor::GetImmediateCommandList();
+    dummy.SwitchPipeline(RHIPipeline::Graphics);
     {
         CommandContext *context = GetDefaultContext();
         std::shared_ptr<Viewport> viewport = CreateViewport(window, 800, 600, false, PixelFormat::PF_B8G8R8A8);
         drawingViewport = viewport.get();
 
-        BufferDesc desc(36, 4, BufferUsageFlags::VertexBuffer);
+        BufferDesc desc(48, 4, BufferUsageFlags::VertexBuffer);
         ResourceCreateInfo ci{};
         auto positionBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
         auto colorBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
 
-        desc = BufferDesc(12, 4, BufferUsageFlags::IndexBuffer);
+        desc = BufferDesc(32, 4, BufferUsageFlags::VertexBuffer);
+        auto texCoordBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
+
+        desc = BufferDesc(24, 4, BufferUsageFlags::IndexBuffer);
         auto indexBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
 
         void *mapped;
 
         mapped = LockBuffer_BottomOfPipe(dummy, indexBuffer.get(), 0, indexBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
-        uint32 indices[3] = {0, 1, 2};
-        memcpy(mapped, indices, 12);
+        uint32 indices[6] = {0, 1, 2, 0, 2, 3};
+        memcpy(mapped, indices, 24);
         UnlockBuffer_BottomOfPipe(dummy, indexBuffer.get());
 
         mapped = LockBuffer_BottomOfPipe(dummy, positionBuffer.get(), 0, positionBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
-        float position[9] = {0.5f, -0.5f, 0.5f, 0.f, 0.5f, 0.5f, -0.5f, -0.5f, 0.5f};
-        memcpy(mapped, position, 36);
+        float position[12] = {0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5};
+        memcpy(mapped, position, 48);
         UnlockBuffer_BottomOfPipe(dummy, positionBuffer.get());
 
         mapped = LockBuffer_BottomOfPipe(dummy, colorBuffer.get(), 0, colorBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
-        float color[9] = {1.0f, 0.0f, 0.0f, 0.f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-        memcpy(mapped, color, 36);
+        float color[12] = {1.0f, 0.0f, 0.0f, 0.f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1, 1, 1};
+        memcpy(mapped, color, 48);
         UnlockBuffer_BottomOfPipe(dummy, colorBuffer.get());
+
+        mapped = LockBuffer_BottomOfPipe(dummy, texCoordBuffer.get(), 0, texCoordBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
+        float uv[8] = {0, -0, 0, 1, 1, 0, 1, 1};
+        memcpy(mapped, uv, 32);
+        UnlockBuffer_BottomOfPipe(dummy, texCoordBuffer.get());
 
         // 创建PSO
         GraphicsPipelineStateInitializer graphicsPSOInit;
@@ -109,9 +122,10 @@ int main()
         VertexDeclarationElementList elements;
         elements.push_back(VertexElement(0, 0, VET_Float3, 0, 12));
         elements.push_back(VertexElement(1, 0, VET_Float3, 1, 12));
+        elements.push_back(VertexElement(2, 0, VET_Float2, 2, 8));
         graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
-        graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(LoadShader("gpu/shaders/a.vert.spv", SF_Vertex));
-        graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(LoadShader("gpu/shaders/a.frag.spv", SF_Pixel));
+        graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(ProcessShader("gpu/shaders/a.vert.spv", SF_Vertex));
+        graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(ProcessShader("gpu/shaders/a.frag.spv", SF_Pixel));
         // PSO的回收还没写，目前是会泄漏的
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
@@ -133,8 +147,21 @@ int main()
         context->SubmitCommandsHint();
 
         // 纹理
-        TextureCreateDesc texDesc = TextureCreateDesc::Create2D("BaseColor", 100, 100, PF_B8G8R8A8);
+        int x, y, comp;
+        stbi_uc *sourceData = stbi_load("assets/viking_room.png", &x, &y, &comp, STBI_rgb_alpha);
+        for (int i = 0; i < x * y; ++i)
+        {
+            std::swap(sourceData[i * STBI_rgb_alpha + 0], sourceData[i * STBI_rgb_alpha + 2]);
+        }
+        TextureCreateDesc texDesc = TextureCreateDesc::Create2D("BaseColor", x, y, PF_B8G8R8A8)
+                                        .SetInitialState(Access::SRVGraphics)
+                                        .SetFlags(TexCreate_SRGB | TexCreate_ShaderResource);
         auto tex = CreateTexture(dummy, texDesc);
+        UpdateTextureRegion2D region(0, 0, 0, 0, x, y);
+        UpdateTexture2D(dummy, tex.get(), 0, region, x * STBI_rgb_alpha, sourceData);
+        stbi_image_free(sourceData);
+        SamplerStateInitializer samplerInit(SF_Point);
+        auto sampler = CreateSamplerState(samplerInit);
 
         while (!glfwWindowShouldClose(window))
         {
@@ -147,10 +174,13 @@ int main()
 
             context->SetGraphicsPipelineState(pso, 0, false);
             context->SetShaderUniformBuffer(graphicsPSOInit.BoundShaderState.VertexShaderRHI, 0, ub.get());
+            context->SetShaderTexture(graphicsPSOInit.BoundShaderState.PixelShaderRHI, 0, tex.get());
+            context->SetShaderSampler(graphicsPSOInit.BoundShaderState.PixelShaderRHI, 0, sampler.get());
 
             context->SetStreamSource(0, positionBuffer.get(), 0);
             context->SetStreamSource(1, colorBuffer.get(), 0);
-            context->DrawIndexedPrimitive(indexBuffer.get(), 0, 0, 3, 0, 1, 1);
+            context->SetStreamSource(2, texCoordBuffer.get(), 0);
+            context->DrawIndexedPrimitive(indexBuffer.get(), 0, 0, 4, 0, 2, 1);
 
             context->EndRenderPass();
 

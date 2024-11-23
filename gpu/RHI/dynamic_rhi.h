@@ -67,3 +67,9 @@ __forceinline void Unlock(Texture *Texture, uint32 MipIndex, bool bLockWithinMip
 {
     rhi->UnlockTexture2D(Texture, MipIndex, bLockWithinMiptail);
 }
+
+__forceinline void UpdateTexture2D(RHICommandListBase &RHICmdList, Texture *Texture, uint32 MipIndex,
+                                   const struct UpdateTextureRegion2D &UpdateRegion, uint32 SourcePitch, const uint8 *SourceData)
+{
+    rhi->UpdateTexture2D(RHICmdList, Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
+}

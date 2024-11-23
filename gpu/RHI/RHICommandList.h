@@ -30,6 +30,8 @@ public:
     // The values in this struct are preserved when the command list is moved or reset.
     struct FPersistentState
     {
+        bool bInsideRenderPass = false;
+        bool bInsideComputePass = false;
         bool bImmediate = false;
         RHIGPUMask currentGPUMask;
         ERecordingThread RecordingThread;
@@ -37,9 +39,7 @@ public:
         RHIGPUMask InitialGPUMask;
 
         FPersistentState(RHIGPUMask InInitialGPUMask, ERecordingThread InRecordingThread, bool bInImmediate = false)
-            : bImmediate(bInImmediate), RecordingThread(InRecordingThread), CurrentGPUMask(InInitialGPUMask), InitialGPUMask(InInitialGPUMask)
-        {
-        }
+            : bImmediate(bInImmediate), RecordingThread(InRecordingThread), CurrentGPUMask(InInitialGPUMask), InitialGPUMask(InInitialGPUMask) {}
     } persistentState;
 
     inline bool IsImmediate() const { return persistentState.bImmediate; }
@@ -68,6 +68,7 @@ public:
     __forceinline bool IsExecuting() const { return bExecuting; }
 
     __forceinline bool IsBottomOfPipe() const { return Bypass() || IsExecuting(); }
+    __forceinline bool IsTopOfPipe() const { return !IsBottomOfPipe(); }
 
     inline CommandContext &GetContext()
     {
@@ -84,6 +85,9 @@ public:
     bool Bypass() const;
 
     RHIPipeline SwitchPipeline(RHIPipeline Pipeline);
+    bool IsOutsideRenderPass() const { return !persistentState.bInsideRenderPass; }
+    bool IsInsideRenderPass() const { return persistentState.bInsideRenderPass; }
+    bool IsInsideComputePass() const { return persistentState.bInsideComputePass; }
 
 protected:
     // The active context into which graphics commands are recorded.
@@ -138,7 +142,7 @@ class RHICommandListExecutor
 {
 public:
     RHICommandListExecutor()
-        : bLatchedBypass(false) /* , bLatchedUseParallelAlgorithms(false) */
+        : bLatchedBypass(true) /* , bLatchedUseParallelAlgorithms(false) */
     {
     }
     static inline RHICommandListImmediate &GetImmediateCommandList();

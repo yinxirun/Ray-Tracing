@@ -22,6 +22,15 @@ public:
         check(false);
     }
 
+    /** Set the shader resource view of a surface. */
+    virtual void SetShaderTexture(GraphicsShader *Shader, uint32 TextureIndex, Texture *NewTexture) = 0;
+
+    /// Sets sampler state.
+    /// @param Shader The shader to set the sampler for.
+    /// @param SamplerIndex The index of the sampler.
+    /// @param NewState The new sampler state.
+    virtual void SetShaderSampler(GraphicsShader *Shader, uint32 SamplerIndex, SamplerState *NewState) = 0;
+
     /// Submit the current command buffer to the GPU if possible.
     virtual void SubmitCommandsHint() = 0;
 
@@ -51,11 +60,8 @@ public:
     virtual void SetStreamSource(uint32 StreamIndex, Buffer *VertexBuffer, uint32 Offset) = 0;
 
     virtual void SetGraphicsPipelineState(GraphicsPipelineState *GraphicsState, uint32 StencilRef, bool bApplyAdditionalState) = 0;
-    
-    /** Set the shader resource view of a surface. */
-    virtual void SetShaderTexture(RHIGraphicsShader *Shader, uint32 TextureIndex, Texture *NewTexture) = 0;
 
-    virtual void SetShaderUniformBuffer(RHIGraphicsShader *Shader, uint32 BufferIndex, UniformBuffer *Buffer) = 0;
+    virtual void SetShaderUniformBuffer(GraphicsShader *Shader, uint32 BufferIndex, UniformBuffer *Buffer) = 0;
 
     virtual void DrawIndexedPrimitive(Buffer *IndexBuffer, int32 BaseVertexIndex, uint32 FirstInstance,
                                       uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances) = 0;

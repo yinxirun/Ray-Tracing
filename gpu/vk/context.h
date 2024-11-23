@@ -35,8 +35,9 @@ public:
     void CommitGraphicsResourceTables();
 
     // RHI
-    virtual void SetShaderTexture(RHIGraphicsShader *Shader, uint32 TextureIndex, Texture *NewTexture) final override;
-    virtual void SetShaderUniformBuffer(RHIGraphicsShader *Shader, uint32 BufferIndex, UniformBuffer *Buffer) final override;
+    virtual void SetShaderSampler(GraphicsShader *Shader, uint32 SamplerIndex, SamplerState *NewState) final override;
+    virtual void SetShaderTexture(GraphicsShader *Shader, uint32 TextureIndex, Texture *NewTexture) final override;
+    virtual void SetShaderUniformBuffer(GraphicsShader *Shader, uint32 BufferIndex, UniformBuffer *Buffer) final override;
     virtual void DrawIndexedPrimitive(Buffer *IndexBuffer, int32 BaseVertexIndex, uint32 FirstInstance,
                                       uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances) final override;
 

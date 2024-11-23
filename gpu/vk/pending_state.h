@@ -116,6 +116,18 @@ public:
         CurrentState->SetUniformBuffer<bDynamic>(DescriptorSet, BindingIndex, UniformBuffer);
     }
 
+    inline void SetSamplerStateForStage(ShaderStage::Stage Stage, uint32 ParameterIndex, VulkanSamplerState *Sampler)
+    {
+        const VulkanGfxPipelineDescriptorInfo &DescriptorInfo = CurrentState->GetGfxPipelineDescriptorInfo();
+        uint8 DescriptorSet;
+        uint32 BindingIndex;
+        if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(ShaderHeader::Global, Stage, ParameterIndex, DescriptorSet, BindingIndex))
+        {
+            return;
+        }
+        CurrentState->SetSamplerState(DescriptorSet, BindingIndex, Sampler);
+    }
+
     /// @brief 申请descriptor set，并写入。绑定动态状态（视口、裁剪等）。绑定descriptor set
     void PrepareForDraw(CmdBuffer *CmdBuffer);
 

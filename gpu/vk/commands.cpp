@@ -8,7 +8,7 @@
 #include "platform.h"
 #include "rhi.h"
 
-static __forceinline ShaderStage::Stage GetAndVerifyShaderStage(RHIGraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState)
+static __forceinline ShaderStage::Stage GetAndVerifyShaderStage(GraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState)
 {
     switch (ShaderRHI->GetFrequency())
     {
@@ -35,7 +35,7 @@ static __forceinline ShaderStage::Stage GetAndVerifyShaderStage(RHIGraphicsShade
 }
 
 static __forceinline ShaderStage::Stage GetAndVerifyShaderStageAndVulkanShader(
-    RHIGraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState, VulkanShader *&OutShader)
+    GraphicsShader *ShaderRHI, PendingGfxState *PendingGfxState, VulkanShader *&OutShader)
 {
     switch (ShaderRHI->GetFrequency())
     {
@@ -190,7 +190,14 @@ void CommandListContext::CommitGraphicsResourceTables()
 #endif
 }
 
-void CommandListContext::SetShaderTexture(RHIGraphicsShader *ShaderRHI, uint32 TextureIndex, Texture *NewTextureRHI)
+void CommandListContext::SetShaderSampler(GraphicsShader *ShaderRHI, uint32 SamplerIndex, SamplerState *NewStateRHI)
+{
+    ShaderStage::Stage Stage = GetAndVerifyShaderStage(ShaderRHI, pendingGfxState);
+    VulkanSamplerState *Sampler = static_cast<VulkanSamplerState *>(NewStateRHI);
+    pendingGfxState->SetSamplerStateForStage(Stage, SamplerIndex, Sampler);
+}
+
+void CommandListContext::SetShaderTexture(GraphicsShader *ShaderRHI, uint32 TextureIndex, Texture *NewTextureRHI)
 {
     VulkanTexture *vulkanTexture = static_cast<VulkanTexture *>(NewTextureRHI);
     const VkImageLayout ExpectedLayout = LayoutManager::GetDefaultLayout(GetCommandBufferManager()->GetActiveCmdBuffer(),
@@ -200,7 +207,7 @@ void CommandListContext::SetShaderTexture(RHIGraphicsShader *ShaderRHI, uint32 T
     pendingGfxState->SetTextureForStage(Stage, TextureIndex, vulkanTexture, ExpectedLayout);
 }
 
-void CommandListContext::SetShaderUniformBuffer(RHIGraphicsShader *ShaderRHI, uint32 BufferIndex, UniformBuffer *BufferRHI)
+void CommandListContext::SetShaderUniformBuffer(GraphicsShader *ShaderRHI, uint32 BufferIndex, UniformBuffer *BufferRHI)
 {
     VulkanShader *Shader = nullptr;
     const ShaderStage::Stage Stage = GetAndVerifyShaderStageAndVulkanShader(ShaderRHI, pendingGfxState, Shader);

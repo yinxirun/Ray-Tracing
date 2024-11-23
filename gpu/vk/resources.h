@@ -141,11 +141,11 @@ class VulkanVertexDeclaration : public VertexDeclaration
 {
 public:
     VertexDeclarationElementList Elements;
-    uint32 Hash;
+    uint32 Hash = 0;
     uint32 HashNoStrides;
 
     VulkanVertexDeclaration(const VertexDeclarationElementList &InElements, uint32 InHash, uint32 InHashNoStrides);
-
+    static void EmptyCache();
     virtual uint32 GetPrecachePSOHash() const final override { return HashNoStrides; }
 };
 
@@ -387,11 +387,11 @@ public:
 
     void DestroySurface();
 
-	/// Returns one of the texture's mip-maps stride.
-	void GetMipStride(uint32 MipIndex, uint32& Stride);
+    /// Returns one of the texture's mip-maps stride.
+    void GetMipStride(uint32 MipIndex, uint32 &Stride);
     /// Returns the memory offset to the texture's mip-map.
-	void GetMipOffset(uint32 MipIndex, uint32& Offset);
-    void GetMipSize(uint32 MipIndex, uint32& MipBytes);
+    void GetMipOffset(uint32 MipIndex, uint32 &Offset);
+    void GetMipSize(uint32 MipIndex, uint32 &MipBytes);
 
     inline VkImageViewType GetViewType() const
     {
@@ -696,8 +696,3 @@ protected:
     /* std::vector<CrossCompiler::FUniformBufferCopyInfo> EmulatedUBsCopyInfo; */
     std::vector<uint32> EmulatedUBsCopyRanges;
 };
-
-static VulkanTexture *ResourceCast(Texture *texture)
-{
-    return static_cast<VulkanTexture *>(texture->GetTextureBaseRHI());
-}

@@ -60,7 +60,71 @@ UniformBufferBaseType ParseType(spirv_cross::SPIRType type)
     }
 }
 
-std::vector<uint8> LoadShader(std::string spvFilename, ShaderFrequency freq)
+void ProcessUB(std::vector<ShaderHeader::UniformBufferInfo> &outInfo,
+               spirv_cross::CompilerGLSL &inData,
+               spirv_cross::SmallVector<spirv_cross::Resource> &inUBs)
+{
+    outInfo.clear();
+    for (auto &res : inUBs)
+    {
+        ShaderHeader::UniformBufferInfo ubInfo;
+
+        uint32 binding = inData.get_decoration(res.id, spv::DecorationBinding);
+        // ubInfo.LayoutHash = (set << 8) | binding;
+        ubInfo.LayoutHash = 0;
+        ubInfo.bOnlyHasResources = false;
+        ubInfo.ConstantDataOriginalBindingIndex = binding;
+
+        spirv_cross::SPIRType type = inData.get_type(res.base_type_id);
+
+        uint32_t member_count = type.member_types.size();
+        for (int i = 0; i < member_count; i++)
+        {
+            ShaderHeader::UBResourceInfo ubResInfo;
+
+            std::string resourceName = inData.get_member_name(res.base_type_id, i);
+
+            const spirv_cross::SPIRType &member_type = inData.get_type(type.member_types[i]);
+
+            ubResInfo.UBBaseType = ParseType(member_type);
+
+            size_t resourceSize = inData.get_declared_struct_member_size(type, i);
+            uint32 resourceOffset = inData.type_struct_member_offset(type, i);
+
+            ubInfo.ResourceEntries.push_back(ubResInfo);
+        }
+
+        outInfo.push_back(ubInfo);
+    }
+}
+
+void ProcessGlobal(std::vector<ShaderHeader::GlobalInfo> &outInfo,
+                   std::vector<TEnumAsByte<VulkanBindingType::Type>> &outType,
+                   spirv_cross::CompilerGLSL &inData,
+                   spirv_cross::ShaderResources &inResource)
+{
+    for (auto &res : inResource.sampled_images)
+    {
+        ShaderHeader::GlobalInfo globalInfo;
+
+        uint32 binding = inData.get_decoration(res.id, spv::DecorationBinding);
+        globalInfo.bImmutableSampler = false;
+        globalInfo.OriginalBindingIndex = binding;
+        globalInfo.CombinedSamplerStateAliasIndex = UINT16_MAX;
+        globalInfo.TypeIndex = outType.size();
+        outInfo.push_back(globalInfo);
+        outType.push_back(VulkanBindingType::CombinedImageSampler);
+
+        globalInfo.CombinedSamplerStateAliasIndex = outInfo.size() - 1;
+        globalInfo.TypeIndex = outType.size();
+        outInfo.push_back(globalInfo);
+        outType.push_back(VulkanBindingType::CombinedImageSampler);
+
+        spirv_cross::SPIRType type = inData.get_type(res.base_type_id);
+    }
+}
+
+std::vector<uint8> ProcessShader(std::string spvFilename, ShaderFrequency freq)
 {
     std::ifstream file(spvFilename, std::ios::ate | std::ios::binary);
     if (!file.is_open())
@@ -92,40 +156,6 @@ std::vector<uint8> LoadShader(std::string spvFilename, ShaderFrequency freq)
             unsigned attribLocation = glsl.get_decoration(res.id, spv::DecorationLocation);
             header.InOutMask |= (1 << attribLocation);
         }
-
-        // Uniform Buffer
-        for (auto &res : resources.uniform_buffers)
-        {
-            ShaderHeader::UniformBufferInfo ubInfo;
-
-            uint32 binding = glsl.get_decoration(res.id, spv::DecorationBinding);
-            uint32 set = glsl.get_decoration(res.id, spv::DecorationDescriptorSet);
-            // ubInfo.LayoutHash = (set << 8) | binding;
-            ubInfo.LayoutHash = 0;
-            ubInfo.bOnlyHasResources = false;
-            ubInfo.ConstantDataOriginalBindingIndex = binding;
-
-            spirv_cross::SPIRType type = glsl.get_type(res.base_type_id);
-
-            uint32_t member_count = type.member_types.size();
-            for (int i = 0; i < member_count; i++)
-            {
-                ShaderHeader::UBResourceInfo ubResInfo;
-
-                std::string resourceName = glsl.get_member_name(res.base_type_id, i);
-
-                const spirv_cross::SPIRType &member_type = glsl.get_type(type.member_types[i]);
-
-                ubResInfo.UBBaseType = ParseType(member_type);
-
-                size_t resourceSize = glsl.get_declared_struct_member_size(type, i);
-                uint32 resourceOffset = glsl.type_struct_member_offset(type, i);
-
-                ubInfo.ResourceEntries.push_back(ubResInfo);
-            }
-
-            header.UniformBuffers.push_back(ubInfo);
-        }
     }
     else if (freq == ShaderFrequency::SF_Pixel)
     {
@@ -135,6 +165,9 @@ std::vector<uint8> LoadShader(std::string spvFilename, ShaderFrequency freq)
             header.InOutMask |= (1 << attribLocation);
         }
     }
+
+    ProcessUB(header.UniformBuffers, glsl, resources.uniform_buffers);
+    ProcessGlobal(header.Globals, header.GlobalDescriptorTypes, glsl, resources);
 
     std::vector<uint8> data;
     MemoryWriter ar(data, true);

@@ -282,6 +282,7 @@ void VulkanMultiBuffer::ReleaseOwnership()
         {
             TotalSize += BufferAllocs[Index].allocInfo.size;
             vmaDestroyBuffer(device->GetAllocator(), BufferAllocs[Index].handle, BufferAllocs[Index].alloc);
+            std::cout << "Destroy VulkanMultiBuffer: " << std::hex << BufferAllocs[Index].handle << std::endl;
         }
         BufferAllocs[Index].Fence = nullptr;
     }
@@ -413,6 +414,7 @@ void VulkanMultiBuffer::AdvanceBufferIndex()
         {
             throw std::runtime_error("Fail to allocate buffer");
         }
+        std::cout << "Create VulkanMultiBuffer: " << std::hex << NewBufferAlloc.handle << std::endl; // 输出 ff
 
         void *hostPtr = nullptr;
         if (bUnifiedMem)

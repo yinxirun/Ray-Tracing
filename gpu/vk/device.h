@@ -167,6 +167,7 @@ public:
 
     void CreateDevice(std::vector<const char *> &layers, std::vector<const char *> &extensions);
 
+    void PrepareForDestroy();
     void Destroy();
 
     void WaitUntilIdle();

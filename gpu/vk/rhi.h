@@ -9,6 +9,7 @@
 #include "gpu/RHI/RHIResources.h"
 #include "gpu/RHI/RHIPipeline.h"
 #include "gpu/RHI/multi_gpu.h"
+#include "gpu/RHI/RHITypes.h"
 #include "gpu/core/assertion_macros.h"
 
 class Device;
@@ -138,6 +139,20 @@ public:
         InternalUnlockTexture2D(false, Texture, MipIndex, bLockWithinMiptail);
     }
 
+    /**
+     * Updates a region of a 2D texture from system memory
+     * @param Texture - the RHI texture resource to update
+     * @param MipIndex - mip level index to be modified
+     * @param UpdateRegion - The rectangle to copy source image data from
+     * @param SourcePitch - size in bytes of each row of the source image
+     * @param SourceData - source image data, starting at the upper left corner of the source rectangle (in same pixel format as texture)
+     */
+    virtual void UpdateTexture2D(RHICommandListBase &RHICmdList, Texture *Texture, uint32 MipIndex,
+                                 const struct UpdateTextureRegion2D &UpdateRegion, uint32 SourcePitch, const uint8 *SourceData)
+    {
+        InternalUpdateTexture2D(RHICmdList, Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
+    }
+
     // 673
     //  Compute the hash of the state components of the PSO initializer for PSO Precaching (only hash data relevant for the RHI specific PSO)
     virtual uint64 ComputeStatePrecachePSOHash(const GraphicsPipelineStateInitializer &Initializer);
@@ -188,6 +203,8 @@ protected:
     void RemoveDebugLayerCallback();
 
     void InternalUnlockTexture2D(bool bFromRenderingThread, Texture *Texture, uint32 MipIndex, bool bLockWithinMiptail);
+    void InternalUpdateTexture2D(RHICommandListBase &RHICmdList, Texture *TextureRHI, uint32 MipIndex,
+                                 const struct UpdateTextureRegion2D &UpdateRegion, uint32 SourcePitch, const uint8 *SourceData);
 
     /// @brief 不能再render pass中调用。我的修改导致的？
     void UpdateUniformBuffer(RHICommandListBase &RHICmdList, VulkanUniformBuffer *UniformBuffer, const void *Contents);

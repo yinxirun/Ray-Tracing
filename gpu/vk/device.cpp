@@ -292,6 +292,11 @@ void Device::CreateDevice(std::vector<const char *> &layers, std::vector<const c
     transferQueue = new Queue(this, TransferQueueFamilyIndex);
 }
 
+void Device::PrepareForDestroy()
+{
+	WaitUntilIdle();
+}
+
 void Device::Destroy()
 {
     delete descriptorPoolsManager;
@@ -513,4 +518,8 @@ void Device::SetupFormats()
     GVulkanSRGBFormat[PF_B8G8R8A8] = VK_FORMAT_B8G8R8A8_SRGB;
     
     GPixelFormats[PF_G8].PlatformFormat = (uint32)VK_FORMAT_R8_UNORM;
+
+    GPixelFormats[PF_R8G8B8A8].PlatformFormat=(uint32)VK_FORMAT_R8G8B8A8_UNORM;
+    GPixelFormats[PF_R8G8B8A8].Supported=true;
+    GVulkanSRGBFormat[PF_R8G8B8A8] = VK_FORMAT_R8G8B8A8_SRGB;
 }

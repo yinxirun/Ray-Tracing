@@ -30,7 +30,7 @@ namespace std
 }
 
 template <typename TVulkanShader>
-static inline uint64 GetShaderKey(RHIGraphicsShader *ShaderType)
+static inline uint64 GetShaderKey(GraphicsShader *ShaderType)
 {
     TVulkanShader *vulkanShader = static_cast<TVulkanShader *>(ShaderType);
     VulkanShader *BaseVulkanShader = static_cast<VulkanShader *>(vulkanShader);

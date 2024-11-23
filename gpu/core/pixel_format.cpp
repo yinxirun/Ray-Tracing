@@ -48,7 +48,7 @@ PixelFormatInfo GPixelFormats[PF_MAX] =
         // PixelFormatInfo(PF_R16G16B16A16_UINT, ("R16G16B16A16_UINT"), 1, 1, 1, 8, 4, 1),
         // PixelFormatInfo(PF_R16G16B16A16_SINT, ("R16G16B16A16_SINT"), 1, 1, 1, 8, 4, 1),
         // PixelFormatInfo(PF_R5G6B5_UNORM, ("R5G6B5_UNORM"), 1, 1, 1, 2, 3, 0),
-        // PixelFormatInfo(PF_R8G8B8A8, ("R8G8B8A8"), 1, 1, 1, 4, 4, 1),
+        PixelFormatInfo(PF_R8G8B8A8, ("R8G8B8A8"), 1, 1, 1, 4, 4, 1),
         // PixelFormatInfo(PF_A8R8G8B8, ("A8R8G8B8"), 1, 1, 1, 4, 4, 1),
         // PixelFormatInfo(PF_BC4, ("BC4"), 4, 4, 1, 8, 1, 1),
         // PixelFormatInfo(PF_R8G8, ("R8G8"), 1, 1, 1, 2, 2, 1),

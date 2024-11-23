@@ -165,11 +165,20 @@ inline Archive &operator<<(Archive &Ar, ShaderHeader::UniformBufferInfo &UBInfo)
     return Ar;
 }
 
+inline Archive &operator<<(Archive &Ar, ShaderHeader::GlobalInfo &GlobalInfo)
+{
+    Ar << GlobalInfo.OriginalBindingIndex;
+    Ar << GlobalInfo.CombinedSamplerStateAliasIndex;
+    Ar << GlobalInfo.TypeIndex;
+    Ar << GlobalInfo.bImmutableSampler;
+    return Ar;
+}
+
 inline Archive &operator<<(Archive &Ar, ShaderHeader &Header)
 {
     Ar << Header.UniformBuffers;
-    // Ar << Header.Globals;
-    // Ar << Header.GlobalDescriptorTypes;
+    Ar << Header.Globals;
+    Ar << Header.GlobalDescriptorTypes;
     // Ar << Header.PackedGlobals;
     // Ar << Header.PackedUBs;
     // Ar << Header.InputAttachments;

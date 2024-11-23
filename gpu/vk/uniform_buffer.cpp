@@ -5,6 +5,7 @@
 #include "rhi.h"
 
 #include "gpu/render_core/shader_parameter_struct.h"
+#include "gpu/RHI/RHICommandList.h"
 
 enum
 {
@@ -142,6 +143,7 @@ VulkanUniformBuffer::VulkanUniformBuffer(Device &InDevice, std::shared_ptr<const
             allocationCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
             VkResult result = vmaCreateBuffer(device->GetAllocator(), &bufferCI, &allocationCI, &handle, &allocation, &info);
+            std::cout << "Create VulkanUniformBuffer: " << std::hex << handle << std::endl; 
             offset = 0;
 
             if (Contents)
@@ -156,6 +158,7 @@ VulkanUniformBuffer::VulkanUniformBuffer(Device &InDevice, std::shared_ptr<const
 VulkanUniformBuffer::~VulkanUniformBuffer()
 {
     vmaDestroyBuffer(device->GetAllocator(), handle, allocation);
+    std::cout << "Destroy VulkanUniformBuffer: " << std::hex << handle << std::endl;
 }
 
 void VulkanUniformBuffer::UpdateResourceTable(const UniformBufferLayout &InLayout, const void *Contents, int32 NumResources)
@@ -191,13 +194,37 @@ inline void RHI::UpdateUniformBuffer(RHICommandListBase &RHICmdList, VulkanUnifo
     const int32 ConstantBufferSize = Layout.ConstantBufferSize;
     const int32 NumResources = Layout.Resources.size();
 
-    if (ConstantBufferSize > 0)
+    bool bUseUpload = !RHICmdList.IsInsideRenderPass();
+    const bool bUseRingBuffer = UseRingBuffer(UniformBuffer->Usage);
+
+    if (!bUseUpload && !bUseRingBuffer)
     {
-        CommandListContext &Context = device->GetImmediateContext();
-        UpdateUniformBufferHelper(Context, UniformBuffer, Contents);
+        check(0);
     }
 
-    UniformBuffer->UpdateResourceTable(Layout, Contents, NumResources);
+    bool bRHIBypass = RHICmdList.Bypass();
+
+    if (bRHIBypass)
+    {
+        if (ConstantBufferSize > 0)
+        {
+            if (bUseUpload || bUseRingBuffer)
+            {
+                CommandListContext &Context = device->GetImmediateContext();
+                UpdateUniformBufferHelper(Context, UniformBuffer, Contents);
+            }
+            else
+            {
+                check(0);
+            }
+        }
+
+        UniformBuffer->UpdateResourceTable(Layout, Contents, NumResources);
+    }
+    else
+    {
+        check(0);
+    }
 }
 
 void RHI::UpdateUniformBuffer(RHICommandListBase &RHICmdList, UniformBuffer *UniformBufferRHI, const void *Contents)
@@ -236,6 +263,7 @@ VulkanRingBuffer::VulkanRingBuffer(Device *InDevice, uint64 TotalSize, VkFlags U
     allcationCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     VkResult result = vmaCreateBuffer(device->GetAllocator(), &bufferCI, &allcationCI, &handle, &allocation, &info);
+    std::cout << "Create VulkanRingBuffer: " << std::hex << handle << std::endl; 
 
     printf("Notice Min Alignment of Ring Buffer\n %s %d\n", __FILE__, __LINE__);
     MinAlignment = 0;
@@ -253,6 +281,7 @@ VulkanRingBuffer::VulkanRingBuffer(Device *InDevice, uint64 TotalSize, VkFlags U
 VulkanRingBuffer::~VulkanRingBuffer()
 {
     vmaDestroyBuffer(device->GetAllocator(), handle, allocation);
+    std::cout << "Destroy VulkanRingBuffer: " << std::hex << handle << std::endl;
     handle = VK_NULL_HANDLE;
     allocation = VK_NULL_HANDLE;
 }

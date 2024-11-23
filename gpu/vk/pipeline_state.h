@@ -68,12 +68,12 @@ public:
 		}
 	}
 
-	// 	inline void SetSamplerState(uint8 DescriptorSet, uint32 BindingIndex, const FVulkanSamplerState* Sampler)
-	// 	{
-	// 		check(!bUseBindless);
-	// 		check(Sampler && Sampler->Sampler != VK_NULL_HANDLE);
-	// 		MarkDirty(DSWriter[DescriptorSet].WriteSampler(BindingIndex, *Sampler));
-	// 	}
+	inline void SetSamplerState(uint8 DescriptorSet, uint32 BindingIndex, const VulkanSamplerState *sampler)
+	{
+		check(!bUseBindless);
+		check(sampler && sampler->sampler != VK_NULL_HANDLE);
+		MarkDirty(DSWriter[DescriptorSet].WriteSampler(BindingIndex, *sampler));
+	}
 
 	// 	inline void SetInputAttachment(uint8 DescriptorSet, uint32 BindingIndex, const FVulkanView::FTextureView& TextureView, VkImageLayout Layout)
 	// 	{

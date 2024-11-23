@@ -10,7 +10,7 @@ struct VulkanVertexDeclarationKey
 {
     VertexDeclarationElementList VertexElements;
 
-    uint32 Hash;
+    uint32 Hash = 0;
     uint32 HashNoStride;
 
     explicit VulkanVertexDeclarationKey(const VertexDeclarationElementList &InElements)
@@ -51,6 +51,11 @@ VulkanVertexDeclaration::VulkanVertexDeclaration(const VertexDeclarationElementL
     : Elements(InElements), Hash(InHash), HashNoStrides(InHashNoStrides) {}
 
 std::unordered_map<VulkanVertexDeclarationKey, std::shared_ptr<VertexDeclaration>> GVertexDeclarationCache;
+
+void VulkanVertexDeclaration::EmptyCache()
+{
+    GVertexDeclarationCache.clear();
+}
 
 std::shared_ptr<VertexDeclaration> RHI::CreateVertexDeclaration(const VertexDeclarationElementList &Elements)
 {

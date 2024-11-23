@@ -777,7 +777,7 @@ bool Framebuffer::Matches(const SetRenderTargetsInfo &InRTInfo) const
         if (B.texture)
         {
             VkImage AImage = DepthStencilRenderTargetImage;
-            VkImage BImage = ResourceCast(B.texture)->Image;
+            VkImage BImage = static_cast<VulkanTexture*>(B.texture)->Image;
             if (AImage != BImage)
             {
                 return false;
@@ -790,7 +790,7 @@ bool Framebuffer::Matches(const SetRenderTargetsInfo &InRTInfo) const
         if (Texture)
         {
             VkImage AImage = FragmentDensityImage;
-            VkImage BImage = ResourceCast(Texture)->Image;
+            VkImage BImage = static_cast<VulkanTexture*>(Texture)->Image;
             if (AImage != BImage)
             {
                 return false;
@@ -807,7 +807,7 @@ bool Framebuffer::Matches(const SetRenderTargetsInfo &InRTInfo) const
             if (R.texture)
             {
                 VkImage AImage = ColorResolveTargetImages[AttachementIndex];
-                VkImage BImage = ResourceCast(R.texture)->Image;
+                VkImage BImage = static_cast<VulkanTexture*>(R.texture)->Image;
                 if (AImage != BImage)
                 {
                     return false;
@@ -819,7 +819,7 @@ bool Framebuffer::Matches(const SetRenderTargetsInfo &InRTInfo) const
         if (B.texture)
         {
             VkImage AImage = ColorRenderTargetImages[AttachementIndex];
-            VkImage BImage = ResourceCast(B.texture)->Image;
+            VkImage BImage = static_cast<VulkanTexture*>(B.texture)->Image;
             if (AImage != BImage)
             {
                 return false;

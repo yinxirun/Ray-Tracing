@@ -127,6 +127,12 @@ void RHI::Init()
 
 void RHI::Shutdown()
 {
+    check(IsInGameThread() && IsInRenderingThread());
+    check(device);
+
+    device->PrepareForDestroy();
+
+    VulkanVertexDeclaration::EmptyCache();
     {
         for (auto &Pair : device->SamplerMap)
         {
