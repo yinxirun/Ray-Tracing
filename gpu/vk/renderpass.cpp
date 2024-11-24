@@ -2,7 +2,7 @@
 #include "barrier.h"
 #include "command_buffer.h"
 #include "gpu/core/misc/crc.h"
-#include "gpu/math/color.h"
+#include "gpu/core/math/color.h"
 #include "context.h"
 #include "pending_state.h"
 

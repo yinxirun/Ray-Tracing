@@ -1,6 +1,6 @@
 #pragma once
 #include "../definitions.h"
-#include "gpu/math/color.h"
+#include "gpu/core/math/color.h"
 
 // 用于控制是否打印未实现函数的信息
 #define PRINT_UNIMPLEMENT

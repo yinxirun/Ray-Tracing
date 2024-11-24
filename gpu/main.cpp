@@ -4,8 +4,10 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <memory>
 
 #include "GLFW/glfw3.h"
+#include "gpu/engine/classes/static_mesh.h"
 #include "gpu/RHI/dynamic_rhi.h"
 #include "gpu/RHI/RHI.h"
 #include "gpu/RHI/pipeline_state_cache.h"
@@ -16,7 +18,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-Viewport *drawingViewport = nullptr;
+extern void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh);
+extern std::vector<uint8> process_shader(std::string filename, ShaderFrequency freq);
+
+VulkanViewport *drawingViewport = nullptr;
 extern RHICommandListExecutor GRHICommandListExecutor;
 
 void OnSizeChanged(GLFWwindow *window, int width, int height)
@@ -43,8 +48,6 @@ std::vector<uint8> readFile(const std::string &filename)
 #define WIDTH 800
 #define HEIGHT 600
 
-std::vector<uint8> ProcessShader(std::string filename, ShaderFrequency freq);
-
 struct PerCamera
 {
     Mat4 model;
@@ -52,7 +55,7 @@ struct PerCamera
     Mat4 proj;
 };
 
-int main()
+int RHITest()
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -65,7 +68,7 @@ int main()
     dummy.SwitchPipeline(RHIPipeline::Graphics);
     {
         CommandContext *context = GetDefaultContext();
-        std::shared_ptr<Viewport> viewport = CreateViewport(window, 800, 600, false, PixelFormat::PF_B8G8R8A8);
+        std::shared_ptr<VulkanViewport> viewport = CreateViewport(window, 800, 600, false, PixelFormat::PF_B8G8R8A8);
         drawingViewport = viewport.get();
 
         BufferDesc desc(48, 4, BufferUsageFlags::VertexBuffer);
@@ -124,8 +127,8 @@ int main()
         elements.push_back(VertexElement(1, 0, VET_Float3, 1, 12));
         elements.push_back(VertexElement(2, 0, VET_Float2, 2, 8));
         graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
-        graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(ProcessShader("gpu/shaders/a.vert.spv", SF_Vertex));
-        graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(ProcessShader("gpu/shaders/a.frag.spv", SF_Pixel));
+        graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(process_shader("gpu/shaders/a.vert.spv", SF_Vertex));
+        graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(process_shader("gpu/shaders/a.frag.spv", SF_Pixel));
         // PSO的回收还没写，目前是会泄漏的
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
@@ -196,4 +199,39 @@ int main()
     glfwTerminate();
 
     return 0;
+}
+
+#include "gpu/engine/classes/components/static_mesh_component.h"
+#include "gpu/engine/scene_view.h"
+#include "gpu/renderer/scene_private.h"
+#include "gpu/renderer/render_module.h"
+#include "gpu/renderer/scene_rendering.h"
+int main()
+{
+    // 加载模型
+    auto staticMesh = std::make_shared<StaticMesh>();
+    load_wavefront_static_mesh("assets/cornell-box/cornell-box.obj", *staticMesh);
+    auto component = std::make_shared<StaticMeshComponent>();
+    component->SetStaticMesh(staticMesh);
+
+    Scene scene;
+    scene.AddPrimitive(std::static_pointer_cast<PrimitiveComponent>(component));
+
+    // 设置相机
+    SceneView view;
+    view.FOV = 39.3077;
+    view.NearClippingDistance = 800;
+    view.farClippingDistance = 2000;
+    view.ViewLocation = Vec3(278, 273, -800);
+    view.ViewRect = IntVec2(WIDTH, HEIGHT);
+    view.ViewRotation = Mat4();
+    view.WorldToMetersScale = 1;
+
+    ViewFamilyInfo viewFamily(SceneViewFamily{});
+    viewFamily.views.push_back(&view);
+    viewFamily.scene = &scene;
+
+    // 运行
+    RendererModule module;
+    module.BeginRenderingViewFamily(&viewFamily);
 }

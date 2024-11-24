@@ -10,7 +10,7 @@ class RHI;
 class Device;
 class Queue;
 class CommandBufferManager;
-class Viewport;
+class VulkanViewport;
 class RenderPass;
 class Framebuffer;
 class PendingGfxState;
@@ -48,8 +48,8 @@ public:
 
     virtual void SubmitCommandsHint() final override;
 
-    void BeginDrawingViewport(std::shared_ptr<Viewport> &Viewport) final override;
-    void EndDrawingViewport(Viewport *Viewport, bool bLockToVsync) final override;
+    void BeginDrawingViewport(std::shared_ptr<VulkanViewport> &Viewport) final override;
+    void EndDrawingViewport(VulkanViewport *Viewport, bool bLockToVsync) final override;
 
     void BeginFrame() final override;
     void EndFrame() final override;

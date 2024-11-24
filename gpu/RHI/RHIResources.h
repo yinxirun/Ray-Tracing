@@ -2,8 +2,8 @@
 #include "Volk/volk.h"
 #include "gpu/core/templates/alignment_template.h"
 #include "gpu/core/assertion_macros.h"
-#include "gpu/math/color.h"
-#include "gpu/math/vec.h"
+#include "gpu/core/math/color.h"
+#include "gpu/core/math/vec.h"
 #include "gpu/definitions.h"
 #include "gpu/core/pixel_format.h"
 #include "gpu/core/misc/secure_hash.h"
@@ -725,6 +725,12 @@ public:
      * @returns True if and only if the GPU fence has been inserted and the GPU has signaled the fence.
      */
     virtual bool Poll() const = 0;
+};
+
+class Viewport : public RHIResource
+{
+public:
+    Viewport() : RHIResource(RRT_Viewport) {}
 };
 
 // 3214

@@ -120,6 +120,18 @@ RHI::RHI() : instance(VK_NULL_HANDLE), device(nullptr), drawingViewport(nullptr)
     SelectDevice();
 }
 
+RHI::~RHI()
+{
+    delete device;
+    device = nullptr;
+
+#if VULKAN_HAS_DEBUGGING_ENABLED
+    RemoveDebugLayerCallback();
+#endif
+
+    vkDestroyInstance(instance, nullptr);
+}
+
 void RHI::Init()
 {
     InitInstance();
@@ -143,14 +155,6 @@ void RHI::Shutdown()
     }
 
     device->Destroy();
-    delete device;
-    device = nullptr;
-
-#if VULKAN_HAS_DEBUGGING_ENABLED
-    RemoveDebugLayerCallback();
-#endif
-
-    vkDestroyInstance(instance, nullptr);
 }
 
 std::shared_ptr<RasterizerState> RHI::CreateRasterizerState(const RasterizerStateInitializer &Initializer)
@@ -175,8 +179,8 @@ GraphicsPipelineState *RHI::CreateGraphicsPipelineState(const GraphicsPipelineSt
     return device->PipelineStateCache->CreateGraphicsPipelineState(Initializer);
 }
 
-std::shared_ptr<Viewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
-                                              bool bIsFullscreen, PixelFormat PreferredPixelFormat)
+std::shared_ptr<VulkanViewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
+                                                    bool bIsFullscreen, PixelFormat PreferredPixelFormat)
 {
     // Use a default pixel format if none was specified
     if (PreferredPixelFormat == PF_Unknown)
@@ -184,7 +188,7 @@ std::shared_ptr<Viewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, 
         PreferredPixelFormat = PF_B8G8R8A8;
     }
 
-    return std::shared_ptr<Viewport>(new Viewport(device, WindowHandle, SizeX, SizeY, PreferredPixelFormat));
+    return std::shared_ptr<VulkanViewport>(new VulkanViewport(device, WindowHandle, SizeX, SizeY, PreferredPixelFormat));
 }
 
 void *RHI::LockBuffer_BottomOfPipe(RHICommandListBase &RHICmdList, Buffer *BufferRHI, uint32 Offset, uint32 Size, ResourceLockMode LockMode)
@@ -345,7 +349,7 @@ uint64 RHI::ComputePrecachePSOHash(const GraphicsPipelineStateInitializer &Initi
     return CityHash64((const char *)&HashKey, sizeof(NonStateHashKey));
 }
 
-void RHI::ResizeViewport(Viewport *viewport, uint32 sizeX, uint32 sizeY,
+void RHI::ResizeViewport(VulkanViewport *viewport, uint32 sizeX, uint32 sizeY,
                          bool bIsFullscreen, PixelFormat preferredPixelFormat)
 {
     check(IsInGameThread());

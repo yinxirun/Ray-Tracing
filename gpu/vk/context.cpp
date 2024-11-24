@@ -64,13 +64,13 @@ void CommandListContext::RHIPopEvent()
 #endif
 }
 
-void CommandListContext::BeginDrawingViewport(std::shared_ptr<Viewport> &Viewport)
+void CommandListContext::BeginDrawingViewport(std::shared_ptr<VulkanViewport> &Viewport)
 {
     check(Viewport);
     rhi->drawingViewport = Viewport;
 }
 
-void CommandListContext::EndDrawingViewport(Viewport *Viewport, bool bLockToVsync)
+void CommandListContext::EndDrawingViewport(VulkanViewport *Viewport, bool bLockToVsync)
 {
     check(IsImmediate());
     CmdBuffer *cmdBuffer = commandBufferManager->GetActiveCmdBuffer();

@@ -6,7 +6,7 @@ extern RHI *rhi;
 
 __forceinline CommandContext *GetDefaultContext() { return rhi->GetDefaultContext(); }
 
-__forceinline std::shared_ptr<Viewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
+__forceinline std::shared_ptr<VulkanViewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
                                                        bool bIsFullscreen, PixelFormat PreferredPixelFormat)
 {
     return rhi->CreateViewport(WindowHandle, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);

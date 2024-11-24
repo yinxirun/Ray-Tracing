@@ -124,7 +124,7 @@ void ProcessGlobal(std::vector<ShaderHeader::GlobalInfo> &outInfo,
     }
 }
 
-std::vector<uint8> ProcessShader(std::string spvFilename, ShaderFrequency freq)
+std::vector<uint8> process_shader(std::string spvFilename, ShaderFrequency freq)
 {
     std::ifstream file(spvFilename, std::ios::ate | std::ios::binary);
     if (!file.is_open())

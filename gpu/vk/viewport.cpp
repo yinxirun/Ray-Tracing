@@ -17,7 +17,7 @@
 #include "gpu/RHI/RHICommandList.h"
 #include "gpu/RHI/RHIDefinitions.h"
 
-BackBuffer::BackBuffer(Device &device, Viewport *InViewport, PixelFormat Format, uint32_t SizeX, uint32_t SizeY, TextureCreateFlags UEFlags)
+BackBuffer::BackBuffer(Device &device, VulkanViewport *InViewport, PixelFormat Format, uint32_t SizeX, uint32_t SizeY, TextureCreateFlags UEFlags)
     : VulkanTexture(device, TextureCreateDesc::Create2D("FVulkanBackBuffer", SizeX, SizeY, Format).SetFlags(UEFlags).DetermineInititialState(), VK_NULL_HANDLE, false),
       viewport(InViewport)
 {
@@ -100,7 +100,7 @@ void BackBuffer::AcquireBackBufferImage(CommandListContext &Context)
     }
 }
 
-Viewport::Viewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t sizeY, PixelFormat InPreferredPixelFormat)
+VulkanViewport::VulkanViewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t sizeY, PixelFormat InPreferredPixelFormat)
     : device(d), sizeX(sizeX), sizeY(sizeY), pixelFormat(InPreferredPixelFormat), acquiredImageIndex(-1),
       swapChain(nullptr), windowHandle(InWindowHandle), acquiredSemaphore(nullptr)
 {
@@ -117,7 +117,7 @@ Viewport::Viewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t siz
     }
 }
 
-Viewport::~Viewport()
+VulkanViewport::~VulkanViewport()
 {
     renderingBackBuffer = nullptr;
 
@@ -147,12 +147,12 @@ Viewport::~Viewport()
         swapChain = nullptr;
     }
 
-    std::vector<Viewport *> &viewports = RHI::Get().viewports;
+    std::vector<VulkanViewport *> &viewports = RHI::Get().viewports;
     auto iter = std::find(viewports.begin(), viewports.end(), this);
     viewports.erase(iter);
 }
 
-std::shared_ptr<Texture> Viewport::GetBackBuffer(/*RHICommandListImmediate &RHICmdList*/)
+std::shared_ptr<Texture> VulkanViewport::GetBackBuffer(/*RHICommandListImmediate &RHICmdList*/)
 {
     check(IsInRenderingThread());
 
@@ -247,7 +247,7 @@ inline static void CopyImageToBackBuffer(CommandListContext *context, CmdBuffer 
 }
 
 extern int32 GWaitForIdleOnSubmit;
-void Viewport::WaitForFrameEventCompletion()
+void VulkanViewport::WaitForFrameEventCompletion()
 {
     if (Platform::RequiresWaitingForFrameCompletionEvent())
     {
@@ -266,7 +266,7 @@ void Viewport::WaitForFrameEventCompletion()
     }
 }
 
-void Viewport::IssueFrameEvent()
+void VulkanViewport::IssueFrameEvent()
 {
     if (Platform::RequiresWaitingForFrameCompletionEvent())
     {
@@ -278,7 +278,7 @@ void Viewport::IssueFrameEvent()
     }
 }
 
-bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue *queue, Queue *presentQueue, bool bLockToVsync)
+bool VulkanViewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue *queue, Queue *presentQueue, bool bLockToVsync)
 {
     // FPlatformAtomics::AtomicStore(&LockToVsync, bLockToVsync ? 1 : 0);
     bool bFailedToDelayAcquireBackbuffer = false;
@@ -384,7 +384,7 @@ bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue 
     if (bNeedNativePresent && (!SupportsStandardSwapchain() || GVulkanDelayAcquireImage == EDelayAcquireImageType::DelayAcquire || RHIBackBuffer != nullptr))
     {
         // Present the back buffer to the viewport window.
-        auto SwapChainJob = [queue, presentQueue](Viewport *Viewport) -> int32
+        auto SwapChainJob = [queue, presentQueue](VulkanViewport *Viewport) -> int32
         {
             // May happend if swapchain was recreated in DoCheckedSwapChainJob()
             if (Viewport->acquiredImageIndex == -1)
@@ -423,17 +423,17 @@ bool Viewport::Present(CommandListContext *context, CmdBuffer *cmdBuffer, Queue 
     return bResult;
 }
 
-VkSurfaceTransformFlagBitsKHR Viewport::GetSwapchainQCOMRenderPassTransform() const
+VkSurfaceTransformFlagBitsKHR VulkanViewport::GetSwapchainQCOMRenderPassTransform() const
 {
     return swapChain->QCOMRenderPassTransform;
 }
 
-VkFormat Viewport::GetSwapchainImageFormat() const
+VkFormat VulkanViewport::GetSwapchainImageFormat() const
 {
     return swapChain->imageFormat;
 }
 
-void Viewport::CreateSwapchain(struct SwapChainRecreateInfo *recreateInfo)
+void VulkanViewport::CreateSwapchain(struct SwapChainRecreateInfo *recreateInfo)
 {
     if (SupportsStandardSwapchain())
     {
@@ -520,7 +520,7 @@ void Viewport::CreateSwapchain(struct SwapChainRecreateInfo *recreateInfo)
     acquiredImageIndex = -1;
 }
 
-void Viewport::DestroySwapchain(struct SwapChainRecreateInfo *RecreateInfo)
+void VulkanViewport::DestroySwapchain(struct SwapChainRecreateInfo *RecreateInfo)
 {
     // Submit all command buffers here
     device->SubmitCommandsAndFlushGPU();
@@ -558,7 +558,7 @@ void Viewport::DestroySwapchain(struct SwapChainRecreateInfo *RecreateInfo)
     acquiredImageIndex = -1;
 }
 
-bool Viewport::TryAcquireImageIndex()
+bool VulkanViewport::TryAcquireImageIndex()
 {
     if (swapChain)
     {
@@ -840,7 +840,7 @@ void Framebuffer::Destroy(Device &Device)
     framebuffer = VK_NULL_HANDLE;
 }
 
-void Viewport::RecreateSwapchain(void *newNativeWindow)
+void VulkanViewport::RecreateSwapchain(void *newNativeWindow)
 {
     SwapChainRecreateInfo recreateInfo = {VK_NULL_HANDLE, VK_NULL_HANDLE};
     DestroySwapchain(&recreateInfo);
@@ -850,7 +850,7 @@ void Viewport::RecreateSwapchain(void *newNativeWindow)
     check(recreateInfo.swapChain == VK_NULL_HANDLE);
 }
 
-void Viewport::RecreateSwapchainFromRT(PixelFormat PreferredPixelFormat)
+void VulkanViewport::RecreateSwapchainFromRT(PixelFormat PreferredPixelFormat)
 {
     check(IsInRenderingThread());
 
@@ -864,7 +864,7 @@ void Viewport::RecreateSwapchainFromRT(PixelFormat PreferredPixelFormat)
     check(recreateInfo.swapChain == VK_NULL_HANDLE);
 }
 
-void Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, PixelFormat PreferredPixelFormat)
+void VulkanViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, PixelFormat PreferredPixelFormat)
 {
     sizeX = InSizeX;
     sizeY = InSizeY;
@@ -872,7 +872,7 @@ void Viewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen, Pixe
     RecreateSwapchainFromRT(PreferredPixelFormat);
 }
 
-bool Viewport::DoCheckedSwapChainJob(std::function<int32(Viewport *)> SwapChainJob)
+bool VulkanViewport::DoCheckedSwapChainJob(std::function<int32(VulkanViewport *)> SwapChainJob)
 {
     int32 AttemptsPending = Platform::RecreateSwapchainOnFail() ? 4 : 0;
     int32 Status = SwapChainJob(this);
@@ -906,11 +906,11 @@ bool Viewport::DoCheckedSwapChainJob(std::function<int32(Viewport *)> SwapChainJ
     return Status >= 0;
 }
 
-bool Viewport::SupportsStandardSwapchain() { return !bRenderOffscreen; }
+bool VulkanViewport::SupportsStandardSwapchain() { return !bRenderOffscreen; }
 
-bool Viewport::RequiresRenderingBackBuffer() { return true; }
+bool VulkanViewport::RequiresRenderingBackBuffer() { return true; }
 
-PixelFormat Viewport::GetPixelFormatForNonDefaultSwapchain()
+PixelFormat VulkanViewport::GetPixelFormatForNonDefaultSwapchain()
 {
     if (bRenderOffscreen)
     {

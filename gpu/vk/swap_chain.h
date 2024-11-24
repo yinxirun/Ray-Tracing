@@ -65,6 +65,6 @@ protected:
 
     int32 AcquireImageIndex(VulkanRHI::Semaphore **OutSemaphore);
 
-    friend class Viewport;
+    friend class VulkanViewport;
     friend class Queue;
 };

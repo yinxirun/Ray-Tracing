@@ -13,7 +13,7 @@
 #include "gpu/core/assertion_macros.h"
 
 class Device;
-class Viewport;
+class VulkanViewport;
 class CommandContext;
 class CommandListContext;
 class ComputeContext;
@@ -53,6 +53,9 @@ public:
     /** Initialization constructor. */
     RHI();
 
+    /** Destructor */
+    ~RHI();
+
     /* RHI Method */
 
     void Init();
@@ -82,8 +85,8 @@ public:
 
     virtual ComputeContext *GetCommandContext(RHIPipeline Pipeline, RHIGPUMask GPUMask);
 
-    std::shared_ptr<Viewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
-                                             bool bIsFullscreen, PixelFormat PreferredPixelFormat);
+    std::shared_ptr<VulkanViewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
+                                                   bool bIsFullscreen, PixelFormat PreferredPixelFormat);
 
     // 288
     /**
@@ -161,7 +164,7 @@ public:
     virtual uint64 ComputePrecachePSOHash(const GraphicsPipelineStateInitializer &Initializer);
 
     // 715
-    virtual void ResizeViewport(Viewport *Viewport, uint32 SizeX, uint32 SizeY,
+    virtual void ResizeViewport(VulkanViewport *Viewport, uint32 SizeX, uint32 SizeY,
                                 bool bIsFullscreen, PixelFormat PreferredPixelFormat);
     // 919
     //  Buffer Lock/Unlock
@@ -175,7 +178,7 @@ public:
     void InitInstance();
     inline VkInstance GetInstance() const { return instance; }
     inline Device *GetDevice() const { return device; }
-    inline std::vector<Viewport *> &GetViewports() { return viewports; }
+    inline std::vector<VulkanViewport *> &GetViewports() { return viewports; }
     inline uint32_t GetApiVersion() const { return apiVersion; }
 
 protected:
@@ -187,16 +190,16 @@ protected:
     Device *device;
 
     /** A list of all viewport RHIs that have been created. */
-    std::vector<Viewport *> viewports;
+    std::vector<VulkanViewport *> viewports;
 
     /** The viewport which is currently being drawn. */
-    std::shared_ptr<Viewport> drawingViewport;
+    std::shared_ptr<VulkanViewport> drawingViewport;
 
     void CreateInstance();
     void SelectDevice();
 
     friend class CommandListContext;
-    friend class Viewport;
+    friend class VulkanViewport;
 
     VkDebugUtilsMessengerEXT messenger = VK_NULL_HANDLE;
     void SetupDebugLayerCallback();

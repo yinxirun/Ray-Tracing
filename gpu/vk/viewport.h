@@ -7,12 +7,12 @@
 #include <functional>
 #include "../definitions.h"
 #include "gpu/RHI/RHICommandList.h"
-#include "gpu/math/vec.h"
+#include "gpu/core/math/vec.h"
 
 class Device;
 class SwapChain;
 class View;
-class Viewport;
+class VulkanViewport;
 class Queue;
 class CommandListContext;
 class CmdBuffer;
@@ -25,7 +25,7 @@ namespace VulkanRHI
 class BackBuffer : public VulkanTexture
 {
 public:
-    BackBuffer(Device &Device, Viewport *InViewport, PixelFormat Format, uint32_t SizeX, uint32_t SizeY, TextureCreateFlags Flags);
+    BackBuffer(Device &Device, VulkanViewport *InViewport, PixelFormat Format, uint32_t SizeX, uint32_t SizeY, TextureCreateFlags Flags);
 
     virtual ~BackBuffer();
 
@@ -36,18 +36,18 @@ public:
 
 private:
     void AcquireBackBufferImage(CommandListContext &Context);
-    Viewport *viewport;
+    VulkanViewport *viewport;
 };
 
-class Viewport : public RHIResource
+class VulkanViewport : public Viewport
 {
 public:
     enum
     {
         NUM_BUFFERS = 3
     };
-    Viewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t sizeY, PixelFormat InPreferredPixelFormat);
-    ~Viewport();
+    VulkanViewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t sizeY, PixelFormat InPreferredPixelFormat);
+    ~VulkanViewport();
     std::shared_ptr<Texture> GetBackBuffer(/*RHICommandListImmediate &RHICmdList*/);
 
     virtual void WaitForFrameEventCompletion();
@@ -109,7 +109,7 @@ protected:
     void RecreateSwapchainFromRT(PixelFormat PreferredPixelFormat);
     void Resize(uint32 InSizeX, uint32 InSizeY, bool bIsFullscreen, PixelFormat PreferredPixelFormat);
 
-    bool DoCheckedSwapChainJob(std::function<int32(Viewport *)> SwapChainJob);
+    bool DoCheckedSwapChainJob(std::function<int32(VulkanViewport *)> SwapChainJob);
     bool SupportsStandardSwapchain();
     bool RequiresRenderingBackBuffer();
 

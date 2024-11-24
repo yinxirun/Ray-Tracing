@@ -32,7 +32,7 @@ RenderPass *CommandListContext::PrepareRenderPassForPSOCreation(const RenderTarg
 
 VkSurfaceTransformFlagBitsKHR CommandListContext::GetSwapchainQCOMRenderPassTransform() const
 {
-    std::vector<Viewport *> &viewports = rhi->GetViewports();
+    std::vector<VulkanViewport *> &viewports = rhi->GetViewports();
     if (viewports.size() == 0)
     {
         return VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
@@ -42,7 +42,7 @@ VkSurfaceTransformFlagBitsKHR CommandListContext::GetSwapchainQCOMRenderPassTran
 
 SwapChain *CommandListContext::GetSwapChain() const
 {
-    std::vector<Viewport *> &viewports = rhi->GetViewports();
+    std::vector<VulkanViewport *> &viewports = rhi->GetViewports();
     uint32 numViewports = viewports.size();
     if (viewports.size() == 0)
         return nullptr;
@@ -51,7 +51,7 @@ SwapChain *CommandListContext::GetSwapChain() const
 
 bool CommandListContext::IsSwapchainImage(Texture *InTexture) const
 {
-    std::vector<Viewport *> &Viewports = rhi->GetViewports();
+    std::vector<VulkanViewport *> &Viewports = rhi->GetViewports();
     uint32 NumViewports = Viewports.size();
 
     for (uint32 i = 0; i < NumViewports; i++)

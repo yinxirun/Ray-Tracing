@@ -9,7 +9,7 @@
 #include "gpu/RHI/RHICommandList.h"
 #include "gpu/RHI/RHITypes.h"
 #include "gpu/core/pixel_format.h"
-#include "gpu/math/utility.h"
+#include "gpu/core/math/utility.h"
 #include <unordered_map>
 
 static const VkImageTiling GVulkanViewTypeTilingMode[7] =

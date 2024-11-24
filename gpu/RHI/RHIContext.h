@@ -5,7 +5,7 @@
 #include "gpu/RHI/multi_gpu.h"
 #include "RHIResources.h"
 
-class Viewport;
+class VulkanViewport;
 class VulkanTexture;
 class Buffer;
 class GraphicsPipelineState;
@@ -43,11 +43,11 @@ class CommandContext : public ComputeContext
 public:
     // This method is queued with an RHIThread, otherwise it will flush after it is queued;
     // without an RHI thread there is no benefit to queuing this frame advance commands
-    virtual void BeginDrawingViewport(std::shared_ptr<Viewport> &Viewport) = 0;
+    virtual void BeginDrawingViewport(std::shared_ptr<VulkanViewport> &Viewport) = 0;
 
     // This method is queued with an RHIThread, otherwise it will flush after it is queued;
     // without an RHI thread there is no benefit to queuing this frame advance commands
-    virtual void EndDrawingViewport(Viewport *Viewport, bool bLockToVsync) = 0;
+    virtual void EndDrawingViewport(VulkanViewport *Viewport, bool bLockToVsync) = 0;
 
     // This method is queued with an RHIThread, otherwise it will flush after it is queued;
     // without an RHI thread there is no benefit to queuing this frame advance commands
