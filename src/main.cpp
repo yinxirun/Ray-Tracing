@@ -2,92 +2,236 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
+#include <map>
+#include <memory>
 
-#include "bvh_accel.h"
-#include "fxaa.h"
-#include "nlohmann/json.hpp"
-#include "path_tracing.h"
-#include "scene.h"
+#include "GLFW/glfw3.h"
+#include "engine/classes/static_mesh.h"
+#include "RHI/dynamic_rhi.h"
+#include "RHI/RHI.h"
+#include "RHI/pipeline_state_cache.h"
+#include "render_core/static_states.h"
+#include "vk/context.h"
+#include "vk/viewport.h"
+
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-#include "stb_image_write.h"
-#include "tinyexr.h"
 
-const float pi = 3.1415926535;
+extern void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh);
+extern std::vector<uint8> process_shader(std::string filename, ShaderFrequency freq);
 
-const float epsilon = 0.001;
+VulkanViewport *drawingViewport = nullptr;
+extern RHICommandListExecutor GRHICommandListExecutor;
 
+void OnSizeChanged(GLFWwindow *window, int width, int height)
+{
+    rhi->ResizeViewport(drawingViewport, width, height, false, PF_Unknown);
+    // printf("Resize Viewport. Width: %d Height: %d\n", width, height);
+}
+
+std::vector<uint8> readFile(const std::string &filename)
+{
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    if (!file.is_open())
+    {
+        throw std::runtime_error("failed to open file!");
+    }
+    size_t fileSize = (size_t)file.tellg();
+    std::vector<uint8> buffer(fileSize);
+    file.seekg(0);
+    file.read((char *)buffer.data(), fileSize);
+    file.close();
+    return buffer;
+}
+
+#define WIDTH 800
+#define HEIGHT 600
+
+struct PerCamera
+{
+    Mat4 model;
+    Mat4 view;
+    Mat4 proj;
+};
+
+int RHITest()
+{
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+    GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Xi", nullptr, nullptr);
+    glfwSetFramebufferSizeCallback(window, OnSizeChanged);
+
+    RHIInit();
+    RHICommandListImmediate dummy = RHICommandListExecutor::GetImmediateCommandList();
+    dummy.SwitchPipeline(RHIPipeline::Graphics);
+    {
+        CommandContext *context = GetDefaultContext();
+        std::shared_ptr<VulkanViewport> viewport = CreateViewport(window, 800, 600, false, PixelFormat::PF_B8G8R8A8);
+        drawingViewport = viewport.get();
+
+        BufferDesc desc(48, 4, BufferUsageFlags::VertexBuffer);
+        ResourceCreateInfo ci{};
+        auto positionBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
+        auto colorBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
+
+        desc = BufferDesc(32, 4, BufferUsageFlags::VertexBuffer);
+        auto texCoordBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
+
+        desc = BufferDesc(24, 4, BufferUsageFlags::IndexBuffer);
+        auto indexBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
+
+        void *mapped;
+
+        mapped = LockBuffer_BottomOfPipe(dummy, indexBuffer.get(), 0, indexBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
+        uint32 indices[6] = {0, 1, 2, 0, 2, 3};
+        memcpy(mapped, indices, 24);
+        UnlockBuffer_BottomOfPipe(dummy, indexBuffer.get());
+
+        mapped = LockBuffer_BottomOfPipe(dummy, positionBuffer.get(), 0, positionBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
+        float position[12] = {0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5};
+        memcpy(mapped, position, 48);
+        UnlockBuffer_BottomOfPipe(dummy, positionBuffer.get());
+
+        mapped = LockBuffer_BottomOfPipe(dummy, colorBuffer.get(), 0, colorBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
+        float color[12] = {1.0f, 0.0f, 0.0f, 0.f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1, 1, 1};
+        memcpy(mapped, color, 48);
+        UnlockBuffer_BottomOfPipe(dummy, colorBuffer.get());
+
+        mapped = LockBuffer_BottomOfPipe(dummy, texCoordBuffer.get(), 0, texCoordBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
+        float uv[8] = {0, -0, 0, 1, 1, 0, 1, 1};
+        memcpy(mapped, uv, 32);
+        UnlockBuffer_BottomOfPipe(dummy, texCoordBuffer.get());
+
+        // 创建PSO
+        GraphicsPipelineStateInitializer graphicsPSOInit;
+
+        graphicsPSOInit.RenderTargetsEnabled = 1;
+        graphicsPSOInit.RenderTargetFormats[0] = PF_B8G8R8A8;
+        graphicsPSOInit.RenderTargetFlags[0] = TextureCreateFlags::RenderTargetable;
+        graphicsPSOInit.NumSamples = 1;
+        graphicsPSOInit.DepthStencilTargetFormat = PF_Unknown;
+
+        graphicsPSOInit.SubpassHint = SubpassHint::None;
+        graphicsPSOInit.SubpassIndex = 0;
+
+        graphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI().get();
+        graphicsPSOInit.DepthStencilState = TStaticDepthStencilState<>::GetRHI().get();
+
+        graphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI().get();
+        graphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+        VertexDeclarationElementList elements;
+        elements.push_back(VertexElement(0, 0, VET_Float3, 0, 12));
+        elements.push_back(VertexElement(1, 0, VET_Float3, 1, 12));
+        elements.push_back(VertexElement(2, 0, VET_Float2, 2, 8));
+        graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
+        graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(process_shader("shaders/a.vert.spv", SF_Vertex));
+        graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(process_shader("shaders/a.frag.spv", SF_Pixel));
+        // PSO的回收还没写，目前是会泄漏的
+        auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
+
+        // 相机参数
+        PerCamera perCamera;
+        perCamera.model = Rotate(Mat4(1), Radians(90), Vec3(0, 0, 1));
+        perCamera.view = Mat4(1);
+        perCamera.proj = Mat4(1);
+        UniformBufferLayoutInitializer UBInit;
+        UBInit.BindingFlags = UniformBufferBindingFlags::Shader;
+        UBInit.ConstantBufferSize = sizeof(PerCamera);
+        UBInit.Resources.push_back({offsetof(PerCamera, model), UniformBufferBaseType::UBMT_FLOAT32});
+        UBInit.Resources.push_back({offsetof(PerCamera, view), UniformBufferBaseType::UBMT_FLOAT32});
+        UBInit.Resources.push_back({offsetof(PerCamera, proj), UniformBufferBaseType::UBMT_FLOAT32});
+        UBInit.ComputeHash();
+        auto UBLayout = std::make_shared<const UniformBufferLayout>(UBInit);
+        auto ub = CreateUniformBuffer(0, UBLayout, UniformBufferUsage::UniformBuffer_MultiFrame, UniformBufferValidation::None);
+        rhi->UpdateUniformBuffer(dummy, ub.get(), &perCamera);
+        context->SubmitCommandsHint();
+
+        // 纹理
+        int x, y, comp;
+        stbi_uc *sourceData = stbi_load("assets/viking_room.png", &x, &y, &comp, STBI_rgb_alpha);
+        for (int i = 0; i < x * y; ++i)
+        {
+            std::swap(sourceData[i * STBI_rgb_alpha + 0], sourceData[i * STBI_rgb_alpha + 2]);
+        }
+        TextureCreateDesc texDesc = TextureCreateDesc::Create2D("BaseColor", x, y, PF_B8G8R8A8)
+                                        .SetInitialState(Access::SRVGraphics)
+                                        .SetFlags(TexCreate_SRGB | TexCreate_ShaderResource);
+        auto tex = CreateTexture(dummy, texDesc);
+        UpdateTextureRegion2D region(0, 0, 0, 0, x, y);
+        UpdateTexture2D(dummy, tex.get(), 0, region, x * STBI_rgb_alpha, sourceData);
+        stbi_image_free(sourceData);
+        SamplerStateInitializer samplerInit(SF_Point);
+        auto sampler = CreateSamplerState(samplerInit);
+
+        while (!glfwWindowShouldClose(window))
+        {
+            glfwPollEvents();
+            context->BeginDrawingViewport(viewport);
+            context->BeginFrame();
+
+            RenderPassInfo RPInfo(viewport->GetBackBuffer().get(), RenderTargetActions::Clear_Store);
+            context->BeginRenderPass(RPInfo, "no name");
+
+            context->SetGraphicsPipelineState(pso, 0, false);
+            context->SetShaderUniformBuffer(graphicsPSOInit.BoundShaderState.VertexShaderRHI, 0, ub.get());
+            context->SetShaderTexture(graphicsPSOInit.BoundShaderState.PixelShaderRHI, 0, tex.get());
+            context->SetShaderSampler(graphicsPSOInit.BoundShaderState.PixelShaderRHI, 0, sampler.get());
+
+            context->SetStreamSource(0, positionBuffer.get(), 0);
+            context->SetStreamSource(1, colorBuffer.get(), 0);
+            context->SetStreamSource(2, texCoordBuffer.get(), 0);
+            context->DrawIndexedPrimitive(indexBuffer.get(), 0, 0, 4, 0, 2, 1);
+
+            context->EndRenderPass();
+
+            context->EndFrame();
+            context->EndDrawingViewport(viewport.get(), false);
+        }
+        context->SubmitCommandsHint();
+    }
+
+    RHIExit();
+
+    glfwDestroyWindow(window);
+    glfwTerminate();
+
+    return 0;
+}
+
+#include "engine/classes/components/static_mesh_component.h"
+#include "engine/scene_view.h"
+#include "renderer/scene_private.h"
+#include "renderer/render_module.h"
+#include "renderer/scene_rendering.h"
 int main()
 {
-  nlohmann::json configLoader;
-  std::fstream f("config.json", std::ios::in);
-  f >> configLoader;
+    // 加载模型
+    auto staticMesh = std::make_shared<StaticMesh>();
+    load_wavefront_static_mesh("assets/cornell-box/cornell-box.obj", *staticMesh);
+    auto component = std::make_shared<StaticMeshComponent>();
+    component->SetStaticMesh(staticMesh);
 
-  unsigned spp = configLoader.at("spp");
-  float rr = configLoader.at("rr");
-  bool denoise = configLoader.at("denoise");
-  int sceneTorender = configLoader.at("scene_to_render");
-  auto sceneConfig = configLoader.at("scenes")[sceneTorender];
-  std::string scenePath = sceneConfig.at("path");
-  auto cameraConfig = sceneConfig.at("camera");
+    Scene scene;
+    scene.AddPrimitive(std::static_pointer_cast<PrimitiveComponent>(component));
 
-  auto temp = cameraConfig.at("position");
-  glm::vec3 position = glm::vec3(temp[0], temp[1], temp[2]);
-  temp = cameraConfig.at("lookat");
-  glm::vec3 lookat = glm::vec3(temp[0], temp[1], temp[2]);
-  temp = cameraConfig.at("up");
-  glm::vec3 up = glm::vec3(temp[0], temp[1], temp[2]);
-  float fovy = cameraConfig.at("fovy");
-  unsigned width = cameraConfig.at("width");
-  unsigned height = cameraConfig.at("height");
-  float near = cameraConfig.at("near");
-  float far = cameraConfig.at("far");
+    // 设置相机
+    SceneView view;
+    view.FOV = 39.3077;
+    view.NearClippingDistance = 800;
+    view.farClippingDistance = 2000;
+    view.ViewLocation = Vec3(278, 273, -800);
+    view.ViewRect = IntVec2(WIDTH, HEIGHT);
+    view.ViewRotation = Mat4();
+    view.WorldToMetersScale = 1;
 
-  Camera camera;
-  camera.SetParam(position, lookat, up);
-  camera.SetParam(fovy / 180 * pi, near, far, width, height);
+    ViewFamilyInfo viewFamily(SceneViewFamily{});
+    viewFamily.views.push_back(&view);
+    viewFamily.scene = &scene;
 
-  clock_t start = clock();
-  Scene scene;
-  scene.load(scenePath);
-  clock_t end = clock();
-  std::cout << "Time to load models is " << end - start << "ms." << std::endl;
-
-  start = clock();
-  auto primitives = scene.AllTriangles();
-  BVHAccel accelerator(primitives, 100000000, SplitMethod::SAH);
-  end = clock();
-  std::cout << "Time to build BVH is " << end - start << "ms." << std::endl;
-
-  PathTracingSolver pt(spp, rr);
-  pt.SetCamera(&camera);
-  pt.RenderAndSave(scene, accelerator, denoise);
-
-  std::cout << "Complete Rendering" << std::endl;
-
-  int x, y, c;
-  unsigned char *pixels = stbi_load("Final.bmp", &x, &y, &c, 0);
-  std::vector<glm::vec3> inputImage(x * y);
-  for (int i = 0; i < x * y; ++i)
-  {
-    inputImage[i].x = pixels[i * c + 0];
-    inputImage[i].y = pixels[i * c + 1];
-    inputImage[i].z = pixels[i * c + 2];
-    inputImage[i] /= 255.f;
-  }
-  stbi_image_free(pixels);
-
-  auto image = FXAA()(inputImage, x, y);
-
-  pixels = new unsigned char[x * y * 3];
-  for (int i = 0; i < x * y; ++i)
-  {
-    pixels[i * 3 + 0] = image[i].x * 255;
-    pixels[i * 3 + 1] = image[i].y * 255;
-    pixels[i * 3 + 2] = image[i].z * 255;
-  }
-  stbi_write_bmp("Final_AA.bmp", x, y, 3, pixels);
-
-  delete[] pixels;
-
-  return 0;
+    // 运行
+    RendererModule module;
+    module.BeginRenderingViewFamily(&viewFamily);
 }
