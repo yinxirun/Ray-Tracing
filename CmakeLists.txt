@@ -21,12 +21,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE 	${OUTPUT})
 
 file(GLOB_RECURSE SRCS src/*.cpp)
 
-# file(GLOB_RECURSE REMOVE_SOURCES "src/gpu/vk/*.cpp")
-
-# list(REMOVE_ITEM SRCS ${REMOVE_SOURCES})
-
 add_executable(main ${SRCS})
 
 target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(main PRIVATE glfw3dll spirv-cross-core spirv-cross-cpp spirv-cross-glsl spirv-cross-reflect)
+target_link_libraries(main PRIVATE glfw3dll spirv-cross-core spirv-cross-glsl)

@@ -45,8 +45,8 @@ std::vector<uint8> readFile(const std::string &filename)
     return buffer;
 }
 
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 1600
+#define HEIGHT 1200
 
 struct PerCamera
 {
@@ -59,49 +59,56 @@ int RHITest()
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    // 固定窗口大小
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Xi", nullptr, nullptr);
     glfwSetFramebufferSizeCallback(window, OnSizeChanged);
 
     RHIInit();
-    RHICommandListImmediate dummy = RHICommandListExecutor::GetImmediateCommandList();
+    RHICommandListImmediate &dummy = RHICommandListExecutor::GetImmediateCommandList();
     dummy.SwitchPipeline(RHIPipeline::Graphics);
     {
         CommandContext *context = GetDefaultContext();
-        std::shared_ptr<VulkanViewport> viewport = CreateViewport(window, 800, 600, false, PixelFormat::PF_B8G8R8A8);
+        std::shared_ptr<VulkanViewport> viewport = CreateViewport(window, WIDTH, HEIGHT, false, PixelFormat::PF_B8G8R8A8);
         drawingViewport = viewport.get();
 
-        BufferDesc desc(48, 4, BufferUsageFlags::VertexBuffer);
+        std::array<uint32, 12> indices = {4, 5, 6, 4, 6, 7,
+                                          0, 1, 2, 0, 2, 3};
+        std::array<float, 24> position = {0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5,
+                                          0.5, -0.5, 0.6, 0.5, 0.5, 0.6, -0.5, 0.5, 0.6, -0.5, -0.5, 0.6};
+        std::array<float, 24> color = {1.0f, 0.0f, 0.0f, 0.f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1, 1, 1,
+                                       1.0f, 0.0f, 0.0f, 1.f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1, 0, 0};
+        std::array<float, 16> uv = {0, -0, 0, 1, 1, 0, 1, 1,
+                                    0, -0, 0, 1, 1, 0, 1, 1};
+
+        BufferDesc desc(position.size() * sizeof(float), sizeof(float), BufferUsageFlags::VertexBuffer);
         ResourceCreateInfo ci{};
         auto positionBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
         auto colorBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
 
-        desc = BufferDesc(32, 4, BufferUsageFlags::VertexBuffer);
+        desc = BufferDesc(uv.size() * sizeof(float), sizeof(float), BufferUsageFlags::VertexBuffer);
         auto texCoordBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
 
-        desc = BufferDesc(24, 4, BufferUsageFlags::IndexBuffer);
+        desc = BufferDesc(indices.size() * sizeof(uint32), sizeof(uint32), BufferUsageFlags::IndexBuffer);
         auto indexBuffer = CreateBuffer(desc, Access::CopyDest | Access::VertexOrIndexBuffer, ci);
 
         void *mapped;
 
         mapped = LockBuffer_BottomOfPipe(dummy, indexBuffer.get(), 0, indexBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
-        uint32 indices[6] = {0, 1, 2, 0, 2, 3};
-        memcpy(mapped, indices, 24);
+        memcpy(mapped, indices.data(), indices.size() * sizeof(uint32));
         UnlockBuffer_BottomOfPipe(dummy, indexBuffer.get());
 
         mapped = LockBuffer_BottomOfPipe(dummy, positionBuffer.get(), 0, positionBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
-        float position[12] = {0.5, -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5};
-        memcpy(mapped, position, 48);
+        memcpy(mapped, position.data(), position.size() * sizeof(float));
         UnlockBuffer_BottomOfPipe(dummy, positionBuffer.get());
 
         mapped = LockBuffer_BottomOfPipe(dummy, colorBuffer.get(), 0, colorBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
-        float color[12] = {1.0f, 0.0f, 0.0f, 0.f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1, 1, 1};
-        memcpy(mapped, color, 48);
+        memcpy(mapped, color.data(), color.size() * sizeof(float));
         UnlockBuffer_BottomOfPipe(dummy, colorBuffer.get());
 
         mapped = LockBuffer_BottomOfPipe(dummy, texCoordBuffer.get(), 0, texCoordBuffer->GetSize(), ResourceLockMode::RLM_WriteOnly);
-        float uv[8] = {0, -0, 0, 1, 1, 0, 1, 1};
-        memcpy(mapped, uv, 32);
+        memcpy(mapped, uv.data(), uv.size() * sizeof(float));
         UnlockBuffer_BottomOfPipe(dummy, texCoordBuffer.get());
 
         // 创建PSO
@@ -111,7 +118,8 @@ int RHITest()
         graphicsPSOInit.RenderTargetFormats[0] = PF_B8G8R8A8;
         graphicsPSOInit.RenderTargetFlags[0] = TextureCreateFlags::RenderTargetable;
         graphicsPSOInit.NumSamples = 1;
-        graphicsPSOInit.DepthStencilTargetFormat = PF_Unknown;
+
+        graphicsPSOInit.DepthStencilTargetFormat = PF_D24;
 
         graphicsPSOInit.SubpassHint = SubpassHint::None;
         graphicsPSOInit.SubpassIndex = 0;
@@ -129,8 +137,6 @@ int RHITest()
         graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
         graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(process_shader("shaders/a.vert.spv", SF_Vertex));
         graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(process_shader("shaders/a.frag.spv", SF_Pixel));
-        // PSO的回收还没写，目前是会泄漏的
-        auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
 
         // 相机参数
         PerCamera perCamera;
@@ -166,15 +172,26 @@ int RHITest()
         SamplerStateInitializer samplerInit(SF_Point);
         auto sampler = CreateSamplerState(samplerInit);
 
+        // 深度图
+        texDesc.SetFormat(PF_D24)
+            .SetInitialState(Access::DSVRead | Access::DSVWrite)
+            .SetFlags(TexCreate_DepthStencilTargetable)
+            .SetExtent(WIDTH, HEIGHT)
+            .SetClearValue(ClearValueBinding(0, 0));
+        auto depth = CreateTexture(dummy, texDesc);
+
         while (!glfwWindowShouldClose(window))
         {
             glfwPollEvents();
             context->BeginDrawingViewport(viewport);
             context->BeginFrame();
 
-            RenderPassInfo RPInfo(viewport->GetBackBuffer().get(), RenderTargetActions::Clear_Store);
+            RenderPassInfo RPInfo(viewport->GetBackBuffer().get(), RenderTargetActions::Clear_Store,
+                                  depth.get(), EDepthStencilTargetActions::ClearDepthStencil_DontStoreDepthStencil);
             context->BeginRenderPass(RPInfo, "no name");
 
+            // PSO的回收还没写，目前是会泄漏的
+            auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
             context->SetGraphicsPipelineState(pso, 0, false);
             context->SetShaderUniformBuffer(graphicsPSOInit.BoundShaderState.VertexShaderRHI, 0, ub.get());
             context->SetShaderTexture(graphicsPSOInit.BoundShaderState.PixelShaderRHI, 0, tex.get());
@@ -183,7 +200,7 @@ int RHITest()
             context->SetStreamSource(0, positionBuffer.get(), 0);
             context->SetStreamSource(1, colorBuffer.get(), 0);
             context->SetStreamSource(2, texCoordBuffer.get(), 0);
-            context->DrawIndexedPrimitive(indexBuffer.get(), 0, 0, 4, 0, 2, 1);
+            context->DrawIndexedPrimitive(indexBuffer.get(), 0, 0, 8, 0, 4, 1);
 
             context->EndRenderPass();
 
@@ -193,6 +210,9 @@ int RHITest()
         context->SubmitCommandsHint();
     }
 
+    /*validation layer: Validation Error: [ VUID-vkDestroyBuffer-buffer-00922 ] | MessageID = 0xe4549c11 | Cannot call vkDestroyBuffer on VkBuffer 0xba7514000000002a[] that is currently in use by a command buffer. The Vulkan spec states: All submitted commands that refer to buffer, either directly or via a VkBufferView, must have completed execution (https://vulkan.lunarg.com/doc/view/1.3.261.1/windows/1.3-extensions/vkspec.html#VUID-vkDestroyBuffer-buffer-00922)
+    这个报错，index buffer color buffer uv buffer uniform buffer还绑定在cmd上却被要求销毁
+    */
     RHIExit();
 
     glfwDestroyWindow(window);
@@ -204,34 +224,77 @@ int RHITest()
 #include "engine/classes/components/static_mesh_component.h"
 #include "engine/scene_view.h"
 #include "renderer/scene_private.h"
-#include "renderer/render_module.h"
+#include "renderer/renderer_module.h"
 #include "renderer/scene_rendering.h"
+RendererModule module;
 int main()
 {
-    // 加载模型
-    auto staticMesh = std::make_shared<StaticMesh>();
-    load_wavefront_static_mesh("assets/cornell-box/cornell-box.obj", *staticMesh);
-    auto component = std::make_shared<StaticMeshComponent>();
-    component->SetStaticMesh(staticMesh);
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    // 固定窗口大小
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    Scene scene;
-    scene.AddPrimitive(std::static_pointer_cast<PrimitiveComponent>(component));
+    GLFWwindow *window = glfwCreateWindow(WIDTH, HEIGHT, "Xi", nullptr, nullptr);
+    glfwSetFramebufferSizeCallback(window, OnSizeChanged);
 
-    // 设置相机
-    SceneView view;
-    view.FOV = 39.3077;
-    view.NearClippingDistance = 800;
-    view.farClippingDistance = 2000;
-    view.ViewLocation = Vec3(278, 273, -800);
-    view.ViewRect = IntVec2(WIDTH, HEIGHT);
-    view.ViewRotation = Mat4();
-    view.WorldToMetersScale = 1;
+    RHIInit();
+    {
+        // 加载模型
+        auto staticMesh = std::make_shared<StaticMesh>();
+        load_wavefront_static_mesh("assets/cornell-box/cornell-box.obj", *staticMesh);
+        auto component = std::make_shared<StaticMeshComponent>();
+        component->SetStaticMesh(staticMesh);
 
-    ViewFamilyInfo viewFamily(SceneViewFamily{});
-    viewFamily.views.push_back(&view);
-    viewFamily.scene = &scene;
+        Scene scene;
+        scene.AddPrimitive(std::static_pointer_cast<PrimitiveComponent>(component));
 
-    // 运行
-    RendererModule module;
-    module.BeginRenderingViewFamily(&viewFamily);
+        RHICommandListImmediate &dummy = RHICommandListExecutor::GetImmediateCommandList();
+        dummy.SwitchPipeline(RHIPipeline::Graphics);
+
+        CommandContext *context = GetDefaultContext();
+        std::shared_ptr<VulkanViewport> viewport = CreateViewport(window, WIDTH, HEIGHT, false, PixelFormat::PF_B8G8R8A8);
+        drawingViewport = viewport.get();
+
+        // 设置相机。一个ViewFamily代表一个相机，一个相机有多个视口（View）
+        SceneView view;
+        view.FOV = 39.3077;
+        view.NearClippingDistance = 800;
+        view.farClippingDistance = 2000;
+        view.ViewLocation = Vec3(278, 273, -800);
+        view.ViewRect = IntVec2(WIDTH, HEIGHT);
+        view.ViewRotation = Mat4(1);
+        view.WorldToMetersScale = 1;
+
+        ViewFamilyInfo viewFamily(SceneViewFamily{});
+        viewFamily.renderTarget = drawingViewport->GetBackBuffer().get();
+        viewFamily.views.push_back(&view);
+        viewFamily.scene = &scene;
+        TextureCreateDesc texDesc =
+            TextureCreateDesc::Create2D("Base Color", view.ViewRect.x, view.ViewRect.y, PF_B8G8R8A8)
+                .SetInitialState(Access::RTV | Access::SRVGraphics)
+                .SetFlags(TexCreate_RenderTargetable);
+        viewFamily.GetSceneTextures().GBufferA = CreateTexture(dummy, texDesc);
+        viewFamily.GetSceneTextures().GBufferB = CreateTexture(dummy, texDesc.SetFormat(PF_B8G8R8A8).SetDebugName("Normal"));
+        viewFamily.GetSceneTextures().GBufferC = CreateTexture(dummy, texDesc.SetFormat(PF_FloatRGB).SetDebugName("Position"));
+        viewFamily.GetSceneTextures().GBufferD = CreateTexture(dummy, texDesc.SetFormat(PF_B8G8R8A8).SetDebugName("Roughness-Metallic"));
+
+        // 运行
+        while (!glfwWindowShouldClose(window))
+        {
+            glfwPollEvents();
+            context->BeginDrawingViewport(viewport);
+            context->BeginFrame();
+
+            module.BeginRenderingViewFamily(&viewFamily);
+
+            context->EndFrame();
+            context->EndDrawingViewport(viewport.get(), false);
+        }
+    }
+    RHIExit();
+
+    glfwDestroyWindow(window);
+    glfwTerminate();
+
+    return 0;
 }

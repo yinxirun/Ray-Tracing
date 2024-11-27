@@ -15,7 +15,7 @@
 #include "pending_state.h"
 #include "RHI/dynamic_rhi.h"
 
-const ClearValueBinding ClearValueBinding::None(ClearBinding::ENoneBound);
+const ClearValueBinding ClearValueBinding::None(ClearBinding::NoneBound);
 
 bool GEnableAsyncCompute = true;
 
@@ -294,7 +294,7 @@ void Device::CreateDevice(std::vector<const char *> &layers, std::vector<const c
 
 void Device::PrepareForDestroy()
 {
-	WaitUntilIdle();
+    WaitUntilIdle();
 }
 
 void Device::Destroy()
@@ -511,15 +511,29 @@ void Device::SetupFormats()
     }
 
     GPixelFormats[PF_Unknown].PlatformFormat = (uint32)VK_FORMAT_UNDEFINED;
+
     GPixelFormats[PF_A32B32G32R32F].PlatformFormat = (uint32)VK_FORMAT_R32G32B32A32_SFLOAT;
+    GPixelFormats[PF_A32B32G32R32F].Supported = true;
+    GVulkanSRGBFormat[PF_A32B32G32R32F] = VK_FORMAT_R32G32B32A32_SFLOAT;
 
     GPixelFormats[PF_B8G8R8A8].PlatformFormat = (uint32)VK_FORMAT_B8G8R8A8_UNORM;
     GPixelFormats[PF_B8G8R8A8].Supported = true;
     GVulkanSRGBFormat[PF_B8G8R8A8] = VK_FORMAT_B8G8R8A8_SRGB;
-    
-    GPixelFormats[PF_G8].PlatformFormat = (uint32)VK_FORMAT_R8_UNORM;
 
-    GPixelFormats[PF_R8G8B8A8].PlatformFormat=(uint32)VK_FORMAT_R8G8B8A8_UNORM;
-    GPixelFormats[PF_R8G8B8A8].Supported=true;
+    GPixelFormats[PF_G8].PlatformFormat = (uint32)VK_FORMAT_R8_UNORM;
+    GPixelFormats[PF_G8].Supported = true;
+    GVulkanSRGBFormat[PF_G8] = VK_FORMAT_R8_SRGB;
+
+    GPixelFormats[PF_FloatRGB].PlatformFormat = (uint32)VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+    GPixelFormats[PF_FloatRGB].Supported = true;
+    GVulkanSRGBFormat[PF_FloatRGB] = VK_FORMAT_B10G11R11_UFLOAT_PACK32;
+
+    // 用32位浮点数代替
+    GPixelFormats[PF_D24].PlatformFormat = (uint32)VK_FORMAT_D32_SFLOAT;
+    GPixelFormats[PF_D24].Supported = true;
+    GVulkanSRGBFormat[PF_D24] = VK_FORMAT_D32_SFLOAT;
+
+    GPixelFormats[PF_R8G8B8A8].PlatformFormat = (uint32)VK_FORMAT_R8G8B8A8_UNORM;
+    GPixelFormats[PF_R8G8B8A8].Supported = true;
     GVulkanSRGBFormat[PF_R8G8B8A8] = VK_FORMAT_R8G8B8A8_SRGB;
 }

@@ -8,6 +8,7 @@
 #include "RHI/RHIDefinitions.h"
 #include "RHI/RHIResources.h"
 #include "common.h"
+#include "core/assertion_macros.h"
 class CmdBuffer;
 class Device;
 class RenderPass;
@@ -39,28 +40,28 @@ inline VkFormat UEToVkTextureFormat(PixelFormat UEFormat, const bool bIsSRGB)
 	}
 }
 
-// Merge a depth and a stencil layout for drivers that don't support VK_KHR_separate_depth_stencil_layouts
+/// Merge a depth and a stencil layout for drivers that don't support VK_KHR_separate_depth_stencil_layouts
 inline VkImageLayout GetMergedDepthStencilLayout(VkImageLayout DepthLayout, VkImageLayout StencilLayout)
 {
 	if ((DepthLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) || (StencilLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL))
 	{
-		if (StencilLayout == DepthLayout)
-			printf("Fuck %s %d\n", __FILE__, __LINE__);
-		// checkf(StencilLayout == DepthLayout,
-		// 	   TEXT("You can't merge transfer src layout without anything else than transfer src (%s != %s).  ")
-		// 		   TEXT("You need either VK_KHR_separate_depth_stencil_layouts or GRHISupportsSeparateDepthStencilCopyAccess enabled."),
-		// 	   VK_TYPE_TO_STRING(VkImageLayout, DepthLayout), VK_TYPE_TO_STRING(VkImageLayout, StencilLayout));
+		if (StencilLayout != DepthLayout)
+		{
+			printf("You can't merge transfer src layout without anything else than transfer src.\n");
+			printf("You need either VK_KHR_separate_depth_stencil_layouts or GRHISupportsSeparateDepthStencilCopyAccess enabled.\n");
+			printf("From File:%s Line:%d\n", __FILE__, __LINE__);
+		}
 		return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	}
 
 	if ((DepthLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) || (StencilLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
 	{
-		if (StencilLayout == DepthLayout)
-			printf("Fuck %s %d\n", __FILE__, __LINE__);
-		// checkf(StencilLayout == DepthLayout,
-		// 	   TEXT("You can't merge transfer dst layout without anything else than transfer dst (%s != %s).  ")
-		// 		   TEXT("You need either VK_KHR_separate_depth_stencil_layouts or GRHISupportsSeparateDepthStencilCopyAccess enabled."),
-		// 	   VK_TYPE_TO_STRING(VkImageLayout, DepthLayout), VK_TYPE_TO_STRING(VkImageLayout, StencilLayout));
+		if (StencilLayout != DepthLayout)
+		{
+			printf("You can't merge transfer dst layout without anything else than transfer dst.\n");
+			printf("You need either VK_KHR_separate_depth_stencil_layouts or GRHISupportsSeparateDepthStencilCopyAccess enabled.\n");
+			printf("From File:%s Line:%d\n", __FILE__, __LINE__);
+		}
 		return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	}
 
@@ -85,7 +86,7 @@ inline VkImageLayout GetMergedDepthStencilLayout(VkImageLayout DepthLayout, VkIm
 
 	if (IsMergedLayout(DepthLayout) || IsMergedLayout(StencilLayout))
 	{
-		if (StencilLayout == DepthLayout)
+		if (StencilLayout != DepthLayout)
 			printf("Fuck %s %d\n", __FILE__, __LINE__);
 		// checkf(StencilLayout == DepthLayout,
 		// 	   TEXT("Layouts were already merged but they are mismatched (%s != %s)."),

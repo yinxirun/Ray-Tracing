@@ -5,6 +5,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/hash.hpp"
 
+#include "core/serialization/archive.h"
+
 using Vec2 = glm::vec2;
 using Vec3 = glm::vec3;
 using Vec4 = glm::vec4;
@@ -31,3 +33,20 @@ template <int L, typename T, glm::qualifier Q>
 glm::vec<L, T, Q> Normalize(glm::vec<L, T, Q> const &x) { return glm::normalize(x); }
 
 inline float Radians(float degrees) { return glm::radians(degrees); }
+
+
+inline Archive &operator<<(Archive &Ar, Vec3 &V)
+{
+    Ar << V.x;
+    Ar << V.y;
+    Ar << V.z;
+    return Ar;
+}
+
+inline Archive &operator<<(Archive &Ar, IntVec3 &V)
+{
+    Ar << V.x;
+    Ar << V.y;
+    Ar << V.z;
+    return Ar;
+}

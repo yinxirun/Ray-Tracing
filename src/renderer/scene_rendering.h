@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "engine/scene_interface.h"
+#include "renderer/internal/scene_textures.h"
 
 /// View family plus associated transient scene textures.
 /// 渲染模块
@@ -8,6 +9,11 @@ class ViewFamilyInfo : public SceneViewFamily
 {
 public:
     explicit ViewFamilyInfo(const SceneViewFamily &InViewFamily);
+
+    inline SceneTextures &GetSceneTextures() { return sceneTextures; }
+
+private:
+    SceneTextures sceneTextures;
 };
 
 /// Used as the scope for scene rendering functions.

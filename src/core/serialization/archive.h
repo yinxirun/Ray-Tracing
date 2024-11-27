@@ -82,6 +82,34 @@ public:
     using ArchiveState::SetError;
     using ArchiveState::TotalSize;
 
+    __forceinline friend Archive &operator<<(Archive &Ar, bool &D)
+    {
+        uint32 OldUBoolValue = D ? 1 : 0;
+        Ar.Serialize(&OldUBoolValue, sizeof(OldUBoolValue));
+
+        if (OldUBoolValue > 1)
+        {
+            Ar.SetError();
+        }
+
+        D = !!OldUBoolValue;
+        return Ar;
+    }
+
+    __forceinline friend Archive &operator<<(Archive &ar, float &value)
+    {
+        static_assert(sizeof(float) == sizeof(uint32), "Expected float to be 4 bytes to swap as uint32");
+        ar.ByteOrderSerialize(reinterpret_cast<uint32 &>(value));
+        return ar;
+    }
+
+    // Serializes an unsigned 8-bit integer value from or into an archive.
+    __forceinline friend Archive &operator<<(Archive &Ar, int32 &Value)
+    {
+        Ar.ByteOrderSerialize(reinterpret_cast<uint32 &>(Value));
+        return Ar;
+    }
+
     // Serializes an unsigned 8-bit integer value from or into an archive.
     __forceinline friend Archive &operator<<(Archive &Ar, uint8 &Value)
     {
@@ -98,6 +126,12 @@ public:
 
     // Serializes an unsigned 32-bit integer value from or into an archive.
     __forceinline friend Archive &operator<<(Archive &Ar, uint32 &Value)
+    {
+        Ar.ByteOrderSerialize(Value);
+        return Ar;
+    }
+
+    __forceinline friend Archive &operator<<(Archive &Ar, uint64 &Value)
     {
         Ar.ByteOrderSerialize(Value);
         return Ar;

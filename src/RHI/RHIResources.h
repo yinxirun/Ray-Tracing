@@ -31,7 +31,7 @@ struct ClearValueBinding
         uint32 Stencil;
     };
 
-    ClearValueBinding() : ColorBinding(ClearBinding::EColorBound)
+    ClearValueBinding() : ColorBinding(ClearBinding::ColorBound)
     {
         Value.Color[0] = 0.0f;
         Value.Color[1] = 0.0f;
@@ -41,7 +41,7 @@ struct ClearValueBinding
 
     ClearValueBinding(ClearBinding NoBinding) : ColorBinding(NoBinding)
     {
-        check(ColorBinding == ClearBinding::ENoneBound);
+        check(ColorBinding == ClearBinding::NoneBound);
         Value.Color[0] = 0.0f;
         Value.Color[1] = 0.0f;
         Value.Color[2] = 0.0f;
@@ -50,15 +50,22 @@ struct ClearValueBinding
         Value.DSValue.Stencil = 0;
     }
 
+    explicit ClearValueBinding(float DepthClearValue, uint32 StencilClearValue = 0)
+        : ColorBinding(ClearBinding::DepthStencilBound)
+    {
+        Value.DSValue.Depth = DepthClearValue;
+        Value.DSValue.Stencil = StencilClearValue;
+    }
+
     LinearColor GetClearColor() const
     {
-        ensure(ColorBinding == ClearBinding::EColorBound);
+        ensure(ColorBinding == ClearBinding::ColorBound);
         return LinearColor(Value.Color[0], Value.Color[1], Value.Color[2], Value.Color[3]);
     }
 
     void GetDepthStencil(float &OutDepth, uint32 &OutStencil) const
     {
-        ensure(ColorBinding == ClearBinding::EDepthStencilBound);
+        ensure(ColorBinding == ClearBinding::DepthStencilBound);
         OutDepth = Value.DSValue.Depth;
         OutStencil = Value.DSValue.Stencil;
     }
@@ -91,32 +98,24 @@ struct TextureDesc
     TextureDesc() = default;
     TextureDesc(TextureDimension InDimension) : Dimension(InDimension) {}
 
-    /** Texture dimension to use when creating the RHI texture. */
-    TextureDimension Dimension = TextureDimension::Texture2D;
-
-    /** Pixel format used to create RHI texture. */
-    PixelFormat Format = PixelFormat::PF_Unknown;
-
-    /** Clear value to use when fast-clearing the texture. */
-    ClearValueBinding ClearValue;
-
-    /** Extent of the texture in x and y. */
-    IntVec2 Extent = {1, 1};
-
-    /** Depth of the texture if the dimension is 3D. */
-    uint16 Depth = 1;
-
-    /** The number of array elements in the texture. (Keep at 1 if dimension is 3D). */
-    uint16 ArraySize = 1;
-
-    /** Number of mips in the texture mip-map chain. */
-    uint8 NumMips = 1;
-
-    /** Number of samples in the texture. >1 for MSAA. */
-    uint8 NumSamples = 1;
-
     /** Texture flags passed on to RHI texture. */
     TextureCreateFlags Flags = TexCreate_None;
+    /** Clear value to use when fast-clearing the texture. */
+    ClearValueBinding ClearValue;
+    /** Extent of the texture in x and y. */
+    IntVec2 Extent = {1, 1};
+    /** Depth of the texture if the dimension is 3D. */
+    uint16 Depth = 1;
+    /** The number of array elements in the texture. (Keep at 1 if dimension is 3D). */
+    uint16 ArraySize = 1;
+    /** Number of mips in the texture mip-map chain. */
+    uint8 NumMips = 1;
+    /** Number of samples in the texture. >1 for MSAA. */
+    uint8 NumSamples = 1;
+    /** Texture dimension to use when creating the RHI texture. */
+    TextureDimension Dimension = TextureDimension::Texture2D;
+    /** Pixel format used to create RHI texture. */
+    PixelFormat Format = PixelFormat::PF_Unknown;
 };
 
 struct TextureCreateDesc : public TextureDesc
@@ -160,6 +159,11 @@ struct TextureCreateDesc : public TextureDesc
     TextureCreateDesc &SetInitialState(Access InInitialState)
     {
         InitialState = InInitialState;
+        return *this;
+    }
+    TextureCreateDesc &SetDebugName(const char *InDebugName)
+    {
+        DebugName = InDebugName;
         return *this;
     }
     TextureCreateDesc &DetermineInititialState()
@@ -207,8 +211,15 @@ public:
         return (uint32)newValue;
     }
 
+    __forceinline uint32 GetRefCount() const
+    {
+        int32 currentValue = numRefs.load();
+        check(currentValue > 0);
+        return (uint32)currentValue;
+    }
+
 private:
-    std::atomic<uint32> numRefs{0};
+    std::atomic<int32> numRefs{0};
     const ERHIResourceType ResourceType;
 };
 
@@ -307,7 +318,7 @@ public:
     /** @return Whether the texture has a clear color defined */
     bool HasClearValue() const
     {
-        return GetDesc().ClearValue.ColorBinding != ClearBinding::ENoneBound;
+        return GetDesc().ClearValue.ColorBinding != ClearBinding::NoneBound;
     }
 
     /** @return the clear color value if set */
@@ -1170,6 +1181,23 @@ struct RenderPassInfo
         ColorRenderTargets[0].ArraySlice = InArraySlice;
         ColorRenderTargets[0].MipIndex = InMipIndex;
         ColorRenderTargets[0].Action = ColorAction;
+    }
+
+    // Color and depth
+    explicit RenderPassInfo(Texture *ColorRT, RenderTargetActions ColorAction, Texture *DepthRT, EDepthStencilTargetActions DepthActions, ExclusiveDepthStencil InEDS = ExclusiveDepthStencil::DepthWrite_StencilWrite)
+    {
+        check(ColorRT);
+        ColorRenderTargets[0].RenderTarget = ColorRT;
+        ColorRenderTargets[0].ResolveTarget = nullptr;
+        ColorRenderTargets[0].ArraySlice = -1;
+        ColorRenderTargets[0].MipIndex = 0;
+        ColorRenderTargets[0].Action = ColorAction;
+        check(DepthRT);
+        DepthStencilRenderTarget.DepthStencilTarget = DepthRT;
+        DepthStencilRenderTarget.ResolveTarget = nullptr;
+        DepthStencilRenderTarget.Action = DepthActions;
+        DepthStencilRenderTarget.ExclusiveDepthStencil = InEDS;
+        memset(&ColorRenderTargets[1], 0, sizeof(ColorEntry) * (MaxSimultaneousRenderTargets - 1));
     }
 
     inline int32 GetNumColorRenderTargets() const

@@ -56,7 +56,21 @@ void GetVulkanShaders(const BoundShaderStateInput &BSI, VulkanShader *OutShaders
     }
 }
 
-// 700
+// 686
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::BlendAttachment &Attachment)
+{
+    // Modify VERSION if serialization changes
+    Ar << Attachment.bBlend;
+    Ar << Attachment.ColorBlendOp;
+    Ar << Attachment.SrcColorBlendFactor;
+    Ar << Attachment.DstColorBlendFactor;
+    Ar << Attachment.AlphaBlendOp;
+    Ar << Attachment.SrcAlphaBlendFactor;
+    Ar << Attachment.DstAlphaBlendFactor;
+    Ar << Attachment.ColorWriteMask;
+    return Ar;
+}
+
 void GfxPipelineDesc::BlendAttachment::ReadFrom(const VkPipelineColorBlendAttachmentState &InState)
 {
     bBlend = InState.blendEnable != VK_FALSE;
@@ -97,6 +111,16 @@ void DescriptorSetLayoutBinding::WriteInto(VkDescriptorSetLayoutBinding &Out) co
     Out.stageFlags = StageFlags;
 }
 
+Archive &operator<<(Archive &Ar, DescriptorSetLayoutBinding &Binding)
+{
+    // Modify VERSION if serialization changes
+    Ar << Binding.Binding;
+    // Ar << Binding.DescriptorCount;
+    Ar << Binding.DescriptorType;
+    Ar << Binding.StageFlags;
+    return Ar;
+}
+
 // 752
 void GfxPipelineDesc::VertexBinding::ReadFrom(const VkVertexInputBindingDescription &InState)
 {
@@ -110,6 +134,15 @@ void GfxPipelineDesc::VertexBinding::WriteInto(VkVertexInputBindingDescription &
     Out.binding = Binding;
     Out.inputRate = (VkVertexInputRate)InputRate;
     Out.stride = Stride;
+}
+
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::VertexBinding &Binding)
+{
+    // Modify VERSION if serialization changes
+    Ar << Binding.Stride;
+    Ar << Binding.Binding;
+    Ar << Binding.InputRate;
+    return Ar;
 }
 
 // 775
@@ -127,6 +160,16 @@ void GfxPipelineDesc::VertexAttribute::WriteInto(VkVertexInputAttributeDescripti
     Out.format = (VkFormat)Format;
     Out.location = Location;
     Out.offset = Offset;
+}
+
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::VertexAttribute &Attribute)
+{
+    // Modify VERSION if serialization changes
+    Ar << Attribute.Location;
+    Ar << Attribute.Binding;
+    Ar << Attribute.Format;
+    Ar << Attribute.Offset;
+    return Ar;
 }
 
 // 801
@@ -148,6 +191,16 @@ void GfxPipelineDesc::Rasterizer::WriteInto(VkPipelineRasterizationStateCreateIn
     Out.rasterizerDiscardEnable = VK_FALSE;
     Out.depthBiasSlopeFactor = DepthBiasSlopeScale;
     Out.depthBiasConstantFactor = DepthBiasConstantFactor;
+}
+
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::Rasterizer &Rasterizer)
+{
+    // Modify VERSION if serialization changes
+    Ar << Rasterizer.PolygonMode;
+    Ar << Rasterizer.CullMode;
+    Ar << Rasterizer.DepthBiasSlopeScale;
+    Ar << Rasterizer.DepthBiasConstantFactor;
+    return Ar;
 }
 
 // 831
@@ -197,6 +250,31 @@ void GfxPipelineDesc::FDepthStencil::WriteInto(VkPipelineDepthStencilStateCreate
     Out.back.reference = BackReference;
 }
 
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::FDepthStencil &DepthStencil)
+{
+    // Modify VERSION if serialization changes
+    Ar << DepthStencil.DepthCompareOp;
+    Ar << DepthStencil.bDepthTestEnable;
+    Ar << DepthStencil.bDepthWriteEnable;
+    Ar << DepthStencil.bDepthBoundsTestEnable;
+    Ar << DepthStencil.bStencilTestEnable;
+    Ar << DepthStencil.FrontFailOp;
+    Ar << DepthStencil.FrontPassOp;
+    Ar << DepthStencil.FrontDepthFailOp;
+    Ar << DepthStencil.FrontCompareOp;
+    Ar << DepthStencil.FrontCompareMask;
+    Ar << DepthStencil.FrontWriteMask;
+    Ar << DepthStencil.FrontReference;
+    Ar << DepthStencil.BackFailOp;
+    Ar << DepthStencil.BackPassOp;
+    Ar << DepthStencil.BackDepthFailOp;
+    Ar << DepthStencil.BackCompareOp;
+    Ar << DepthStencil.BackCompareMask;
+    Ar << DepthStencil.BackWriteMask;
+    Ar << DepthStencil.BackReference;
+    return Ar;
+}
+
 // 902
 void GfxPipelineDesc::FRenderTargets::FAttachmentRef::ReadFrom(const VkAttachmentReference &InState)
 {
@@ -210,6 +288,14 @@ void GfxPipelineDesc::FRenderTargets::FAttachmentRef::WriteInto(VkAttachmentRefe
     Out.layout = (VkImageLayout)Layout;
 }
 
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::FRenderTargets::FAttachmentRef &AttachmentRef)
+{
+    // Modify VERSION if serialization changes
+    Ar << AttachmentRef.Attachment;
+    Ar << AttachmentRef.Layout;
+    return Ar;
+}
+
 // 922
 void GfxPipelineDesc::FRenderTargets::FStencilAttachmentRef::ReadFrom(const VkAttachmentReferenceStencilLayout &InState)
 {
@@ -219,6 +305,13 @@ void GfxPipelineDesc::FRenderTargets::FStencilAttachmentRef::ReadFrom(const VkAt
 void GfxPipelineDesc::FRenderTargets::FStencilAttachmentRef::WriteInto(VkAttachmentReferenceStencilLayout &Out) const
 {
     Out.stencilLayout = (VkImageLayout)Layout;
+}
+
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::FRenderTargets::FStencilAttachmentRef &AttachmentRef)
+{
+    // Modify VERSION if serialization changes
+    Ar << AttachmentRef.Layout;
+    return Ar;
 }
 
 // 939
@@ -248,17 +341,40 @@ void GfxPipelineDesc::FRenderTargets::FAttachmentDesc::WriteInto(VkAttachmentDes
     Out.finalLayout = (VkImageLayout)FinalLayout;
 }
 
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::FRenderTargets::FAttachmentDesc &AttachmentDesc)
+{
+    // Modify VERSION if serialization changes
+    Ar << AttachmentDesc.Format;
+    Ar << AttachmentDesc.Flags;
+    Ar << AttachmentDesc.Samples;
+    Ar << AttachmentDesc.LoadOp;
+    Ar << AttachmentDesc.StoreOp;
+    Ar << AttachmentDesc.StencilLoadOp;
+    Ar << AttachmentDesc.StencilStoreOp;
+    Ar << AttachmentDesc.InitialLayout;
+    Ar << AttachmentDesc.FinalLayout;
+    return Ar;
+}
+
 // 981
-void GfxPipelineDesc::FRenderTargets::FStencilAttachmentDesc::ReadFrom(const VkAttachmentDescriptionStencilLayout &InState)
+void GfxPipelineDesc::FRenderTargets::StencilAttachmentDesc::ReadFrom(const VkAttachmentDescriptionStencilLayout &InState)
 {
     InitialLayout = (uint64)InState.stencilInitialLayout;
     FinalLayout = (uint64)InState.stencilFinalLayout;
 }
 
-void GfxPipelineDesc::FRenderTargets::FStencilAttachmentDesc::WriteInto(VkAttachmentDescriptionStencilLayout &Out) const
+void GfxPipelineDesc::FRenderTargets::StencilAttachmentDesc::WriteInto(VkAttachmentDescriptionStencilLayout &Out) const
 {
     Out.stencilInitialLayout = (VkImageLayout)InitialLayout;
     Out.stencilFinalLayout = (VkImageLayout)FinalLayout;
+}
+
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::FRenderTargets::StencilAttachmentDesc &StencilAttachmentDesc)
+{
+    // Modify VERSION if serialization changes
+    Ar << StencilAttachmentDesc.InitialLayout;
+    Ar << StencilAttachmentDesc.FinalLayout;
+    return Ar;
 }
 
 // 1002
@@ -338,10 +454,84 @@ void GfxPipelineDesc::FRenderTargets::WriteInto(RenderTargetLayout &Out) const
     StencilDescription.WriteInto(Out.StencilDesc);
 }
 
+Archive &operator<<(Archive &Ar, GfxPipelineDesc::FRenderTargets &RTs)
+{
+    // Modify VERSION if serialization changes
+    Ar << RTs.NumAttachments;
+    Ar << RTs.NumColorAttachments;
+    Ar << RTs.NumUsedClearValues;
+    Ar << RTs.ColorAttachments;
+    Ar << RTs.ResolveAttachments;
+    Ar << RTs.Depth;
+    Ar << RTs.Stencil;
+    Ar << RTs.FragmentDensity;
+
+    Ar << RTs.Descriptions;
+    Ar << RTs.StencilDescription;
+
+    Ar << RTs.bHasDepthStencil;
+    Ar << RTs.bHasResolveAttachments;
+    Ar << RTs.RenderPassCompatibleHash;
+    Ar << RTs.Extent3D;
+
+    return Ar;
+}
+
+Archive &operator<<(Archive &Ar, GfxPipelineDesc &Entry)
+{
+    // Modify VERSION if serialization changes
+    Ar << Entry.VertexInputKey;
+    Ar << Entry.RasterizationSamples;
+    Ar << Entry.ControlPoints;
+    Ar << Entry.Topology;
+
+    Ar << Entry.ColorAttachmentStates;
+    Ar << Entry.ColorAttachmentStates[0];
+
+    Ar << Entry.DescriptorSetLayoutBindings;
+
+    Ar << Entry.VertexBindings;
+    Ar << Entry.VertexAttributes;
+    Ar << Entry.rasterizer;
+
+    Ar << Entry.DepthStencil;
+
+#if VULKAN_USE_SHADERKEYS
+    for (uint64 &ShaderKey : Entry.ShaderKeys)
+    {
+        Ar << ShaderKey;
+    }
+#else
+    for (int32 Index = 0; Index < UE_ARRAY_COUNT(Entry.ShaderHashes.Stages); ++Index)
+    {
+        Ar << Entry.ShaderHashes.Stages[Index];
+    }
+#endif
+    Ar << Entry.RenderTargets;
+
+    uint8 ShadingRate = static_cast<uint8>(Entry.ShadingRate);
+    uint8 Combiner = static_cast<uint8>(Entry.Combiner);
+
+    Ar << ShadingRate;
+    Ar << Combiner;
+
+    Ar << Entry.UseAlphaToCoverage;
+
+    return Ar;
+}
+
+VulkanPSOKey GfxPipelineDesc::CreateKey2() const
+{
+    VulkanPSOKey Result;
+    Result.GenerateFromArchive([this](Archive &Ar)
+                               { Ar << const_cast<GfxPipelineDesc &>(*this); });
+    return Result;
+}
+
 VulkanGraphicsPipelineState::VulkanGraphicsPipelineState(Device *device, const GraphicsPipelineStateInitializer &PSOInitializer_,
                                                          GfxPipelineDesc &Desc, VulkanPSOKey *VulkanKey)
     : bIsRegistered(false), PrimitiveType(PSOInitializer_.PrimitiveType),
-      VulkanPipeline(0), device(device), Desc(Desc) //, VulkanKey(VulkanKey->CopyDeep())
+      VulkanPipeline(0), device(device), Desc(Desc), VulkanKey(VulkanKey->CopyDeep())
 {
     memset(VulkanShaders, 0, sizeof(VulkanShaders));
     VulkanShaders[ShaderStage::Vertex] = static_cast<VulkanVertexShader *>(PSOInitializer_.BoundShaderState.VertexShaderRHI);
@@ -384,6 +574,8 @@ PipelineStateCacheManager::PipelineStateCacheManager(Device *InDevice)
 
 PipelineStateCacheManager::~PipelineStateCacheManager()
 {
+    DestroyCache();
+
     // Only destroy layouts when quitting
     for (auto &Pair : LayoutMap)
     {
@@ -532,7 +724,7 @@ void PipelineStateCacheManager::CreateGfxEntry(const GraphicsPipelineStateInitia
         }
     }
 
-    OutGfxEntry->Rasterizer.ReadFrom(static_cast<VulkanRasterizerState *>(PSOInitializer.RasterizerState)->RasterizerState);
+    OutGfxEntry->rasterizer.ReadFrom(static_cast<VulkanRasterizerState *>(PSOInitializer.RasterizerState)->RasterizerState);
 
     {
         VkPipelineDepthStencilStateCreateInfo DSInfo;
@@ -596,6 +788,24 @@ void PipelineStateCacheManager::CreateGfxEntry(const GraphicsPipelineStateInitia
                                                         // For now, just locked to "max".
 }
 
+// 1658
+void PipelineStateCacheManager::DestroyCache()
+{
+    VkDevice DeviceHandle = device->GetInstanceHandle();
+
+    /* FScopeLock Lock1(&GraphicsPSOLockedCS); */
+    int idx = 0;
+    for (auto &Pair : GraphicsPSOLockedMap)
+    {
+        VulkanGraphicsPipelineState *Pipeline = Pair.second;
+        printf("Leaked PSO Handle %d: RefCount=%d\n", Pipeline, Pipeline->GetRefCount());
+    }
+    /* LRU2SizeList.Reset(); */
+
+    // Compute pipelines already deleted...
+    /* ComputePipelineEntries.Reset(); */
+}
+
 // 1705
 VulkanPipelineLayout *PipelineStateCacheManager::FindOrAddLayout(const DescriptorSetsLayoutInfo &DescriptorSetLayoutInfo, bool bGfxLayout)
 {
@@ -642,23 +852,21 @@ void PipelineStateCacheManager::NotifyDeletedGraphicsPSO(GraphicsPipelineState *
 
     if (VkPSO->bIsRegistered)
     {
-        printf("Have not implement destroying registered PSO %s %d\n", __FILE__, __LINE__);
-        exit(1);
         /* FScopeLock Lock(&GraphicsPSOLockedCS); */
-        // VulkanGraphicsPipelineState **Contained = GraphicsPSOLockedMap.Find(Key);
-        // check(Contained && *Contained == PSO);
-        // VkPSO->bIsRegistered = false;
-        // if (bUseLRU)
-        // {
-        //     LRURemove(*Contained);
-        //     check((*Contained)->LRUNode == 0);
-        // }
-        // else
-        // {
-        //     (*Contained)->DeleteVkPipeline(true);
-        //     check(VkPSO->GetVulkanPipeline() == 0);
-        // }
-        // GraphicsPSOLockedMap.Remove(Key);
+        auto it = GraphicsPSOLockedMap.find(Key);
+        VulkanGraphicsPipelineState **Contained = it == GraphicsPSOLockedMap.end() ? nullptr : &it->second;
+        check(Contained && *Contained == PSO);
+        VkPSO->bIsRegistered = false;
+        if (bUseLRU)
+        {
+            check(0);
+        }
+        else
+        {
+            (*Contained)->DeleteVkPipeline(true);
+            check(VkPSO->GetVulkanPipeline() == 0);
+        }
+        GraphicsPSOLockedMap.erase(Key);
     }
     else
     {
@@ -675,7 +883,6 @@ void PipelineStateCacheManager::NotifyDeletedGraphicsPSO(GraphicsPipelineState *
 // 2042
 GraphicsPipelineState *PipelineStateCacheManager::CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
 {
-
     // Optional lock for PSO creation, GVulkanPSOForceSingleThreaded is used to work around driver bugs.
     // GVulkanPSOForceSingleThreaded == Precompile can be used when the driver internally serializes PSO creation, this option reduces the driver queue size.
     // We stall precompile PSOs which increases the likelihood for non-precompile PSO to jump the queue.
@@ -693,23 +900,24 @@ GraphicsPipelineState *PipelineStateCacheManager::CreateGraphicsPipelineState(co
     DescriptorSetsLayoutInfo DescriptorSetLayoutInfo;
     {
         CreateGfxEntry(Initializer, DescriptorSetLayoutInfo, &Desc);
-        // 	Key = Desc.CreateKey2();
+        Key = Desc.CreateKey2();
     }
 
     VulkanGraphicsPipelineState *NewPSO = 0;
     {
-        // 	{
-        // 		VulkanGraphicsPipelineState** PSO = GraphicsPSOLockedMap.Find(Key);
-        // 		if(PSO)
-        // 		{
-        // 			check(*PSO);
-        // 			if(!bIsPrecache)
-        // 			{
-        // 				LRUTouch(*PSO);
-        // 			}
-        // 			return *PSO;
-        // 		}
-        // 	}
+        {
+            auto it = GraphicsPSOLockedMap.find(Key);
+            if (it != GraphicsPSOLockedMap.end())
+            {
+                VulkanGraphicsPipelineState **PSO = &it->second;
+                check(*PSO);
+                if (!bIsPrecache)
+                {
+                    LRUTouch(*PSO);
+                }
+                return *PSO;
+            }
+        }
     }
 
     {
@@ -760,30 +968,30 @@ GraphicsPipelineState *PipelineStateCacheManager::CreateGraphicsPipelineState(co
                     return nullptr;
                 }
             }
-            // 		FScopeLock Lock(&GraphicsPSOLockedCS);
-            // 		FVulkanRHIGraphicsPipelineState** MapPSO = GraphicsPSOLockedMap.Find(Key);
-            // 		if(MapPSO)//another thread could end up creating it.
-            // 		{
-            // 			DeleteNewPSO(NewPSO);
-            // 			NewPSO = *MapPSO;
-            // 		}
-            // 		else
-            // 		{
-            // 			GraphicsPSOLockedMap.Add(MoveTemp(Key), NewPSO);
-            // 			if (bUseLRU && NewPSO->VulkanPipeline != VK_NULL_HANDLE)
-            // 			{
-            // 				QUICK_SCOPE_CYCLE_COUNTER(STAT_Vulkan_RHICreateGraphicsPipelineState_LRU_PSOLock);
-            // 				// we add only created pipelines to the LRU
-            // 				FScopeLock LockRU(&LRUCS);
-            // 				NewPSO->bIsRegistered = true;
-            // 				LRUTrim(NewPSO->PipelineCacheSize);
-            // 				LRUAdd(NewPSO);
-            // 			}
-            // 			else
-            // 			{
-            // 				NewPSO->bIsRegistered = true;
-            // 			}
-            // 		}
+            /* FScopeLock Lock(&GraphicsPSOLockedCS); */
+            auto it = GraphicsPSOLockedMap.find(Key);
+            if (it != GraphicsPSOLockedMap.end()) // another thread could end up creating it.
+            {
+                VulkanGraphicsPipelineState **MapPSO = &it->second;
+                DeleteNewPSO(NewPSO);
+                NewPSO = *MapPSO;
+            }
+            else
+            {
+                GraphicsPSOLockedMap.insert(std::pair(std::move(Key), NewPSO));
+                if (bUseLRU && NewPSO->VulkanPipeline != VK_NULL_HANDLE)
+                {
+                    // we add only created pipelines to the LRU
+                    /* FScopeLock LockRU(&LRUCS); */
+                    NewPSO->bIsRegistered = true;
+                    LRUTrim(NewPSO->PipelineCacheSize);
+                    LRUAdd(NewPSO);
+                }
+                else
+                {
+                    NewPSO->bIsRegistered = true;
+                }
+            }
         }
     }
     return NewPSO;
@@ -920,7 +1128,7 @@ bool PipelineStateCacheManager::CreateGfxPipelineFromEntry(VulkanGraphicsPipelin
 
     VkPipelineRasterizationStateCreateInfo RasterizerState;
     VulkanRasterizerState::ResetCreateInfo(RasterizerState);
-    GfxEntry->Rasterizer.WriteInto(RasterizerState);
+    GfxEntry->rasterizer.WriteInto(RasterizerState);
 
     VkPipelineDepthStencilStateCreateInfo DepthStencilState;
     ZeroVulkanStruct(DepthStencilState, VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO);
@@ -999,6 +1207,24 @@ VkResult PipelineStateCacheManager::CreateVKPipeline(VulkanGraphicsPipelineState
 bool PipelineStateCacheManager::LRUEvictImmediately()
 {
     return bEvictImmediately && CVarEnableLRU != 0;
+}
+
+void PipelineStateCacheManager::LRUTrim(uint32 nSpaceNeeded)
+{
+    if (!bUseLRU)
+    {
+        return;
+    }
+    check(0);
+}
+
+void PipelineStateCacheManager::LRUAdd(VulkanGraphicsPipelineState *PSO)
+{
+    if (!bUseLRU)
+    {
+        return;
+    }
+    check(0);
 }
 
 // 2546

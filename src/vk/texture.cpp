@@ -431,7 +431,6 @@ VulkanTexture::VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, c
     ImageCreateInfo ImageCreateInfo;
 
     VulkanTexture::GenerateImageCreateInfo(ImageCreateInfo, InDevice, InCreateDesc, &StorageFormat, &ViewFormat);
-
     FullAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(InCreateDesc.Format, true, true);
     PartialAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(InCreateDesc.Format, false, true);
 

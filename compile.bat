@@ -1,6 +1,9 @@
-cd gpu/shaders
+cd shaders
 
-glslc a.vert -o a.vert.spv
-glslc a.frag -o a.frag.spv
+glslang -V a.vert -o a.vert.spv --target-env vulkan1.0
+glslang -V a.frag -o a.frag.spv --target-env vulkan1.0
 
-cd ../..
+@REM glslc a.vert -o a.vert.spv
+@REM glslc a.frag -o a.frag.spv
+
+cd ..

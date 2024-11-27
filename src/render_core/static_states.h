@@ -65,14 +65,14 @@ public:
  */
 template <
     bool bEnableDepthWrite = true,
-    ECompareFunction DepthTest = CF_DepthNearOrEqual,
+    CompareFunction DepthTest = CF_DepthNearOrEqual,
     bool bEnableFrontFaceStencil = false,
-    ECompareFunction FrontFaceStencilTest = CF_Always,
+    CompareFunction FrontFaceStencilTest = CF_Always,
     EStencilOp FrontFaceStencilFailStencilOp = SO_Keep,
     EStencilOp FrontFaceDepthFailStencilOp = SO_Keep,
     EStencilOp FrontFacePassStencilOp = SO_Keep,
     bool bEnableBackFaceStencil = false,
-    ECompareFunction BackFaceStencilTest = CF_Always,
+    CompareFunction BackFaceStencilTest = CF_Always,
     EStencilOp BackFaceStencilFailStencilOp = SO_Keep,
     EStencilOp BackFaceDepthFailStencilOp = SO_Keep,
     EStencilOp BackFacePassStencilOp = SO_Keep,
@@ -224,5 +224,45 @@ public:
         RenderTargetBlendStates[7] = BlendStateInitializerRHI::RenderTarget(RT7ColorBlendOp, RT7ColorSrcBlend, RT7ColorDestBlend, RT7AlphaBlendOp, RT7AlphaSrcBlend, RT7AlphaDestBlend, RT7ColorWriteMask);
 
         return RHI::Get().CreateBlendState(BlendStateInitializerRHI(RenderTargetBlendStates, bUseAlphaToCoverage));
+    }
+};
+
+/**
+ * A static RHI blend state resource which only allows controlling MRT write masks, for use when only opaque blending is needed.
+ */
+template <
+    EColorWriteMask RT0ColorWriteMask = CW_RGBA,
+    EColorWriteMask RT1ColorWriteMask = CW_RGBA,
+    EColorWriteMask RT2ColorWriteMask = CW_RGBA,
+    EColorWriteMask RT3ColorWriteMask = CW_RGBA,
+    EColorWriteMask RT4ColorWriteMask = CW_RGBA,
+    EColorWriteMask RT5ColorWriteMask = CW_RGBA,
+    EColorWriteMask RT6ColorWriteMask = CW_RGBA,
+    EColorWriteMask RT7ColorWriteMask = CW_RGBA,
+    bool bUseAlphaToCoverage = false>
+class TStaticBlendStateWriteMask : public TStaticBlendState<
+                                       RT0ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+                                       RT1ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+                                       RT2ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+                                       RT3ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+                                       RT4ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+                                       RT5ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+                                       RT6ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+                                       RT7ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+                                       bUseAlphaToCoverage>
+{
+public:
+    static std::shared_ptr<BlendState> CreateRHI()
+    {
+        return TStaticBlendState<
+            RT0ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+            RT1ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+            RT2ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+            RT3ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+            RT4ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+            RT5ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+            RT6ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+            RT7ColorWriteMask, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero,
+            bUseAlphaToCoverage>::CreateRHI();
     }
 };

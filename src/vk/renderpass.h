@@ -39,6 +39,15 @@ inline void AttachmentReference<VkAttachmentReference>::SetAttachment(const VkAt
     layout = AttachmentReferenceIn.layout;
 }
 
+template <>
+inline void AttachmentReference<VkAttachmentReference>::SetDepthStencilAttachment(const VkAttachmentReference &AttachmentReferenceIn,
+                                                                                  const VkAttachmentReferenceStencilLayout *StencilReference, VkImageAspectFlags AspectMask, bool bSupportsParallelRendering)
+{
+    attachment = AttachmentReferenceIn.attachment;
+    const VkImageLayout StencilLayout = StencilReference ? StencilReference->stencilLayout : VK_IMAGE_LAYOUT_UNDEFINED;
+    layout = GetMergedDepthStencilLayout(AttachmentReferenceIn.layout, StencilLayout);
+}
+
 /*********************************************************/
 template <typename TSubpassDescriptionType>
 class SubpassDescription
@@ -55,7 +64,8 @@ struct SubpassDescription<VkSubpassDescription>
         pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     }
 
-    void SetColorAttachments(const std::vector<AttachmentReference<VkAttachmentReference>> &ColorAttachmentReferences, int OverrideCount = -1)
+    void SetColorAttachments(const std::vector<AttachmentReference<VkAttachmentReference>> &ColorAttachmentReferences,
+                             int OverrideCount = -1)
     {
         colorAttachmentCount = (OverrideCount == -1) ? ColorAttachmentReferences.size() : OverrideCount;
         pColorAttachments = ColorAttachmentReferences.data();

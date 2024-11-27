@@ -507,7 +507,7 @@ void VulkanViewport::CreateSwapchain(struct SwapChainRecreateInfo *recreateInfo)
         clearValue.Value.Color[1] = 0;
         clearValue.Value.Color[2] = 0;
         clearValue.Value.Color[3] = 1;
-        clearValue.ColorBinding = ClearBinding::ENoneBound;
+        clearValue.ColorBinding = ClearBinding::NoneBound;
 
         const TextureCreateDesc desc = TextureCreateDesc::Create2D("RenderingBackBuffer", BackBufferSizeX, BackBufferSizeY, pixelFormat)
                                            .SetClearValue(clearValue)

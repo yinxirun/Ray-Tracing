@@ -1,6 +1,7 @@
 #pragma once
 #include "core/math/vec.h"
 #include "engine/classes/materials/materials.h"
+#include "RHI/RHIResources.h"
 #include "definitions.h"
 #include <vector>
 #include <memory>
@@ -26,4 +27,10 @@ public:
     std::vector<Vec3> normal;
     std::vector<Vec2> uv;
     std::vector<uint32> index;
+
+    std::shared_ptr<Buffer> positonBuffer;
+    std::shared_ptr<Buffer> tangentBuffer;
+    std::shared_ptr<Buffer> normalBuffer;
+    std::shared_ptr<Buffer> uvBuffer;
+    std::shared_ptr<Buffer> indexBuffer;
 };

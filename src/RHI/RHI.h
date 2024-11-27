@@ -92,15 +92,15 @@ struct RasterizerStateInitializer
 struct DepthStencilStateInitializer
 {
     bool bEnableDepthWrite;
-    TEnumAsByte<ECompareFunction> DepthTest;
+    TEnumAsByte<CompareFunction> DepthTest;
 
     bool bEnableFrontFaceStencil;
-    TEnumAsByte<ECompareFunction> FrontFaceStencilTest;
+    TEnumAsByte<CompareFunction> FrontFaceStencilTest;
     TEnumAsByte<EStencilOp> FrontFaceStencilFailStencilOp;
     TEnumAsByte<EStencilOp> FrontFaceDepthFailStencilOp;
     TEnumAsByte<EStencilOp> FrontFacePassStencilOp;
     bool bEnableBackFaceStencil;
-    TEnumAsByte<ECompareFunction> BackFaceStencilTest;
+    TEnumAsByte<CompareFunction> BackFaceStencilTest;
     TEnumAsByte<EStencilOp> BackFaceStencilFailStencilOp;
     TEnumAsByte<EStencilOp> BackFaceDepthFailStencilOp;
     TEnumAsByte<EStencilOp> BackFacePassStencilOp;
@@ -109,14 +109,14 @@ struct DepthStencilStateInitializer
 
     DepthStencilStateInitializer(
         bool bInEnableDepthWrite = true,
-        ECompareFunction InDepthTest = CF_LessEqual,
+        CompareFunction InDepthTest = CF_LessEqual,
         bool bInEnableFrontFaceStencil = false,
-        ECompareFunction InFrontFaceStencilTest = CF_Always,
+        CompareFunction InFrontFaceStencilTest = CF_Always,
         EStencilOp InFrontFaceStencilFailStencilOp = SO_Keep,
         EStencilOp InFrontFaceDepthFailStencilOp = SO_Keep,
         EStencilOp InFrontFacePassStencilOp = SO_Keep,
         bool bInEnableBackFaceStencil = false,
-        ECompareFunction InBackFaceStencilTest = CF_Always,
+        CompareFunction InBackFaceStencilTest = CF_Always,
         EStencilOp InBackFaceStencilFailStencilOp = SO_Keep,
         EStencilOp InBackFaceDepthFailStencilOp = SO_Keep,
         EStencilOp InBackFacePassStencilOp = SO_Keep,

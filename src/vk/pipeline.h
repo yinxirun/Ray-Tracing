@@ -83,9 +83,9 @@ struct DescriptorSetLayoutBinding
 
 struct GfxPipelineDesc
 {
-    // 	FVulkanPSOKey CreateKey2() const;
+    VulkanPSOKey CreateKey2() const;
 
-    uint32 VertexInputKey;
+    uint32 VertexInputKey = 0;
     uint16 RasterizationSamples;
     uint16 ControlPoints;
     uint32 Topology;
@@ -169,7 +169,7 @@ struct GfxPipelineDesc
                    DepthBiasConstantFactor == In.DepthBiasConstantFactor;
         }
     };
-    Rasterizer Rasterizer;
+    Rasterizer rasterizer;
 
     struct FDepthStencil
     {
@@ -290,12 +290,12 @@ struct GfxPipelineDesc
             void WriteInto(VkAttachmentDescription &OutState) const;
         };
 
-        struct FStencilAttachmentDesc
+        struct StencilAttachmentDesc
         {
             uint64 InitialLayout;
             uint64 FinalLayout;
 
-            bool operator==(const FStencilAttachmentDesc &In) const
+            bool operator==(const StencilAttachmentDesc &In) const
             {
                 return InitialLayout == In.InitialLayout &&
                        FinalLayout == In.FinalLayout;
@@ -306,7 +306,7 @@ struct GfxPipelineDesc
         };
 
         std::vector<FAttachmentDesc> Descriptions;
-        FStencilAttachmentDesc StencilDescription;
+        StencilAttachmentDesc StencilDescription;
 
         uint8 NumAttachments;
         uint8 NumColorAttachments;
@@ -358,52 +358,37 @@ struct GfxPipelineDesc
             return false;
         if (ColorAttachmentStates != In.ColorAttachmentStates)
             return false;
-
-        // if (DescriptorSetLayoutBindings != In.DescriptorSetLayoutBindings)
-        // {
-        //     return false;
-        // }
-
-        if (!(Rasterizer == In.Rasterizer))
+        if (DescriptorSetLayoutBindings != In.DescriptorSetLayoutBindings)
+            return false;
+        if (!(rasterizer == In.rasterizer))
             return false;
         if (!(DepthStencil == In.DepthStencil))
             return false;
         if (!(SubpassIndex == In.SubpassIndex))
             return false;
+        if (!(UseAlphaToCoverage == In.UseAlphaToCoverage))
+            return false;
 
-        //         if (!(UseAlphaToCoverage == In.UseAlphaToCoverage))
-        //         {
-        //             return false;
-        //         }
-        // #if 0 == VULKAN_USE_SHADERKEYS
-        //     		if (!(ShaderHashes == In.ShaderHashes))
-        //     		{
-        //     			return false;
-        //     		}
-        // #else
-        //         if (0 != FMemory::Memcmp(ShaderKeys, In.ShaderKeys, sizeof(ShaderKeys)))
-        //         {
-        //             return false;
-        //         }
-        // #endif
+#if 0 == VULKAN_USE_SHADERKEYS
+            		if (!(ShaderHashes == In.ShaderHashes))
+            		{
+            			return false;
+            		}
+#else
+        if (0 != memcmp(ShaderKeys, In.ShaderKeys, sizeof(ShaderKeys)))
+            return false;
+#endif
 
         if (!(RenderTargets == In.RenderTargets))
             return false;
-
         if (VertexBindings != In.VertexBindings)
             return false;
         if (VertexAttributes != In.VertexAttributes)
             return false;
-
-        // if (ShadingRate != In.ShadingRate)
-        // {
-        //     return false;
-        // }
-
-        // if (Combiner != In.Combiner)
-        // {
-        //     return false;
-        // }
+        if (ShadingRate != In.ShadingRate)
+            return false;
+        if (Combiner != In.Combiner)
+            return false;
 
         return true;
     }
@@ -435,7 +420,7 @@ private:
     void CreateGfxEntry(const GraphicsPipelineStateInitializer &PSOInitializer, DescriptorSetsLayoutInfo &DescriptorSetLayoutInfo, GfxPipelineDesc *Desc);
     // 	bool Load(const TArray<FString>& CacheFilenames, FPipelineCache& Cache);
     // 	void SavePSOCache(const FString& CacheFilename, FPipelineCache& Cache);
-    // 	void DestroyCache();
+    void DestroyCache();
 
     GraphicsPipelineState *CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
     // 	FVulkanComputePipeline* RHICreateComputePipelineState(FRHIComputeShader* ComputeShaderRHI);
@@ -452,8 +437,8 @@ private:
     /** LRU Related functions */
     // 	void TickLRU();
     bool LRUEvictImmediately();
-    // 	void LRUTrim(uint32 nSpaceNeeded);
-    // 	void LRUAdd(FVulkanRHIGraphicsPipelineState* PSO);
+    void LRUTrim(uint32 nSpaceNeeded);
+    void LRUAdd(VulkanGraphicsPipelineState *PSO);
     void LRUTouch(VulkanGraphicsPipelineState *PSO);
     // 	bool LRUEvictOne(bool bOnlyOld = false);
     // 	void LRURemoveAll();

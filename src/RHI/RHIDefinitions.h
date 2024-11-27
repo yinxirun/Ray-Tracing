@@ -21,7 +21,8 @@
 static_assert(sizeof(void *) <= SHADER_PARAMETER_POINTER_ALIGNMENT, "The alignment of pointer needs to match the largest pointer.");
 
 // 180
-enum class ERHIZBuffer
+/// 深度值在0-1之间。此枚举类描述0和1和近平面和远平面的对应关系（是否深度值反转）。
+enum class ZBuffer
 {
 	// Before changing this, make sure all math & shader assumptions are correct! Also wrap your C++ assumptions with
 	//		static_assert(ERHIZBuffer::IsInvertedZBuffer(), ...);
@@ -30,7 +31,7 @@ enum class ERHIZBuffer
 	NearPlane = 1,
 
 	// 'bool' for knowing if the API is using Inverted Z buffer
-	IsInverted = (int32)((int32)ERHIZBuffer::FarPlane < (int32)ERHIZBuffer::NearPlane),
+	IsInverted = (int32)((int32)ZBuffer::FarPlane < (int32)ZBuffer::NearPlane),
 };
 
 enum SamplerFilter
@@ -114,7 +115,7 @@ enum EColorWriteMask
 	EColorWriteMask_NumBits = 4,
 };
 
-enum ECompareFunction
+enum CompareFunction
 {
 	CF_Less,
 	CF_LessEqual,
@@ -129,10 +130,10 @@ enum ECompareFunction
 	ECompareFunction_NumBits = 3,
 
 	// Utility enumerations
-	CF_DepthNearOrEqual = (((int32)ERHIZBuffer::IsInverted != 0) ? CF_GreaterEqual : CF_LessEqual),
-	CF_DepthNear = (((int32)ERHIZBuffer::IsInverted != 0) ? CF_Greater : CF_Less),
-	CF_DepthFartherOrEqual = (((int32)ERHIZBuffer::IsInverted != 0) ? CF_LessEqual : CF_GreaterEqual),
-	CF_DepthFarther = (((int32)ERHIZBuffer::IsInverted != 0) ? CF_Less : CF_Greater),
+	CF_DepthNearOrEqual = (((int32)ZBuffer::IsInverted != 0) ? CF_GreaterEqual : CF_LessEqual),
+	CF_DepthNear = (((int32)ZBuffer::IsInverted != 0) ? CF_Greater : CF_Less),
+	CF_DepthFartherOrEqual = (((int32)ZBuffer::IsInverted != 0) ? CF_LessEqual : CF_GreaterEqual),
+	CF_DepthFarther = (((int32)ZBuffer::IsInverted != 0) ? CF_Less : CF_Greater),
 };
 static_assert(ECompareFunction_Num <= (1 << ECompareFunction_NumBits), "ECompareFunction_Num will not fit on ECompareFunction_NumBits");
 
@@ -510,9 +511,9 @@ ENUM_CLASS_FLAGS(BufferUsageFlags);
 
 enum class ClearBinding
 {
-	ENoneBound,			// no clear color associated with this target.  Target will not do hardware clears on most platforms
-	EColorBound,		// target has a clear color bound.  Clears will use the bound color, and do hardware clears.
-	EDepthStencilBound, // target has a depthstencil value bound.  Clears will use the bound values and do hardware clears.
+	NoneBound,			// no clear color associated with this target.  Target will not do hardware clears on most platforms
+	ColorBound,		// target has a clear color bound.  Clears will use the bound color, and do hardware clears.
+	DepthStencilBound, // target has a depthstencil value bound.  Clears will use the bound values and do hardware clears.
 };
 
 /** Maximum number of miplevels in a texture. */

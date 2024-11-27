@@ -182,7 +182,7 @@ static inline VkBlendFactor BlendFactorToVulkan(EBlendFactor InFactor)
     return VK_BLEND_FACTOR_MAX_ENUM;
 }
 
-static inline VkCompareOp CompareOpToVulkan(ECompareFunction InOp)
+static inline VkCompareOp CompareOpToVulkan(CompareFunction InOp)
 {
     switch (InOp)
     {

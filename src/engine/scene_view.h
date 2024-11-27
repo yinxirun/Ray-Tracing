@@ -29,6 +29,9 @@ public:
     /** The views which make up the family. */
     std::vector<const SceneView *> views;
 
+    /** The render target which the views are being rendered to. */
+    const Texture *renderTarget;
+
     /** The scene being viewed. */
     SceneInterface *scene;
 
@@ -38,9 +41,9 @@ public:
     SceneViewFamily(const SceneViewFamily &) = default;
     SceneViewFamily() = default;
 
-    //void SetSceneRenderer(SceneRenderer *NewSceneRenderer) { SceneRenderer = NewSceneRenderer; }
+    // void SetSceneRenderer(SceneRenderer *NewSceneRenderer) { SceneRenderer = NewSceneRenderer; }
 
 private:
     /** The scene renderer that is rendering this view family. This is only initialized in the rendering thread's copies of the FSceneViewFamily. */
-    //SceneRenderer *SceneRenderer;
+    // SceneRenderer *SceneRenderer;
 };

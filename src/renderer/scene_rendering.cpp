@@ -1,10 +1,14 @@
 #include "engine/scene_interface.h"
 #include "engine/scene_view.h"
+#include "render_core/static_states.h"
 #include "RHI/RHICommandList.h"
+#include "RHI/RHIContext.h"
+#include "RHI/dynamic_rhi.h"
 #include "scene_rendering.h"
-#include "render_module.h"
+#include "renderer_module.h"
 #include "scene_private.h"
 #include <memory>
+#include <array>
 
 ViewFamilyInfo::ViewFamilyInfo(const SceneViewFamily &InViewFamily) : SceneViewFamily(InViewFamily)
 {
@@ -31,7 +35,28 @@ void SceneRenderer::CreateSceneRenderers(std::vector<const SceneViewFamily *> In
 
 void SceneRenderer::Render()
 {
-    
+    GraphicsPipelineStateInitializer graphicsPSOInit;
+    graphicsPSOInit.RenderTargetsEnabled = 1;
+    graphicsPSOInit.RenderTargetFormats[0] = ViewFamily.renderTarget->GetDesc().Format;
+    graphicsPSOInit.RenderTargetFlags[0] = ViewFamily.renderTarget->GetDesc().Flags;
+    graphicsPSOInit.NumSamples = 1;
+    graphicsPSOInit.DepthStencilTargetFormat = PF_Unknown;
+
+    graphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI().get();
+    graphicsPSOInit.DepthStencilState = TStaticDepthStencilState<>::GetRHI().get();
+
+    graphicsPSOInit.SubpassHint = SubpassHint::None;
+    graphicsPSOInit.SubpassIndex = 0;
+
+    graphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI().get();
+    graphicsPSOInit.PrimitiveType = PT_TriangleList;
+
+    // 遍历所有相机视口
+    for (int32 index = 0; index < ViewFamily.views.size(); ++index)
+    {
+        auto context = GetDefaultContext();
+        
+    }
 }
 
 /// Helper function performing actual work in render thread.
