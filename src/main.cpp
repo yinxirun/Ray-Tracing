@@ -238,6 +238,8 @@ int main()
     glfwSetFramebufferSizeCallback(window, OnSizeChanged);
 
     RHIInit();
+    RHICommandListImmediate &dummy = RHICommandListExecutor::GetImmediateCommandList();
+    dummy.SwitchPipeline(RHIPipeline::Graphics);
     {
         // 加载模型
         auto staticMesh = std::make_shared<StaticMesh>();
@@ -247,9 +249,12 @@ int main()
 
         Scene scene;
         scene.AddPrimitive(std::static_pointer_cast<PrimitiveComponent>(component));
-
-        RHICommandListImmediate &dummy = RHICommandListExecutor::GetImmediateCommandList();
-        dummy.SwitchPipeline(RHIPipeline::Graphics);
+        std::vector<PrimitiveComponent *> primitivesView;
+        for (auto &primitive : scene.primitives)
+        {
+            primitivesView.push_back(primitive.get());
+        }
+        PrimitiveComponent::AddStaticMeshes(dummy, &scene, primitivesView, false);
 
         CommandContext *context = GetDefaultContext();
         std::shared_ptr<VulkanViewport> viewport = CreateViewport(window, WIDTH, HEIGHT, false, PixelFormat::PF_B8G8R8A8);

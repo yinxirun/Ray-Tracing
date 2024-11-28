@@ -70,16 +70,16 @@ struct SamplerStateInitializer
 
 struct RasterizerStateInitializer
 {
-    TEnumAsByte<ERasterizerFillMode> FillMode = FM_Point;
-    TEnumAsByte<ERasterizerCullMode> CullMode = CM_None;
+    TEnumAsByte<RasterizerFillMode> FillMode = FM_Point;
+    TEnumAsByte<RasterizerCullMode> CullMode = CM_None;
     float DepthBias = 0.0f;
     float SlopeScaleDepthBias = 0.0f;
     ERasterizerDepthClipMode DepthClipMode = ERasterizerDepthClipMode::DepthClip;
     bool bAllowMSAA = false;
 
     RasterizerStateInitializer() = default;
-    RasterizerStateInitializer(ERasterizerFillMode InFillMode,
-                               ERasterizerCullMode InCullMode,
+    RasterizerStateInitializer(RasterizerFillMode InFillMode,
+                               RasterizerCullMode InCullMode,
                                float InDepthBias, float InSlopeScaleDepthBias,
                                ERasterizerDepthClipMode InDepthClipMode, bool bInAllowMSAA)
         : FillMode(InFillMode), CullMode(InCullMode),

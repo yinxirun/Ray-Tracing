@@ -3,6 +3,8 @@
 #include "engine/scene_interface.h"
 #include "renderer/internal/scene_textures.h"
 
+class ViewCommands;
+
 /// View family plus associated transient scene textures.
 /// 渲染模块
 class ViewFamilyInfo : public SceneViewFamily
@@ -29,5 +31,9 @@ public:
     /** Creates multiple scene renderers based on the current feature level.  All view families must point to the same Scene. */
     static void CreateSceneRenderers(std::vector<const SceneViewFamily *>, std::vector<SceneRenderer *> &out);
 
+    void InitViews();
+
     void Render();
+
+    void SetupMeshPass(SceneView &View, ExclusiveDepthStencil::Type BasePassDepthStencilAccess, ViewCommands &ViewCommands);
 };

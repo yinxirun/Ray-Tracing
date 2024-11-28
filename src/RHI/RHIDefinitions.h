@@ -67,7 +67,7 @@ enum SamplerCompareFunction
 };
 
 // 239
-enum ERasterizerFillMode
+enum RasterizerFillMode
 {
 	FM_Point,
 	FM_Wireframe,
@@ -78,7 +78,7 @@ enum ERasterizerFillMode
 };
 static_assert(ERasterizerFillMode_Num <= (1 << ERasterizerFillMode_NumBits), "ERasterizerFillMode_Num will not fit on ERasterizerFillMode_NumBits");
 
-enum ERasterizerCullMode
+enum RasterizerCullMode
 {
 	CM_None,
 	CM_CW,

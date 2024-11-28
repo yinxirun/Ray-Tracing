@@ -33,6 +33,18 @@ void SceneRenderer::CreateSceneRenderers(std::vector<const SceneViewFamily *> In
     }
 }
 
+void SceneRenderer::InitViews()
+{
+}
+
+void SceneRenderer::SetupMeshPass(SceneView &View, ExclusiveDepthStencil::Type BasePassDepthStencilAccess, ViewCommands &ViewCommands)
+{
+    for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+    {
+        const EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+    }
+}
+
 void SceneRenderer::Render()
 {
     GraphicsPipelineStateInitializer graphicsPSOInit;
@@ -55,7 +67,6 @@ void SceneRenderer::Render()
     for (int32 index = 0; index < ViewFamily.views.size(); ++index)
     {
         auto context = GetDefaultContext();
-        
     }
 }
 

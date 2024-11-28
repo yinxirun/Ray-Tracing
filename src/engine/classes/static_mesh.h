@@ -2,10 +2,17 @@
 #include "core/math/vec.h"
 #include "engine/classes/materials/materials.h"
 #include "engine/static_mesh_resources.h"
+#include "engine/vertex_local_factory.h"
 #include "definitions.h"
 #include <vector>
 #include <memory>
 #include <fstream>
+
+struct StaticMeshVertexFactories
+{
+    /** The vertex factory used when rendering this mesh. */
+    LocalVertexFactory vertexFactory;
+};
 
 /**
  * A StaticMesh is a piece of geometry that consists of a static set of polygons.
@@ -16,5 +23,6 @@ class StaticMesh
 {
 public:
     StaticMeshLODResources lod1;
+    std::vector<StaticMeshVertexFactories> LODVertexFactories;
     std::vector<std::shared_ptr<Material>> materials;
 };

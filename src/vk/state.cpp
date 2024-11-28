@@ -68,7 +68,7 @@ inline VkSamplerAddressMode TranslateWrapMode(SamplerAddressMode InAddressMode)
     return VK_SAMPLER_ADDRESS_MODE_MAX_ENUM;
 }
 
-static inline VkPolygonMode RasterizerFillModeToVulkan(ERasterizerFillMode InFillMode)
+static inline VkPolygonMode RasterizerFillModeToVulkan(RasterizerFillMode InFillMode)
 {
     switch (InFillMode)
     {
@@ -85,7 +85,7 @@ static inline VkPolygonMode RasterizerFillModeToVulkan(ERasterizerFillMode InFil
     return VK_POLYGON_MODE_MAX_ENUM;
 }
 
-static inline VkCullModeFlags RasterizerCullModeToVulkan(ERasterizerCullMode InCullMode)
+static inline VkCullModeFlags RasterizerCullModeToVulkan(RasterizerCullMode InCullMode)
 {
     switch (InCullMode)
     {

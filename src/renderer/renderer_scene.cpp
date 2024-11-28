@@ -8,10 +8,10 @@ Scene::~Scene() {}
 
 void Scene::AddPrimitive(std::shared_ptr<PrimitiveComponent> primitive)
 {
-    addedPrimitive.insert(primitive);
+    primitives.insert(primitive);
 }
 
 void Scene::RemovePrimitive(std::shared_ptr<PrimitiveComponent> primitive)
 {
-    addedPrimitive.erase(primitive);
+    primitives.erase(primitive);
 }

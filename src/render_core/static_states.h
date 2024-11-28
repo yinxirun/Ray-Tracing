@@ -41,8 +41,8 @@ extern RHI *rhi;
  * settings.
  * Should only be used from the rendering thread.
  */
-template <ERasterizerFillMode FillMode = FM_Solid,
-          ERasterizerCullMode CullMode = CM_None,
+template <RasterizerFillMode FillMode = FM_Solid,
+          RasterizerCullMode CullMode = CM_None,
           ERasterizerDepthClipMode DepthClipMode = ERasterizerDepthClipMode::DepthClip,
           bool bEnableMSAA = true>
 class TStaticRasterizerState
@@ -266,3 +266,50 @@ public:
             bUseAlphaToCoverage>::CreateRHI();
     }
 };
+
+/** Given a fill and cull mode, returns a static rasterizer state. */
+template <bool bEnableMSAA>
+inline RasterizerState *GetStaticRasterizerState(RasterizerFillMode FillMode, RasterizerCullMode CullMode)
+{
+    constexpr ERasterizerDepthClipMode DepthClipMode = ERasterizerDepthClipMode::DepthClip;
+    switch (FillMode)
+    {
+    default:
+    case FM_Solid:
+        switch (CullMode)
+        {
+        default:
+        case CM_CW:
+            return TStaticRasterizerState<FM_Solid, CM_CW, DepthClipMode, bEnableMSAA>::GetRHI().get();
+        case CM_CCW:
+            return TStaticRasterizerState<FM_Solid, CM_CCW, DepthClipMode, bEnableMSAA>::GetRHI().get();
+        case CM_None:
+            return TStaticRasterizerState<FM_Solid, CM_None, DepthClipMode, bEnableMSAA>::GetRHI().get();
+        };
+        break;
+    case FM_Wireframe:
+        switch (CullMode)
+        {
+        default:
+        case CM_CW:
+            return TStaticRasterizerState<FM_Wireframe, CM_CW, DepthClipMode, bEnableMSAA>::GetRHI().get();
+        case CM_CCW:
+            return TStaticRasterizerState<FM_Wireframe, CM_CCW, DepthClipMode, bEnableMSAA>::GetRHI().get();
+        case CM_None:
+            return TStaticRasterizerState<FM_Wireframe, CM_None, DepthClipMode, bEnableMSAA>::GetRHI().get();
+        };
+        break;
+    case FM_Point:
+        switch (CullMode)
+        {
+        default:
+        case CM_CW:
+            return TStaticRasterizerState<FM_Point, CM_CW, DepthClipMode, bEnableMSAA>::GetRHI().get();
+        case CM_CCW:
+            return TStaticRasterizerState<FM_Point, CM_CCW, DepthClipMode, bEnableMSAA>::GetRHI().get();
+        case CM_None:
+            return TStaticRasterizerState<FM_Point, CM_None, DepthClipMode, bEnableMSAA>::GetRHI().get();
+        };
+        break;
+    }
+}

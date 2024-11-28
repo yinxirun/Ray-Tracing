@@ -2,6 +2,7 @@
 
 #include "gpu_scene.h"
 #include "engine/scene_interface.h"
+#include "renderer/mesh_pass_processor.h"
 #include <vector>
 #include <unordered_set>
 #include <memory>
@@ -25,5 +26,7 @@ public:
     void AddPrimitive(std::shared_ptr<PrimitiveComponent> Primitive);
     void RemovePrimitive(std::shared_ptr<PrimitiveComponent> Primitive);
 
-    std::unordered_set<std::shared_ptr<PrimitiveComponent>> addedPrimitive;
+    std::unordered_set<std::shared_ptr<PrimitiveComponent>> primitives;
+
+    CachedPassMeshDrawList CachedDrawLists[EMeshPass::Num];
 };
