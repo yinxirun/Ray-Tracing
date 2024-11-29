@@ -5,7 +5,7 @@
 #include "renderer/mesh_pass_processor.h"
 
 class SceneView;
-class SceneViewFamily;
+class Camera;
 class Scene;
 class StaticPrimitiveDrawInterface;
 class MeshElementCollector;
@@ -33,7 +33,7 @@ public:
      * @param VisibilityMap - a bit representing this proxy's visibility in the Views array
      * @param Collector - gathers the mesh elements to be rendered and provides mechanisms for temporary allocations
      */
-    virtual void GetDynamicMeshElements(const std::vector<const SceneView *> &Views, const SceneViewFamily &ViewFamily, uint32 VisibilityMap, MeshElementCollector &Collector) const {}
+    virtual void GetDynamicMeshElements(const std::vector<const SceneView *> &Views, const Camera &ViewFamily, uint32 VisibilityMap, MeshElementCollector &Collector) const {}
 
     /**
      * Draws the primitive's static elements.  This is called from the rendering thread once when the scene proxy is created.

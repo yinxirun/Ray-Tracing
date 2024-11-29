@@ -23,7 +23,7 @@ public:
 
 /// A set of views into a scene which only have different view transforms and owner actors.
 /// 引擎模块
-class SceneViewFamily
+class Camera
 {
 public:
     /** The views which make up the family. */
@@ -38,8 +38,8 @@ public:
     bool bIsViewFamilyInfo = false;
 
     /// Only FSceneRenderer can copy a view family.
-    SceneViewFamily(const SceneViewFamily &) = default;
-    SceneViewFamily() = default;
+    Camera(const Camera &) = default;
+    Camera() = default;
 
     // void SetSceneRenderer(SceneRenderer *NewSceneRenderer) { SceneRenderer = NewSceneRenderer; }
 

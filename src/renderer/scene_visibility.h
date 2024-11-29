@@ -19,11 +19,52 @@ class ViewCommands
     // TStaticArray<TArray<EMeshDrawCommandCullingPayloadFlags, SceneRenderingAllocator>, EMeshPass::Num> DynamicMeshCommandBuildFlags;
 };
 
-class VisibilityTaskData
+class IVisibilityTaskData
+{
+public:
+    virtual void ProcessTasks() = 0;
+};
+
+////////////////////////////////////////////////////////////////////////// Private
+class VisibilityTaskData;
+class ViewInfo;
+class VisibilityViewPacket;
+class RHICommandListImmediate;
+class SceneRenderer;
+
+class VisibilityViewPacket
+{
+public:
+    VisibilityViewPacket(VisibilityTaskData &TaskData, Scene &InScene, ViewInfo &InView, int32 ViewIndex);
+};
+
+class VisibilityTaskData : public IVisibilityTaskData
 {
 private:
+    RHICommandListImmediate &RHICmdList;
+    SceneRenderer &sceneRenderer;
+    Scene &scene;
+    std::vector<ViewInfo *> Views;
+    std::vector<VisibilityViewPacket> ViewPackets;
+
     struct DynamicMeshElements
     {
         std::vector<ViewCommands> ViewCommandsPerView;
     } DynamicMeshElements;
+
+    struct Tasks
+    { // These legacy tasks are used to interface with the jobs launched prior to gather dynamic mesh elements.
+    } Tasks;
+
+public:
+    VisibilityTaskData(RHICommandListImmediate &RHICmdList, SceneRenderer &SceneRenderer);
+    void LaunchVisibilityTasks(std::function<void()> &BeginInitVisibilityPrerequisites);
+    void ProcessTasks()
+    {
+    }
 };
+
+class SceneRenderer;
+extern IVisibilityTaskData *LaunchVisibilityTasks(RHICommandListImmediate &RHICmdList,
+                                                  SceneRenderer &SceneRenderer,
+                                                  std::function<void()> &BeginInitVisibilityTaskPrerequisites);

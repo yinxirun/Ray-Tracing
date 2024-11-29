@@ -270,7 +270,7 @@ int main()
         view.ViewRotation = Mat4(1);
         view.WorldToMetersScale = 1;
 
-        ViewFamilyInfo viewFamily(SceneViewFamily{});
+        CameraInfo viewFamily(Camera{});
         viewFamily.renderTarget = drawingViewport->GetBackBuffer().get();
         viewFamily.views.push_back(&view);
         viewFamily.scene = &scene;

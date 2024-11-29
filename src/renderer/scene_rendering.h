@@ -2,20 +2,34 @@
 #include <vector>
 #include "engine/scene_interface.h"
 #include "renderer/internal/scene_textures.h"
+#include "renderer/mesh_draw_commands.h"
+#include "renderer/mesh_pass_processor.h"
+#include "engine/mesh_batch.h"
+#include "engine/scene_view.h"
 
 class ViewCommands;
+class IVisibilityTaskData;
 
 /// View family plus associated transient scene textures.
 /// 渲染模块
-class ViewFamilyInfo : public SceneViewFamily
+class CameraInfo : public Camera
 {
 public:
-    explicit ViewFamilyInfo(const SceneViewFamily &InViewFamily);
+    explicit CameraInfo(const Camera &InViewFamily);
 
     inline SceneTextures &GetSceneTextures() { return sceneTextures; }
 
 private:
     SceneTextures sceneTextures;
+};
+
+class ViewInfo : public SceneView
+{
+public:
+    std::vector<MeshBatch> DynamicMeshElements;
+    std::array<MeshDrawCommandPass, EMeshPass::Num> MeshDrawCommandPasses;
+
+    std::vector<bool> primitiveVisibilityMap;
 };
 
 /// Used as the scope for scene rendering functions.
@@ -24,16 +38,28 @@ private:
 class SceneRenderer : public SceneInterface
 {
 public:
+    Scene *scene = nullptr;
+
     /** The view family being rendered.  This references the Views array. */
-    ViewFamilyInfo ViewFamily;
+    CameraInfo camera;
 
-    SceneRenderer(const SceneViewFamily *InViewFamily);
+    /** The views being rendered. */
+    std::vector<ViewInfo> Views;
+
+    SceneRenderer(const Camera *InViewFamily);
+    ~SceneRenderer();
     /** Creates multiple scene renderers based on the current feature level.  All view families must point to the same Scene. */
-    static void CreateSceneRenderers(std::vector<const SceneViewFamily *>, std::vector<SceneRenderer *> &out);
+    static void CreateSceneRenderers(std::vector<const Camera *>, std::vector<SceneRenderer *> &out);
 
-    void InitViews();
+    void BeginInitViews(IVisibilityTaskData *VisibilityTaskData);
 
-    void Render();
+    void Render(RHICommandListImmediate &RHICmdList);
 
-    void SetupMeshPass(SceneView &View, ExclusiveDepthStencil::Type BasePassDepthStencilAccess, ViewCommands &ViewCommands);
+    void SetupMeshPass(ViewInfo &View, ExclusiveDepthStencil::Type BasePassDepthStencilAccess, ViewCommands &ViewCommands);
+
+    /** Called at the begin / finish of the scene render. */
+    IVisibilityTaskData *OnRenderBegin(RHICommandListImmediate &RHICmdList);
+
+    /** All views include main camera views and custom render pass views. */
+    std::vector<ViewInfo *> AllViews;
 };

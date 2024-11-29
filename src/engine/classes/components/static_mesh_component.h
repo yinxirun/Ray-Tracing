@@ -35,7 +35,7 @@ public:
         const VertexFactory *vertexFactory,
         MeshBatch &OutMeshElement) const;
 
-    virtual void GetDynamicMeshElements(const std::vector<const SceneView *> &Views, const SceneViewFamily &ViewFamily, uint32 VisibilityMap, MeshElementCollector &Collector) const override;
+    virtual void GetDynamicMeshElements(const std::vector<const SceneView *> &Views, const Camera &ViewFamily, uint32 VisibilityMap, MeshElementCollector &Collector) const override;
 
     virtual void DrawStaticElements(StaticPrimitiveDrawInterface *PDI) override;
 

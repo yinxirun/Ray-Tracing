@@ -27,6 +27,25 @@ namespace EMeshPass
     };
 }
 
+/** Mesh pass mask - stores one bit per mesh pass. */
+class MeshPassMask
+{
+public:
+    MeshPassMask() : Data(0) {}
+
+    void Set(EMeshPass::Type Pass)
+    {
+        Data |= (uint64(1) << Pass);
+    }
+
+    bool Get(EMeshPass::Type Pass) const
+    {
+        return !!(Data & (uint64(1) << Pass));
+    }
+    
+    uint64 Data;
+};
+
 /// Encapsulates shader bindings for a single FMeshDrawCommand.
 class MeshDrawShaderBindings
 {
@@ -192,4 +211,11 @@ class PassProcessorManager
 {
 public:
     static MeshPassProcessor *CreateMeshPassProcessor(EMeshPass::Type PassType, const Scene *Scene);
+};
+
+class VisibleMeshDrawCommand
+{
+public:
+    // Mesh Draw Command stored separately to avoid fetching its data during sorting
+    const MeshDrawCommand *meshDrawCommand;
 };

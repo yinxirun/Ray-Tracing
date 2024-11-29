@@ -18,6 +18,15 @@ class Scene : public SceneInterface
 public:
     GPUScene GPUScene;
 
+    struct UpdateParameters
+    {
+        struct
+        {
+            std::function<void(std::function<void()> &)> PostStaticMeshUpdate;
+
+        } Callbacks;
+    };
+
     /** Initialization constructor. */
     Scene();
     virtual ~Scene();
@@ -29,4 +38,6 @@ public:
     std::unordered_set<std::shared_ptr<PrimitiveComponent>> primitives;
 
     CachedPassMeshDrawList CachedDrawLists[EMeshPass::Num];
+
+    ExclusiveDepthStencil::Type DefaultBasePassDepthStencilAccess;
 };

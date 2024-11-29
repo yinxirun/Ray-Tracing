@@ -22,3 +22,10 @@ public:
 
     virtual void DrawMesh(const MeshBatch &Mesh, float ScreenSize) = 0;
 };
+
+/// A reference to a mesh batch that is added to the collector, together with some cached relevance flags.
+struct MeshBatchAndRelevance
+{
+    const MeshBatch *Mesh;
+    const PrimitiveComponent *primitiveComponent;
+};

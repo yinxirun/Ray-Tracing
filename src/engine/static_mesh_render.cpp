@@ -58,7 +58,7 @@ uint32 StaticMeshComponent::SetMeshElementGeometrySource(
     return NumPrimitives;
 }
 
-void StaticMeshComponent::GetDynamicMeshElements(const std::vector<const SceneView *> &Views, const SceneViewFamily &ViewFamily, uint32 VisibilityMap, MeshElementCollector &Collector) const
+void StaticMeshComponent::GetDynamicMeshElements(const std::vector<const SceneView *> &Views, const Camera &ViewFamily, uint32 VisibilityMap, MeshElementCollector &Collector) const
 {
     assert(0);
 }
