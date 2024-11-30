@@ -45,20 +45,33 @@ CmdBuffer o--> DescriptorPoolSetContainer
 DescriptorPoolSetContainer *--> TypedDescriptorPoolSet
 @enduml
 
-' @startchen er
-' entity Person{
-'     name<<key>>
-'     age
-'     gender
-' }
+@startuml relevance
+class VisibilityTaskData #00FF00
+class VisibilityViewPacket{
+    + BeginInitVisibility():void
+}
+class ComputeAndMarkRelevance{
+    + AddPrimitive():void
+    + AddPrimitives():void
+    + Finish():void
+    + Finalize():void
+}
+class RelevancePacket{
+    + LaunchComputeRelevanceTask():void
+    + ComputeRelevance():void
+    + Finalize():void
+}
+class DrawCommandRelevancePacket
 
-' entity Car{
-'     name
-' }
+VisibilityTaskData o-- VisibilityViewPacket
+note left of VisibilityViewPacket: 和View一一对应，用来执行相关计算
+VisibilityViewPacket o-- ComputeAndMarkRelevance
+ComputeAndMarkRelevance o-- RelevancePacket:一对多
+RelevancePacket o-- DrawCommandRelevancePacket
 
-' relationship Own{
-' }
+class ViewCommands{}
+ViewCommands <.. RelevancePacket:写入
 
-' Person -1- Own
-' Own -n- Car
-' @endchen
+note left of ViewCommands: 所有静态网格相关命令
+
+@enduml

@@ -28,6 +28,7 @@ public:
     std::vector<const StaticMeshBatch *> DynamicMeshCommandBuildRequests;
     std::vector<MeshDrawCommand> MeshDrawCommandStorage;
     std::vector<GraphicsPipelineStateInitializer> PipelineStatePassSet;
+    bool NeedsShaderInitialisation;
 
     // Resources preallocated on rendering thread.
     void *PrimitiveIdBufferData;

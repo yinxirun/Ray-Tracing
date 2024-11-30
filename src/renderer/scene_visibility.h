@@ -4,19 +4,21 @@
 #include "engine/static_mesh_batch.h"
 class ViewCommands
 {
-    // public:
-    //     ViewCommands()
-    //     {
-    //         for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
-    //         {
-    //             NumDynamicMeshCommandBuildRequestElements[PassIndex] = 0;
-    //         }
-    //     }
+public:
+    ViewCommands()
+    {
+        for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
+        {
+            NumDynamicMeshCommandBuildRequestElements[PassIndex] = 0;
+        }
+    }
 
-    // TStaticArray<FMeshCommandOneFrameArray, EMeshPass::Num> MeshCommands;
+    // 已经缓存好的静态网格
+    std::array<std::vector<VisibleMeshDrawCommand>, EMeshPass::Num> MeshCommands;
+
+    // 需要缓存的静态网格（view相关）
     std::array<int32, EMeshPass::Num> NumDynamicMeshCommandBuildRequestElements;
     std::array<std::vector<const StaticMeshBatch *>, EMeshPass::Num> DynamicMeshCommandBuildRequests;
-    // TStaticArray<TArray<EMeshDrawCommandCullingPayloadFlags, SceneRenderingAllocator>, EMeshPass::Num> DynamicMeshCommandBuildFlags;
 };
 
 class IVisibilityTaskData

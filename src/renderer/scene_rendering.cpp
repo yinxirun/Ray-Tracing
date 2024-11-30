@@ -61,9 +61,13 @@ void SceneRenderer::SetupMeshPass(ViewInfo &View, ExclusiveDepthStencil::Type Ba
         MeshPassProcessor *meshPassProcessor = PassProcessorManager::CreateMeshPassProcessor(PassType, scene);
         MeshDrawCommandPass pass = View.MeshDrawCommandPasses[PassIndex];
 
-        //pass.DispatchPassSetup();
-
-        delete meshPassProcessor;
+        pass.DispatchPassSetup(scene, &View, PassType, BasePassDepthStencilAccess, meshPassProcessor,
+                               View.DynamicMeshElements,
+                               &View.DynamicMeshElementsPassRelevance,
+                               View.NumVisibleDynamicMeshElements[PassIndex],
+                               ViewCommands.DynamicMeshCommandBuildRequests[PassIndex],
+                               ViewCommands.NumDynamicMeshCommandBuildRequestElements[PassIndex],
+                               ViewCommands.MeshCommands[PassIndex]);
     }
 }
 
@@ -77,11 +81,37 @@ void SceneRenderer::Render(RHICommandListImmediate &RHICmdList)
     // VisibilityTaskData->FinishGatherDynamicMeshElements();
     //  EndInitViews
 
+    const ExclusiveDepthStencil::Type BasePassDepthStencilAccess = ExclusiveDepthStencil::DepthWrite_StencilWrite;
+
     // 初始化视图：进行剔除，计算相关性
     {
         for (ViewInfo &viewInfo : Views)
         {
             viewInfo.primitiveVisibilityMap.assign(scene->primitives.size(), true);
+        }
+
+        // BeginInitVisibility
+	    // LightVisibility
+	    // FrustumCull
+	    // OcclusionCull
+
+        // Compute Relvance
+        
+
+
+        // GDME - Gather Dynamic Mesh Elements
+
+        // SetupMeshPasses
+        for (ViewInfo &viewInfo : Views)
+        {
+            viewInfo.DynamicMeshElementsPassRelevance.resize(viewInfo.DynamicMeshElements.size());
+        }
+
+        for (ViewInfo &viewInfo : Views)
+        {
+            ViewCommands viewCommands;
+            viewCommands.MeshCommands;
+            SetupMeshPass(viewInfo, BasePassDepthStencilAccess, viewCommands);
         }
     }
 
