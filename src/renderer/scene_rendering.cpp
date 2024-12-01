@@ -50,8 +50,19 @@ void SceneRenderer::CreateSceneRenderers(std::vector<const Camera *> InViewFamil
 
 void SceneRenderer::BeginInitViews(IVisibilityTaskData *VisibilityTaskData)
 {
-    VisibilityTaskData->ProcessTasks();
+    check(0);
 }
+
+void SceneRenderer::BeginInitViews(ExclusiveDepthStencil::Type BasePassDepthStencilAccess)
+{
+    std::vector<ViewCommands> ViewCommandsPerView(Views.size());
+    ComputeViewVisibility(BasePassDepthStencilAccess, ViewCommandsPerView);
+}
+
+void SceneRenderer::EndInitViews() {}
+
+void SceneRenderer::GatherDynamicMeshElements(std::vector<ViewInfo> &InViews,
+                                              const Scene *InScene) {}
 
 void SceneRenderer::SetupMeshPass(ViewInfo &View, ExclusiveDepthStencil::Type BasePassDepthStencilAccess, ViewCommands &ViewCommands)
 {
@@ -91,13 +102,11 @@ void SceneRenderer::Render(RHICommandListImmediate &RHICmdList)
         }
 
         // BeginInitVisibility
-	    // LightVisibility
-	    // FrustumCull
-	    // OcclusionCull
+        // LightVisibility
+        // FrustumCull
+        // OcclusionCull
 
         // Compute Relvance
-        
-
 
         // GDME - Gather Dynamic Mesh Elements
 

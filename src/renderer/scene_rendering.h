@@ -28,8 +28,6 @@ class ViewInfo : public SceneView
 public:
     std::array<MeshDrawCommandPass, EMeshPass::Num> MeshDrawCommandPasses;
 
-    std::vector<bool> primitiveVisibilityMap;
-
     /** Gathered in initviews from all the primitives with dynamic view relevance, used in each mesh pass. */
     std::vector<MeshBatchAndRelevance> DynamicMeshElements;
 
@@ -38,6 +36,12 @@ public:
 
     /** Number of dynamic mesh elements per mesh pass (inside FViewInfo::DynamicMeshElements). */
     int32 NumVisibleDynamicMeshElements[EMeshPass::Num];
+
+    /** A map from static mesh ID to a boolean visibility value. */
+    std::vector<bool> StaticMeshVisibilityMap;
+
+    /** A map from primitive ID to a boolean visibility value. */
+	std::vector<bool> primitiveVisibilityMap;
 };
 
 /// Used as the scope for scene rendering functions.
@@ -60,6 +64,10 @@ public:
     static void CreateSceneRenderers(std::vector<const Camera *>, std::vector<SceneRenderer *> &out);
 
     void BeginInitViews(IVisibilityTaskData *VisibilityTaskData);
+    void BeginInitViews(ExclusiveDepthStencil::Type);
+    void EndInitViews();
+    void ComputeViewVisibility(ExclusiveDepthStencil::Type, std::vector<ViewCommands> &);
+    void GatherDynamicMeshElements(std::vector<ViewInfo> &InViews, const Scene *InScene);
 
     void Render(RHICommandListImmediate &RHICmdList);
 
