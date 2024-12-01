@@ -42,7 +42,7 @@ public:
     {
         return !!(Data & (uint64(1) << Pass));
     }
-    
+
     uint64 Data;
 };
 
@@ -140,6 +140,9 @@ public:
     // Stores the index into FScene::CachedDrawLists of the corresponding FMeshDrawCommand, or -1 if not stored there
     int32 CommandIndex;
 
+    // Stores the index into FScene::CachedMeshDrawCommandStateBuckets of the corresponding FMeshDrawCommand, or -1 if not stored there
+    int32 StateBucketId = -1;
+
     // Needed for view overrides
     RasterizerFillMode MeshFillMode : ERasterizerFillMode_NumBits + 1;
     RasterizerCullMode MeshCullMode : ERasterizerCullMode_NumBits + 1;
@@ -169,10 +172,12 @@ public:
 class CachedPassMeshDrawListContext : public MeshPassDrawListContext
 {
 public:
+    CachedPassMeshDrawListContext(Scene &InScene) : scene(InScene) {}
+    CachedMeshDrawCommandInfo GetCommandInfoAndReset();
     virtual MeshDrawCommand &AddCommand(MeshDrawCommand &Initializer, uint32 NumElements) override final;
 
 protected:
-    Scene &Scene;
+    Scene &scene;
     MeshDrawCommand MeshDrawCommandForStateBucketing;
     CachedMeshDrawCommandInfo CommandInfo;
     EMeshPass::Type CurrMeshPass = EMeshPass::Num;
@@ -181,6 +186,7 @@ protected:
 class CachedPassMeshDrawListContextImmediate : public CachedPassMeshDrawListContext
 {
 public:
+    CachedPassMeshDrawListContextImmediate(Scene &InScene) : CachedPassMeshDrawListContext(InScene) {};
     virtual void FinalizeCommand(const MeshBatch &MeshBatch, int32 BatchElementIndex, RasterizerFillMode MeshFillMode,
                                  RasterizerCullMode MeshCullMode,
                                  const GraphicsPipelineStateInitializer &PipelineState, MeshDrawCommand &MeshDrawCommand) override final;
@@ -210,12 +216,18 @@ public:
 class PassProcessorManager
 {
 public:
-    static MeshPassProcessor *CreateMeshPassProcessor(EMeshPass::Type PassType, const Scene *Scene);
+    static MeshPassProcessor *CreateMeshPassProcessor(EMeshPass::Type PassType, const Scene *Scene,
+                                                      MeshPassDrawListContext *InDrawListContext);
 };
 
 class VisibleMeshDrawCommand
 {
 public:
+    inline void Setup(const MeshDrawCommand *InMeshDrawCommand)
+    {
+        meshDrawCommand = InMeshDrawCommand;
+    }
+
     // Mesh Draw Command stored separately to avoid fetching its data during sorting
     const MeshDrawCommand *meshDrawCommand;
 };

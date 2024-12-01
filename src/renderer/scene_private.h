@@ -35,7 +35,7 @@ public:
     void AddPrimitive(std::shared_ptr<PrimitiveComponent> Primitive);
     void RemovePrimitive(std::shared_ptr<PrimitiveComponent> Primitive);
 
-    std::unordered_set<std::shared_ptr<PrimitiveComponent>> primitives;
+    std::vector<std::shared_ptr<PrimitiveComponent>> primitives;
 
     CachedPassMeshDrawList CachedDrawLists[EMeshPass::Num];
 

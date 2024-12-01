@@ -63,6 +63,15 @@ void StaticMeshComponent::GetDynamicMeshElements(const std::vector<const SceneVi
     assert(0);
 }
 
+PrimitiveViewRelevance StaticMeshComponent::GetViewRelevance(const SceneView *View) const
+{
+    PrimitiveViewRelevance Result;
+    Result.bDrawRelevance = 1;
+    Result.bStaticRelevance = 1;
+    Result.bDynamicRelevance = 0;
+    return Result;
+}
+
 void StaticMeshComponent::DrawStaticElements(StaticPrimitiveDrawInterface *PDI)
 {
     int numLOD = 1;

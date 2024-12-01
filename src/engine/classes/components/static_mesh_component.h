@@ -37,6 +37,8 @@ public:
 
     virtual void GetDynamicMeshElements(const std::vector<const SceneView *> &Views, const Camera &ViewFamily, uint32 VisibilityMap, MeshElementCollector &Collector) const override;
 
+    virtual PrimitiveViewRelevance GetViewRelevance(const SceneView *View) const override;
+
     virtual void DrawStaticElements(StaticPrimitiveDrawInterface *PDI) override;
 
 protected:

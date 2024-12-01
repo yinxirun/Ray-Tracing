@@ -3,8 +3,8 @@
 #include "engine/mesh_batch.h"
 #include "render_core/vertex_factory.h"
 #include "render_core/static_states.h"
-#include "renderer/scene_private.h"
 #include "renderer/base_pass_rendering.h"
+#include "renderer/scene_private.h"
 
 void MeshDrawCommand::SetDrawParametersAndFinalize(
     const MeshBatch &MeshBatch,
@@ -36,6 +36,14 @@ void MeshDrawCommand::SetDrawParametersAndFinalize(
     PsoInit = PipelineId;
 }
 
+CachedMeshDrawCommandInfo CachedPassMeshDrawListContext::GetCommandInfoAndReset()
+{
+    CachedMeshDrawCommandInfo Ret = CommandInfo;
+    CommandInfo.CommandIndex = -1;
+    CommandInfo.StateBucketId = -1;
+    return Ret;
+}
+
 MeshDrawCommand &CachedPassMeshDrawListContext::AddCommand(MeshDrawCommand &Initializer, uint32 NumElements)
 {
     MeshDrawCommandForStateBucketing = Initializer;
@@ -57,7 +65,7 @@ void CachedPassMeshDrawListContextImmediate::FinalizeCommand(
 
     // Only one FMeshDrawCommand supported per FStaticMesh in a pass
     // Allocate at lowest free index so that 'r.DoLazyStaticMeshUpdate' can shrink the TSparseArray more effectively
-    CachedPassMeshDrawList &CachedDrawLists = Scene.CachedDrawLists[CurrMeshPass];
+    CachedPassMeshDrawList &CachedDrawLists = scene.CachedDrawLists[CurrMeshPass];
     CommandInfo.CommandIndex = CachedDrawLists.MeshDrawCommands.size();
     CachedDrawLists.MeshDrawCommands.push_back(MeshDrawCommand);
 }
@@ -159,7 +167,8 @@ void MeshPassProcessor::BuildMeshDrawCommands(const MeshBatch &meshBatch, const 
 
 #endif
 
-MeshPassProcessor *PassProcessorManager::CreateMeshPassProcessor(EMeshPass::Type PassType, const Scene *Scene)
+MeshPassProcessor *PassProcessorManager::CreateMeshPassProcessor(EMeshPass::Type PassType, const Scene *Scene,
+                                                                 MeshPassDrawListContext *InDrawListContext)
 {
     if (PassType == EMeshPass::Forward)
     {

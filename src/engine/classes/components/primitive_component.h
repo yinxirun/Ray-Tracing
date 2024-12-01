@@ -2,6 +2,7 @@
 #include <vector>
 #include "definitions.h"
 #include "engine/static_mesh_batch.h"
+#include "engine/primitive_view_relevance.h"
 #include "renderer/mesh_pass_processor.h"
 
 class SceneView;
@@ -42,12 +43,21 @@ public:
      */
     virtual void DrawStaticElements(StaticPrimitiveDrawInterface *PDI) {}
 
+    /**
+     * Determines the relevance of this primitive's elements to the given view.
+     * Called in the rendering thread.
+     * @param View - The view to determine relevance for.
+     * @return The relevance of the primitive's elements to the view.
+     */
+    virtual PrimitiveViewRelevance GetViewRelevance(const SceneView *View) const = 0;
+
     /********************************* SceneInfo *********************************/
 
     std::vector<StaticMeshBatch> staticMeshes;
+    std::vector<StaticMeshBatchRelevance> staticMeshRelevances;
 
     /** The primitive's cached mesh draw commands infos for all static meshes. Kept separately from StaticMeshes for cache efficiency inside InitViews. */
-    std::vector<CachedMeshDrawCommandInfo> StaticMeshCommandInfos;
+    std::vector<CachedMeshDrawCommandInfo> staticMeshCommandInfos;
 
     /** Adds the primitive's static meshes to the scene. */
     static void AddStaticMeshes(RHICommandListBase &RHICmdList, Scene *Scene, std::vector<PrimitiveComponent *> SceneInfos, bool bCacheMeshDrawCommands = true);

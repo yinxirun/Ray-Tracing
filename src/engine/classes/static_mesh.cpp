@@ -1,4 +1,6 @@
 #include "engine/classes/materials/materials.h"
+#include "RHI/dynamic_rhi.h"
+#include "RHI/RHICommandList.h"
 #include "static_mesh.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
@@ -198,5 +200,23 @@ void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh)
                 }
             }
         }
+
+        // 4. initialize RHI
+        RHICommandListBase &immediate = RHICommandListExecutor::GetImmediateCommandList();
+        ResourceCreateInfo ci{};
+
+        uint32 size = currentLOD.position.size() * sizeof(Vec3);
+        BufferDesc bufferDesc(size, 12, BUF_VertexBuffer);
+        currentLOD.positonBuffer = CreateBuffer(bufferDesc, Access::VertexOrIndexBuffer, ci);
+        void *mapped = LockBuffer_BottomOfPipe(immediate, currentLOD.positonBuffer.get(), 0, size, ResourceLockMode::RLM_WriteOnly);
+        memcpy(mapped, currentLOD.position.data(), size);
+        UnlockBuffer_BottomOfPipe(immediate, currentLOD.positonBuffer.get());
+
+        size = currentLOD.index.size() * sizeof(uint32);
+        bufferDesc = BufferDesc(size, 4, BUF_IndexBuffer);
+        currentLOD.indexBuffer = CreateBuffer(bufferDesc, Access::VertexOrIndexBuffer, ci);
+        mapped = LockBuffer_BottomOfPipe(immediate, currentLOD.indexBuffer.get(), 0, size, ResourceLockMode::RLM_WriteOnly);
+        memcpy(mapped, currentLOD.index.data(), size);
+        UnlockBuffer_BottomOfPipe(immediate, currentLOD.indexBuffer.get());
     }
 }

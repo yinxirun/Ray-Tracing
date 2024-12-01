@@ -33,5 +33,8 @@ struct MeshBatch
     int8 LODIndex;
     uint8 SegmentIndex;
 
+    
+    uint32 bUseForMaterial : 1; // Whether it can be used in renderpasses requiring material outputs.
+
     uint32 Type;
 };

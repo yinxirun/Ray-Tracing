@@ -1,6 +1,12 @@
 #include "scene_visibility.h"
 #include "scene_rendering.h"
+#include "scene_private.h"
+#include "engine/primitive_view_relevance.h"
+#include "engine/classes/components/primitive_component.h"
+#include "engine/static_mesh_batch.h"
 #include "RHI/RHICommandList.h"
+
+const bool UseCachedCommands = true;
 
 IVisibilityTaskData *LaunchVisibilityTasks(RHICommandListImmediate &RHICmdList, SceneRenderer &SceneRenderer, std::function<void()> &BeginInitVisibilityTaskPrerequisites)
 {
@@ -34,21 +40,115 @@ struct DrawCommandRelevancePacket
     std::vector<VisibleMeshDrawCommand> VisibleCachedDrawCommands[EMeshPass::Num];
     std::vector<const StaticMeshBatch *> DynamicBuildRequests[EMeshPass::Num];
     int32 NumDynamicBuildRequestElements[EMeshPass::Num];
-    bool bUseCachedMeshDrawCommands;
+    bool bUseCachedMeshDrawCommands = UseCachedCommands;
+
+    void AddCommandsForMesh(int32 PrimitiveIndex, const PrimitiveComponent *InPrimitive,
+                            const StaticMeshBatchRelevance &StaticMeshRelevance,
+                            const StaticMeshBatch &StaticMesh, const Scene &scene, EMeshPass::Type PassType)
+    {
+        const bool bUseCachedMeshCommand = bUseCachedMeshDrawCommands && StaticMeshRelevance.bSupportsCachingMeshDrawCommands;
+
+        if (bUseCachedMeshCommand)
+        {
+            const int32 StaticMeshCommandInfoIndex = 0;
+            if (StaticMeshCommandInfoIndex)
+            {
+                const CachedMeshDrawCommandInfo &CachedMeshDrawCommand = InPrimitive->staticMeshCommandInfos[StaticMeshCommandInfoIndex];
+                const CachedPassMeshDrawList &SceneDrawList = scene.CachedDrawLists[PassType];
+
+                VisibleCachedDrawCommands[(uint32)PassType].emplace_back();
+                VisibleMeshDrawCommand &NewVisibleMeshDrawCommand = VisibleCachedDrawCommands[(uint32)PassType].back();
+
+                const MeshDrawCommand *MeshDrawCommand = CachedMeshDrawCommand.StateBucketId >= 0
+                                                             ? nullptr
+                                                             : &SceneDrawList.MeshDrawCommands[CachedMeshDrawCommand.CommandIndex];
+
+                NewVisibleMeshDrawCommand.Setup(MeshDrawCommand);
+            }
+        }
+        else
+        {
+            check(0);
+            NumDynamicBuildRequestElements[PassType] += StaticMeshRelevance.NumElements;
+            DynamicBuildRequests[PassType].push_back(&StaticMesh);
+        }
+    }
 };
+
+// packet是为了并行计算设计的，一个packet一个线程
 struct RelevancePacket
 {
+    RelevancePacket(const Scene &scene, const ViewInfo &view, const ViewCommands &viewCommands)
+        : scene(scene), View(view), viewCommands(viewCommands) {}
     DrawCommandRelevancePacket DrawCommandPacket;
+    /// primitive的索引
     std::vector<int32> Input;
     void ComputeRelevance()
     {
-        for (int32 Index = 0; Index < Input.size(); Index++)
+        int32 NumVisibleStaticMeshElements = 0;
+        for (int32 InputPrimsIndex = 0; InputPrimsIndex < Input.size(); InputPrimsIndex++)
         {
-            
+            int32 BitIndex = Input[InputPrimsIndex];
+            PrimitiveComponent *primitive = scene.primitives[BitIndex].get();
+
+            PrimitiveViewRelevance ViewRelevance = primitive->GetViewRelevance(&View);
+
+            const bool bStaticRelevance = ViewRelevance.bStaticRelevance;
+            const bool bDrawRelevance = ViewRelevance.bDrawRelevance;
+            const bool bDynamicRelevance = ViewRelevance.bDynamicRelevance;
+
+            if (bStaticRelevance && (bDrawRelevance))
+            {
+                const int32 NumStaticMeshes = primitive->staticMeshes.size();
+                for (int32 MeshIndex = 0; MeshIndex < NumStaticMeshes; MeshIndex++)
+                {
+                    const StaticMeshBatchRelevance &staticMeshRelevance = primitive->staticMeshRelevances[MeshIndex];
+                    const StaticMeshBatch &StaticMesh = primitive->staticMeshes[MeshIndex];
+
+                    int8 StaticMeshLODIndex = staticMeshRelevance.LODIndex;
+
+                    // 需要检查这个LOD是否被渲染。目前不支持多层LOD，就不检查了
+
+                    // Mark static mesh as visible for rendering
+                    if (staticMeshRelevance.bUseForMaterial && ViewRelevance.bRenderInMainPass)
+                    {
+                        DrawCommandPacket;
+                        ++NumVisibleStaticMeshElements;
+                    }
+                }
+            }
         }
     }
     void MarkRelevant() {}
-    void Finalize() {}
+
+    // 将对象内暂存的相关command拷贝到viewcommands中。viewcommands是输出。
+    void Finalize()
+    {
+        ViewInfo &WriteView = const_cast<ViewInfo &>(View);
+        ViewCommands &WriteViewCommands = const_cast<ViewCommands &>(viewCommands);
+
+        for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+        {
+            std::vector<VisibleMeshDrawCommand> &SrcCommands = DrawCommandPacket.VisibleCachedDrawCommands[PassIndex];
+            std::vector<VisibleMeshDrawCommand> &DstCommands = WriteViewCommands.MeshCommands[PassIndex];
+            if (SrcCommands.size() > 0)
+            {
+                static_assert(sizeof(SrcCommands[0]) == sizeof(DstCommands[0]), "Memcpy sizes must match.");
+                const int32 PrevNum = DstCommands.size();
+                DstCommands.resize(DstCommands.size() + SrcCommands.size());
+                memcpy(&DstCommands[PrevNum], &SrcCommands[0], SrcCommands.size() * sizeof(SrcCommands[0]));
+            }
+
+            // 暂时先省略不可缓存的静态网格相关的拷贝。
+
+            WriteViewCommands.NumDynamicMeshCommandBuildRequestElements[PassIndex] +=
+                DrawCommandPacket.NumDynamicBuildRequestElements[PassIndex];
+        }
+    }
+
+    const Scene &scene;
+    const ViewInfo &View;
+    const ViewCommands &viewCommands;
 
     static const int32 MaxOutputPrims;
 };
@@ -69,7 +169,7 @@ static void ComputeAndMarkRelevanceForView(const Scene *scene, ViewInfo &view, V
 
     if (BitIt != -1)
     {
-        RelevancePacket *packet = new RelevancePacket;
+        RelevancePacket *packet = new RelevancePacket(*scene, view, ViewCommands);
         Packets.push_back(packet);
         while (true)
         {
@@ -86,7 +186,7 @@ static void ComputeAndMarkRelevanceForView(const Scene *scene, ViewInfo &view, V
                     break;
                 else
                 {
-                    packet = new RelevancePacket;
+                    packet = new RelevancePacket(*scene, view, ViewCommands);
                     Packets.push_back(packet);
                 }
             }

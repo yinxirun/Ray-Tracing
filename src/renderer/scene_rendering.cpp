@@ -69,7 +69,7 @@ void SceneRenderer::SetupMeshPass(ViewInfo &View, ExclusiveDepthStencil::Type Ba
     for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
     {
         const EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
-        MeshPassProcessor *meshPassProcessor = PassProcessorManager::CreateMeshPassProcessor(PassType, scene);
+        MeshPassProcessor *meshPassProcessor = nullptr;
         MeshDrawCommandPass pass = View.MeshDrawCommandPasses[PassIndex];
 
         pass.DispatchPassSetup(scene, &View, PassType, BasePassDepthStencilAccess, meshPassProcessor,

@@ -1,6 +1,7 @@
 #include "base_pass_rendering.h"
 #include "RHI/RHIResources.h"
 #include "RHI/dynamic_rhi.h"
+#include "engine/mesh_batch.h"
 #include <memory>
 
 VertexShader *vs;
@@ -15,6 +16,7 @@ ForwardPassMeshProcessor::ForwardPassMeshProcessor(EMeshPass::Type InMeshPassTyp
 void ForwardPassMeshProcessor::ForwardPassMeshProcessor::AddMeshBatch(const MeshBatch &meshBatch, uint64 BatchElementMask,
                                                                       const PrimitiveComponent *PrimitiveSceneProxy, int32 StaticMeshId)
 {
+
     MeshProcessorShaders shaders;
     shaders.vertexShader = CreateVertexShader(process_shader("shaders/a.vert.spv", SF_Vertex));
     shaders.pixelShader = CreatePixelShader(process_shader("shaders/a.frag.spv", SF_Pixel));

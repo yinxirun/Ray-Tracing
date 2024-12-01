@@ -254,7 +254,7 @@ int main()
         {
             primitivesView.push_back(primitive.get());
         }
-        PrimitiveComponent::AddStaticMeshes(dummy, &scene, primitivesView, false);
+        PrimitiveComponent::AddStaticMeshes(dummy, &scene, primitivesView, true);
 
         CommandContext *context = GetDefaultContext();
         std::shared_ptr<VulkanViewport> viewport = CreateViewport(window, WIDTH, HEIGHT, false, PixelFormat::PF_B8G8R8A8);

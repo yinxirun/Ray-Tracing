@@ -14,3 +14,11 @@ StaticMeshBatch::StaticMeshBatch(const StaticMeshBatch &InStaticMesh)
 StaticMeshBatch::~StaticMeshBatch()
 {
 }
+
+StaticMeshBatchRelevance::StaticMeshBatchRelevance(const StaticMeshBatch &StaticMesh, bool InbSupportsCachingMeshDrawCommands)
+    : NumElements(StaticMesh.elements.size()),
+      LODIndex(StaticMesh.LODIndex),
+      bUseForMaterial(StaticMesh.bUseForMaterial),
+      bSupportsCachingMeshDrawCommands(InbSupportsCachingMeshDrawCommands)
+{
+}
