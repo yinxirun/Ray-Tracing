@@ -1,5 +1,6 @@
 #include "city_hash.h"
 #include <cstring>
+#include <cstdlib>
 static uint64 UNALIGNED_LOAD64(const char *p)
 {
     uint64 result;

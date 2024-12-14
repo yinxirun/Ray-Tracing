@@ -402,13 +402,31 @@ void Device::NotifyDeletedGfxPipeline(class VulkanGraphicsPipelineState *Pipelin
 {
     if (computeContext != immediateContext)
     {
-        // ensure(0);
     }
 
     // #todo-rco: Loop through all contexts!
     if (immediateContext && immediateContext->pendingGfxState)
     {
         immediateContext->pendingGfxState->NotifyDeletedPipeline(Pipeline);
+    }
+}
+
+void Device::NotifyDeletedComputePipeline(class VulkanComputePipeline *Pipeline)
+{
+    if (computeContext && computeContext != immediateContext && computeContext->pendingComputeState)
+    {
+        computeContext->pendingComputeState->NotifyDeletedPipeline(Pipeline);
+    }
+
+    // #todo-rco: Loop through all contexts!
+    if (immediateContext && immediateContext->pendingComputeState)
+    {
+        immediateContext->pendingComputeState->NotifyDeletedPipeline(Pipeline);
+    }
+
+    if (PipelineStateCache)
+    {
+        PipelineStateCache->NotifyDeletedComputePipeline(Pipeline);
     }
 }
 

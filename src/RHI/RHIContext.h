@@ -10,9 +10,14 @@ class VulkanTexture;
 class Buffer;
 class GraphicsPipelineState;
 
+/** Context that is capable of doing Compute work.  Can be async or compute on the gfx pipe. */
 class ComputeContext
 {
 public:
+    virtual void SetComputePipelineState(ComputePipelineState *ComputePipelineState) = 0;
+
+    virtual void DispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ) = 0;
+
     /// Always returns the platform RHI context, even when the validation RHI is active.
     virtual ComputeContext &GetLowestLevelContext() { return *this; }
 

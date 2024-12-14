@@ -7,7 +7,7 @@ extern RHI *rhi;
 __forceinline CommandContext *GetDefaultContext() { return rhi->GetDefaultContext(); }
 
 __forceinline std::shared_ptr<VulkanViewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
-                                                       bool bIsFullscreen, PixelFormat PreferredPixelFormat)
+                                                             bool bIsFullscreen, PixelFormat PreferredPixelFormat)
 {
     return rhi->CreateViewport(WindowHandle, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
 }
@@ -37,9 +37,19 @@ __forceinline PixelShader *CreatePixelShader(std::vector<uint8> Code)
     return rhi->CreatePixelShader(Code);
 }
 
+__forceinline ComputeShader *CreateComputeShader(std::vector<uint8> Code)
+{
+    return rhi->CreateComputeShader(Code);
+}
+
 __forceinline GraphicsPipelineState *CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer)
 {
     return rhi->CreateGraphicsPipelineState(Initializer);
+}
+
+__forceinline ComputePipelineState *CreateComputePipelineState(ComputeShader *shader)
+{
+    return rhi->CreateComputePipelineState(shader);
 }
 
 __forceinline std::shared_ptr<UniformBuffer> CreateUniformBuffer(const void *Contents, std::shared_ptr<const UniformBufferLayout> Layout, UniformBufferUsage Usage, UniformBufferValidation Validation)

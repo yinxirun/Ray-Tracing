@@ -55,7 +55,7 @@ RenderPassManager::~RenderPassManager()
 
 /// @details 可以复用之前创建的framebuffer，之前的framebuffer存储在std::unordered_map<uint32, FramebufferList*>类型的成员中。
  /// 虽然一个VkFramebuffer和一个特定的VkRenderPass对象绑定（创建Framebuffer时需指定RenderPass），看似不能复用，但是根据Vulkan Documentation，\
-只要一个Framebufer和一个RenderPass是兼容的，它们就可以一起使用，即使该Framebuffer不是使用此RenderPass创建的。
+///只要一个Framebufer和一个RenderPass是兼容的，它们就可以一起使用，即使该Framebuffer不是使用此RenderPass创建的。
 /// 关于“兼容”的定义，详情可见Vulkan Documentation中的Render Pass Compatibility的相关部分。
 Framebuffer *RenderPassManager::GetOrCreateFramebuffer(const SetRenderTargetsInfo &RenderTargetsInfo,
                                                        const RenderTargetLayout &RTLayout, RenderPass *RenderPass)

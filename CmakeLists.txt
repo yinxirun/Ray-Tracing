@@ -2,6 +2,8 @@ cmake_minimum_required (VERSION 3.15)
 
 project (PathTracing)
 
+set(CMAKE_CXX_STANDARD 17)
+
 # 头文件搜索目录
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
 # 第三方包含目录

@@ -195,6 +195,60 @@ struct DescriptorSetRemappingInfo
     }
 };
 
+// Smaller data structure for runtime information about descriptor sets and bindings for a pipeline
+class VulkanComputePipelineDescriptorInfo
+{
+public:
+    VulkanComputePipelineDescriptorInfo()
+        : HasDescriptorsInSetMask(0), RemappingInfo(nullptr), bInitialized(false) {}
+
+    inline bool GetDescriptorSetAndBindingIndex(const ShaderHeader::Type Type, int32 ParameterIndex,
+                                                uint8 &OutDescriptorSet, uint32 &OutBindingIndex) const
+    {
+        switch (Type)
+        {
+        case ShaderHeader::UniformBuffer:
+            ensure(RemappingUBInfos[ParameterIndex]->bHasConstantData);
+            OutDescriptorSet = RemappingUBInfos[ParameterIndex]->Remapping.NewDescriptorSet;
+            OutBindingIndex = RemappingUBInfos[ParameterIndex]->Remapping.NewBindingIndex;
+            break;
+        case ShaderHeader::Global:
+            OutDescriptorSet = RemappingGlobalInfos[ParameterIndex]->NewDescriptorSet;
+            OutBindingIndex = RemappingGlobalInfos[ParameterIndex]->NewBindingIndex;
+            break;
+        default:
+            check(0);
+            return false;
+        }
+        return true;
+    }
+
+    inline const std::vector<DescriptorSetRemappingInfo::RemappingInfo> &GetGlobalRemappingInfo() const
+    {
+        return RemappingInfo->StageInfos[0].Globals;
+    }
+
+    inline VkDescriptorType GetDescriptorType(uint8 DescriptorSet, int32 DescriptorIndex) const
+    {
+        return RemappingInfo->SetInfos[DescriptorSet].Types[DescriptorIndex];
+    }
+
+    inline bool IsInitialized() const { return bInitialized; }
+
+    void Initialize(const DescriptorSetRemappingInfo &InRemappingInfo);
+
+protected:
+    // Cached data from FDescriptorSetRemappingInfo
+    std::vector<const DescriptorSetRemappingInfo::UBRemappingInfo *> RemappingUBInfos;
+    std::vector<const DescriptorSetRemappingInfo::RemappingInfo *> RemappingGlobalInfos;
+    std::vector<const uint16 *> RemappingPackedUBInfos;
+    uint32 HasDescriptorsInSetMask;
+    const DescriptorSetRemappingInfo *RemappingInfo;
+    bool bInitialized;
+
+    friend class ComputePipelineDescriptorState;
+};
+
 // 781
 //  Smaller data structure for runtime information about descriptor sets and
 //  bindings for a pipeline
@@ -210,15 +264,10 @@ public:
         {
         case ShaderHeader::UniformBuffer:
             ensure(RemappingUBInfos[Stage][ParameterIndex]->bHasConstantData);
-            // ensure(RemappingInfo->StageInfos[Stage].UniformBuffers[ParameterIndex].bHasConstantData);
-            // OutDescriptorSet = RemappingInfo->StageInfos[Stage].UniformBuffers[ParameterIndex].Remapping.NewDescriptorSet;
-            // OutBindingIndex = RemappingInfo->StageInfos[Stage].UniformBuffers[ParameterIndex].Remapping.NewBindingIndex;
             OutDescriptorSet = RemappingUBInfos[Stage][ParameterIndex]->Remapping.NewDescriptorSet;
             OutBindingIndex = RemappingUBInfos[Stage][ParameterIndex]->Remapping.NewBindingIndex;
             break;
         case ShaderHeader::Global:
-            // OutDescriptorSet = RemappingInfo->StageInfos[Stage].Globals[ParameterIndex].NewDescriptorSet;
-            // OutBindingIndex = RemappingInfo->StageInfos[Stage].Globals[ParameterIndex].NewBindingIndex;
             OutDescriptorSet = RemappingGlobalInfos[Stage][ParameterIndex]->NewDescriptorSet;
             OutBindingIndex = RemappingGlobalInfos[Stage][ParameterIndex]->NewBindingIndex;
             break;
@@ -729,27 +778,6 @@ protected:
         if (UseVulkanDescriptorCache())
         {
             check(0);
-            /* HashableDescriptorInfo &HashableInfo = HashableDescriptorInfos[DescriptorIndex];
-            check(HandleId > 0);
-            if (HashableInfo.Buffer.Id != HandleId)
-            {
-                HashableInfo.Buffer.Id = HandleId;
-                BufferInfo->buffer = BufferHandle;
-                bChanged = true;
-            }
-            if (HashableInfo.Buffer.Offset != static_cast<uint32>(Offset))
-            {
-                HashableInfo.Buffer.Offset = static_cast<uint32>(Offset);
-                BufferInfo->offset = Offset;
-                bChanged = true;
-            }
-            if (HashableInfo.Buffer.Range != static_cast<uint32>(Range))
-            {
-                HashableInfo.Buffer.Range = static_cast<uint32>(Range);
-                BufferInfo->range = Range;
-                bChanged = true;
-            }
-            bIsKeyDirty |= bChanged; */
         }
         else
         {
@@ -878,8 +906,8 @@ public:
         return descriptorSetsLayout.GetHash();
     }
 
-    // 	void PatchSpirvBindings(FVulkanShader::FSpirvCode& SpirvCode,
-    // EShaderFrequency Frequency, const FVulkanShaderHeader& CodeHeader) const;
+    void PatchSpirvBindings(VulkanShader::SpirvCode &SpirvCode,
+                            ShaderFrequency Frequency, const ShaderHeader &CodeHeader) const;
 
 protected:
     DescriptorSetsLayout descriptorSetsLayout;
@@ -934,5 +962,23 @@ public:
 
 protected:
     VulkanGfxPipelineDescriptorInfo GfxPipelineDescriptorInfo;
+    friend class PipelineStateCacheManager;
+};
+
+class VulkanComputeLayout : public VulkanPipelineLayout
+{
+public:
+    VulkanComputeLayout(Device *InDevice)
+        : VulkanPipelineLayout(InDevice) {}
+
+    virtual bool IsGfxLayout() const final override { return false; }
+
+    inline const VulkanComputePipelineDescriptorInfo &GetComputePipelineDescriptorInfo() const
+    {
+        return ComputePipelineDescriptorInfo;
+    }
+
+protected:
+    VulkanComputePipelineDescriptorInfo ComputePipelineDescriptorInfo;
     friend class PipelineStateCacheManager;
 };

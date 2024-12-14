@@ -77,9 +77,14 @@ public:
     // FlushType: Wait RHI Thread
     virtual std::shared_ptr<VertexDeclaration> CreateVertexDeclaration(const VertexDeclarationElementList &Elements);
 
+    // FlushType: Wait RHI Thread
     virtual PixelShader *CreatePixelShader(std::vector<uint8> Code);
 
+    // FlushType: Wait RHI Thread
     virtual VertexShader *CreateVertexShader(std::vector<uint8> Code);
+
+    // FlushType: Wait RHI Thread
+    virtual ComputeShader *CreateComputeShader(std::vector<uint8> Code);
 
     virtual CommandContext *GetDefaultContext();
 
@@ -100,6 +105,9 @@ public:
      */
     // FlushType: Thread safe
     virtual GraphicsPipelineState *CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
+
+    // FlushType: Thread safe
+    virtual ComputePipelineState* CreateComputePipelineState(ComputeShader *ComputeShader);
 
     /**
      * Creates a uniform buffer.  The contents of the uniform buffer are provided in a parameter, and are immutable.

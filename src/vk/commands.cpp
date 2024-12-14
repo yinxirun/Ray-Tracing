@@ -190,6 +190,23 @@ void CommandListContext::CommitGraphicsResourceTables()
 #endif
 }
 
+void CommandListContext::CommitComputeResourceTables()
+{
+    // todo
+}
+
+void CommandListContext::DispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ)
+{
+    CommitComputeResourceTables();
+
+    CmdBuffer *Cmd = commandBufferManager->GetActiveCmdBuffer();
+    ensure(Cmd->IsOutsideRenderPass());
+    VkCommandBuffer CmdBuffer = Cmd->GetHandle();
+    pendingComputeState->PrepareForDispatch(Cmd);
+
+    vkCmdDispatch(CmdBuffer, ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
+}
+
 void CommandListContext::SetShaderSampler(GraphicsShader *ShaderRHI, uint32 SamplerIndex, SamplerState *NewStateRHI)
 {
     ShaderStage::Stage Stage = GetAndVerifyShaderStage(ShaderRHI, pendingGfxState);

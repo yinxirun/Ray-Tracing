@@ -194,7 +194,7 @@ void *VulkanMultiBuffer::Lock(CommandListContext &Context, ResourceLockMode Lock
                 // Fill the staging buffer with the data on the device.
                 VkBufferCopy Regions;
                 Regions.size = LockSize;
-                Regions.srcOffset = Offset + BufferAllocs[CurrentBufferIndex].allocInfo.offset;
+                Regions.srcOffset = Offset + BufferAllocs[CurrentBufferIndex].offset;
                 Regions.dstOffset = 0;
 
                 vkCmdCopyBuffer(CmdBuffer->GetHandle(), BufferAllocs[CurrentBufferIndex].handle, StagingBuffer->GetHandle(), 1, &Regions);

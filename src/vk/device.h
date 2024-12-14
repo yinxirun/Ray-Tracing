@@ -238,6 +238,7 @@ public:
     inline class PipelineStateCacheManager *GetPipelineStateCache() { return PipelineStateCache; }
 
     void NotifyDeletedGfxPipeline(class VulkanGraphicsPipelineState *Pipeline);
+    void NotifyDeletedComputePipeline(class VulkanComputePipeline* Pipeline);
 
     CommandListContext *AcquireDeferredContext();
     void ReleaseDeferredContext(CommandListContext *InContext);

@@ -105,6 +105,12 @@ PixelShader *RHI::CreatePixelShader(std::vector<uint8> Code)
     return shader;
 }
 
+ComputeShader *RHI::CreateComputeShader(std::vector<uint8> Code)
+{
+    ComputeShader *shader = device->GetShaderFactory().CreateShader<VulkanComputeShader>(Code, device);
+    return shader;
+}
+
 VulkanShader::~VulkanShader() {}
 
 VulkanShader::SpirvCode VulkanShader::GetSpirvCode(const SpirvContainer &Container)
@@ -140,11 +146,23 @@ static std::shared_ptr<ShaderModule> CreateShaderModule(Device *device, VulkanSh
     return ReturnPtr;
 }
 
+std::shared_ptr<ShaderModule> VulkanShader::CreateHandle(const VulkanPipelineLayout *Layout, uint32 LayoutHash)
+{
+    /* FScopeLock Lock(&VulkanShaderModulesMapCS); */
+    SpirvCode Spirv = GetSpirvCode(spirvContainer);
+
+    /* Layout->PatchSpirvBindings(Spirv, Frequency, CodeHeader); */
+    std::shared_ptr<ShaderModule> Module = CreateShaderModule(device, Spirv);
+    ShaderModules.insert({LayoutHash, Module});
+    return Module;
+}
+
 std::shared_ptr<ShaderModule> VulkanShader::CreateHandle(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout, uint32 LayoutHash)
 {
     // FScopeLock Lock(&VulkanShaderModulesMapCS);
     SpirvCode Spirv = GetPatchedSpirvCode(Desc, Layout);
     std::shared_ptr<ShaderModule> Module = CreateShaderModule(device, Spirv);
+    ShaderModules.insert({LayoutHash, Module});
     return Module;
 }
 
@@ -155,6 +173,7 @@ VulkanShader::SpirvCode VulkanShader::GetPatchedSpirvCode(const GfxPipelineDesc 
     // Layout->PatchSpirvBindings(Spirv, Frequency, CodeHeader);
     if (NeedsSpirvInputAttachmentPatching(Desc))
     {
+        check(0);
         // Spirv = PatchSpirvInputAttachments(Spirv);
     }
 
@@ -328,7 +347,6 @@ void DescriptorSetsLayoutInfo::ProcessBindingsForStage(VkShaderStageFlagBits Sta
 template <bool bIsCompute>
 void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const UniformBufferGatherInfo &UBGatherInfo, const std::vector<SamplerState *> &ImmutableSamplers)
 {
-    check(!bIsCompute);
     check(RemappingInfo.IsEmpty());
 
     std::unordered_map<uint32, DescriptorSetRemappingInfo::UBRemappingInfo> AlreadyProcessedUBs;
@@ -501,6 +519,45 @@ void DescriptorSetsLayoutInfo::FinalizeBindings(const Device &device, const Unif
             check(RemappingInfo.SetInfos[Index].Types.size() > 0);
         }
     }
+}
+
+void VulkanComputePipelineDescriptorInfo::Initialize(const DescriptorSetRemappingInfo &InRemappingInfo)
+{
+    check(!bInitialized);
+
+    RemappingGlobalInfos.resize(InRemappingInfo.StageInfos[0].Globals.size());
+    for (int i = 0; i < RemappingGlobalInfos.size(); ++i)
+    {
+        RemappingGlobalInfos[i] = &InRemappingInfo.StageInfos[0].Globals[i];
+    }
+    RemappingUBInfos.resize(InRemappingInfo.StageInfos[0].UniformBuffers.size());
+    for (int i = 0; i < RemappingUBInfos.size(); ++i)
+    {
+        RemappingUBInfos[i] = &InRemappingInfo.StageInfos[0].UniformBuffers[i];
+    }
+    RemappingPackedUBInfos.resize(InRemappingInfo.StageInfos[0].PackedUBBindingIndices.size());
+    for (int i = 0; i < RemappingPackedUBInfos.size(); ++i)
+    {
+        RemappingPackedUBInfos[i] = &InRemappingInfo.StageInfos[0].PackedUBBindingIndices[i];
+    }
+
+    RemappingInfo = &InRemappingInfo;
+
+    for (int32 Index = 0; Index < InRemappingInfo.SetInfos.size(); ++Index)
+    {
+        const DescriptorSetRemappingInfo::SetInfo &SetInfo = InRemappingInfo.SetInfos[Index];
+        if (SetInfo.Types.size() > 0)
+        {
+            check(Index < sizeof(HasDescriptorsInSetMask) * 8);
+            HasDescriptorsInSetMask = HasDescriptorsInSetMask | (1 << Index);
+        }
+        else
+        {
+            ensure(0);
+        }
+    }
+
+    bInitialized = true;
 }
 
 void VulkanGfxPipelineDescriptorInfo::Initialize(const DescriptorSetRemappingInfo &InRemappingInfo)

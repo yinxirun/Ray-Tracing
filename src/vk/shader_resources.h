@@ -60,6 +60,17 @@ struct ShaderHeader
         Count,
     };
 
+    /// @brief 不知道干嘛用的，不要用
+    struct FSpirvInfo
+    {
+        FSpirvInfo() = default;
+        FSpirvInfo(uint32 InDescriptorSetOffset, uint32 InBindingIndexOffset)
+            : DescriptorSetOffset(InDescriptorSetOffset), BindingIndexOffset(InBindingIndexOffset) {}
+
+        uint32 DescriptorSetOffset = UINT32_MAX;
+        uint32 BindingIndexOffset = UINT32_MAX;
+    };
+
     struct UBResourceInfo
     {
         uint16 SourceUBResourceIndex;
@@ -137,6 +148,13 @@ struct ShaderHeader
 
     // Mostly relevant for Vertex Shaders
     uint32 InOutMask;
+
+    uint8 WaveSize = 0;
+
+    /// @brief 不知道干嘛用的，不要用
+    std::vector<FSpirvInfo> UniformBufferSpirvInfos;
+    /// @brief 不知道干嘛用的，不要用
+    std::vector<FSpirvInfo> GlobalSpirvInfos;
 
     ShaderHeader() = default;
     enum EInit

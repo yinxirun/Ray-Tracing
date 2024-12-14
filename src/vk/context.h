@@ -14,6 +14,7 @@ class VulkanViewport;
 class RenderPass;
 class Framebuffer;
 class PendingGfxState;
+class PendingComputeState;
 class SwapChain;
 class VulkanUniformBufferUploader;
 
@@ -33,6 +34,7 @@ public:
     template <class ShaderType>
     void SetResourcesFromTables(const ShaderType *RESTRICT);
     void CommitGraphicsResourceTables();
+    void CommitComputeResourceTables();
 
     // RHI
     virtual void SetShaderSampler(GraphicsShader *Shader, uint32 SamplerIndex, SamplerState *NewState) final override;
@@ -43,6 +45,9 @@ public:
 
     virtual void RHIPushEvent(const char *Name, int Color) final;
     virtual void RHIPopEvent() final;
+
+    virtual void SetComputePipelineState(ComputePipelineState* ComputePipelineState) final override;
+	virtual void DispatchComputeShader(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ) final override;
 
     virtual void WriteGPUFence(GPUFence *Fence) final override;
 
@@ -108,6 +113,7 @@ protected:
     Framebuffer *CurrentFramebuffer = nullptr;
 
     PendingGfxState *pendingGfxState;
+	PendingComputeState* pendingComputeState;
 
     // Match the D3D12 maximum of 16 constant buffers per shader stage.
     enum

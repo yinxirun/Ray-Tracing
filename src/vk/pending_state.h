@@ -11,6 +11,55 @@ class GraphicsPipelineDescriptorState;
 class Framebuffer;
 class VulkanShader;
 
+class PendingComputeState : public VulkanRHI::DeviceChild
+{
+public:
+    PendingComputeState(Device *InDevice, CommandListContext &InContext)
+        : VulkanRHI::DeviceChild(InDevice), Context(InContext)
+    {
+    }
+    ~PendingComputeState();
+
+    void SetComputePipeline(VulkanComputePipeline *InComputePipeline)
+    {
+        if (InComputePipeline != CurrentPipeline)
+        {
+            CurrentPipeline = InComputePipeline;
+            auto it = pipelineStates.find(InComputePipeline);
+            ComputePipelineDescriptorState **Found = it == pipelineStates.end() ? nullptr : &it->second;
+            if (Found)
+            {
+                CurrentState = *Found;
+                (CurrentState->ComputePipeline == InComputePipeline);
+            }
+            else
+            {
+                CurrentState = new ComputePipelineDescriptorState(device, InComputePipeline);
+                pipelineStates.insert({CurrentPipeline, CurrentState});
+            }
+
+            CurrentState->Reset();
+        }
+    }
+
+    void PrepareForDispatch(CmdBuffer* CmdBuffer);
+
+    void NotifyDeletedPipeline(VulkanComputePipeline *Pipeline)
+    {
+        pipelineStates.erase(Pipeline);
+    }
+
+protected:
+    VulkanComputePipeline *CurrentPipeline = nullptr;
+    ComputePipelineDescriptorState *CurrentState = nullptr;
+
+    std::unordered_map<VulkanComputePipeline *, ComputePipelineDescriptorState *> pipelineStates;
+
+    CommandListContext &Context;
+
+    friend class CommandListContext;
+};
+
 // All the current gfx pipeline states in use
 class PendingGfxState : public VulkanRHI::DeviceChild
 {

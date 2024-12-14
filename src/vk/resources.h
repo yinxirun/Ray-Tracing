@@ -173,6 +173,17 @@ public:
 
     virtual ~VulkanShader();
 
+    std::shared_ptr<ShaderModule> GetOrCreateHandle(const VulkanPipelineLayout *Layout, uint32 LayoutHash)
+    {
+        /* FScopeLock Lock(&VulkanShaderModulesMapCS); */
+        auto it = ShaderModules.find(LayoutHash);
+        std::shared_ptr<ShaderModule> *Found = it == ShaderModules.end() ? nullptr : &it->second;
+        if (Found)
+            return *Found;
+
+        return CreateHandle(Layout, LayoutHash);
+    }
+
     std::shared_ptr<ShaderModule> GetOrCreateHandle(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout, uint32 LayoutHash)
     {
         /* FScopeLock Lock(&VulkanShaderModulesMapCS); */
@@ -180,6 +191,12 @@ public:
         {
             LayoutHash = HashCombine(LayoutHash, 1);
         }
+
+        auto it = ShaderModules.find(LayoutHash);
+        std::shared_ptr<ShaderModule> *Found = it == ShaderModules.end() ? nullptr : &it->second;
+
+        if (Found)
+            return *Found;
 
         return CreateHandle(Desc, Layout, LayoutHash);
     }
@@ -218,6 +235,7 @@ protected:
     uint64 shaderKey;
     /** External bindings for this shader. */
     ShaderHeader CodeHeader;
+    std::unordered_map<uint32, std::shared_ptr<ShaderModule>> ShaderModules;
     const ShaderFrequency Frequency;
 
     ShaderResourceTable ShaderResourceTable;
@@ -239,6 +257,7 @@ protected:
     void Setup(ShaderHeader &&header, SpirvContainer &&spirv, uint64 shaderKey);
     Device *device;
 
+    std::shared_ptr<ShaderModule> CreateHandle(const VulkanPipelineLayout *Layout, uint32 LayoutHash);
     std::shared_ptr<ShaderModule> CreateHandle(const GfxPipelineDesc &Desc, const VulkanPipelineLayout *Layout, uint32 LayoutHash);
 
     bool NeedsSpirvInputAttachmentPatching(const GfxPipelineDesc &Desc) const;
@@ -264,7 +283,7 @@ public:
 };
 typedef TVulkanBaseShader<VertexShader, SF_Vertex> VulkanVertexShader;
 typedef TVulkanBaseShader<PixelShader, SF_Pixel> VulkanPixelShader;
-typedef TVulkanBaseShader<RHIComputeShader, SF_Compute> VulkanComputeShader;
+typedef TVulkanBaseShader<ComputeShader, SF_Compute> VulkanComputeShader;
 
 // 315
 class VulkanShaderFactory

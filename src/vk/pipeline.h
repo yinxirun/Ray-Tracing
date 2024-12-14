@@ -394,6 +394,7 @@ struct GfxPipelineDesc
     }
 };
 
+class VulkanComputePipeline;
 class PipelineStateCacheManager
 {
 public:
@@ -407,8 +408,8 @@ public:
 
     // 	void RebuildCache();
 
-    // 	FVulkanComputePipeline* GetOrCreateComputePipeline(FVulkanComputeShader* ComputeShader);
-    // 	void NotifyDeletedComputePipeline(FVulkanComputePipeline* Pipeline);
+    VulkanComputePipeline *GetOrCreateComputePipeline(VulkanComputeShader *ComputeShader);
+    void NotifyDeletedComputePipeline(VulkanComputePipeline *Pipeline);
 
 private:
     // 	class FPipelineCache;
@@ -423,7 +424,7 @@ private:
     void DestroyCache();
 
     GraphicsPipelineState *CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
-    // 	FVulkanComputePipeline* RHICreateComputePipelineState(FRHIComputeShader* ComputeShaderRHI);
+    VulkanComputePipeline *CreateComputePipelineState(ComputeShader *ComputeShaderRHI);
     void NotifyDeletedGraphicsPSO(GraphicsPipelineState *PSO);
     bool CreateGfxPipelineFromEntry(VulkanGraphicsPipelineState *PSO, VulkanShader *Shaders[ShaderStage::NumStages], bool bPrecompile);
 
@@ -432,7 +433,7 @@ private:
     // 	static FString ShaderHashesToString(FVulkanShader* Shaders[ShaderStage::NumStages]);
 
     VulkanPipelineLayout *FindOrAddLayout(const DescriptorSetsLayoutInfo &DescriptorSetLayoutInfo, bool bGfxLayout);
-    // 	FVulkanComputePipeline* CreateComputePipelineFromShader(FVulkanComputeShader* Shader);
+    VulkanComputePipeline *CreateComputePipelineFromShader(VulkanComputeShader *Shader);
 
     /** LRU Related functions */
     // 	void TickLRU();
@@ -455,7 +456,7 @@ private:
     // 	FDelegateHandle OnShaderPipelineCachePrecompilationCompleteDelegate;
 
     // 	FRWLock ComputePipelineLock;
-    // 	TMap<uint64, FVulkanComputePipeline*> ComputePipelineEntries;
+    std::unordered_map<uint64, VulkanComputePipeline *> ComputePipelineEntries;
 
     // template <typename TType>
     // class FScopedRWAccessor
@@ -529,6 +530,47 @@ private:
     // 		void Save(FArchive& Ar);
     // 		bool Load(FArchive& Ar);
     // 	};
+};
+
+// Common pipeline class
+class VulkanPipeline
+{
+public:
+    VulkanPipeline(Device *InDevice);
+    virtual ~VulkanPipeline();
+
+    inline const VulkanPipelineLayout &GetLayout() const { return *Layout; }
+
+protected:
+    Device *device;
+    VkPipeline Pipeline;
+    VulkanPipelineLayout *Layout; /*owned by FVulkanPipelineStateCacheManager, do not delete yourself !*/
+
+    friend class PipelineStateCacheManager;
+    friend class VulkanGraphicsPipelineState;
+    friend class VulkanComputePipelineDescriptorState;
+};
+
+class VulkanComputePipeline : public ComputePipelineState, public VulkanPipeline
+{
+public:
+    VulkanComputePipeline(Device *InDevice);
+    virtual ~VulkanComputePipeline();
+
+    inline const ShaderHeader &GetShaderCodeHeader() const { return computeShader->GetCodeHeader(); }
+
+    inline const VulkanComputeShader *GetShader() const { return computeShader; }
+
+    inline void Bind(VkCommandBuffer CmdBuffer)
+    {
+        vkCmdBindPipeline(CmdBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, Pipeline);
+    }
+
+    inline const VulkanComputeLayout &GetComputeLayout() const { return *(VulkanComputeLayout *)Layout; }
+
+protected:
+    VulkanComputeShader *computeShader;
+    friend class PipelineStateCacheManager;
 };
 
 class VulkanGraphicsPipelineState : public GraphicsPipelineState

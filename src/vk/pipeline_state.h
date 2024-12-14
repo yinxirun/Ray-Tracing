@@ -112,18 +112,15 @@ protected:
 			Writer.Reset();
 		}
 	}
-	// 	inline void Bind(VkCommandBuffer CmdBuffer, VkPipelineLayout PipelineLayout, VkPipelineBindPoint BindPoint)
-	// 	{
-	// 		// Bindless will replace with global sets
-	// 		if (!bUseBindless)
-	// 		{
-	// 			VulkanRHI::vkCmdBindDescriptorSets(CmdBuffer,
-	// 				BindPoint,
-	// 				PipelineLayout,
-	// 				0, DescriptorSetHandles.Num(), DescriptorSetHandles.GetData(),
-	// 				(uint32)DynamicOffsets.Num(), DynamicOffsets.GetData());
-	// 		}
-	// 	}
+	inline void Bind(VkCommandBuffer CmdBuffer, VkPipelineLayout PipelineLayout, VkPipelineBindPoint BindPoint)
+	{
+		// Bindless will replace with global sets
+		if (!bUseBindless)
+		{
+			vkCmdBindDescriptorSets(CmdBuffer, BindPoint, PipelineLayout, 0, DescriptorSetHandles.size(), DescriptorSetHandles.data(),
+									(uint32)DynamicOffsets.size(), DynamicOffsets.data());
+		}
+	}
 
 	void CreateDescriptorWriteInfos();
 
@@ -149,6 +146,51 @@ protected:
 	mutable bool bIsDSetsKeyDirty = true;
 
 	const bool bUseBindless;
+};
+
+class ComputePipelineDescriptorState : public CommonPipelineDescriptorState
+{
+public:
+	ComputePipelineDescriptorState(Device *InDevice, VulkanComputePipeline *InComputePipeline);
+	virtual ~ComputePipelineDescriptorState()
+	{
+		ComputePipeline->Release();
+	}
+
+	bool UpdateDescriptorSets(CommandListContext *CmdListContext, CmdBuffer *cmdBuffer)
+	{
+		check(!bUseBindless);
+
+		const bool bUseDynamicGlobalUBs = (GDynamicGlobalUBs > 0);
+		if (bUseDynamicGlobalUBs)
+		{
+			return InternalUpdateDescriptorSets<true>(CmdListContext, cmdBuffer);
+		}
+		else
+		{
+			return InternalUpdateDescriptorSets<false>(CmdListContext, cmdBuffer);
+		}
+	}
+
+	inline void BindDescriptorSets(VkCommandBuffer CmdBuffer)
+	{
+		Bind(CmdBuffer, ComputePipeline->GetLayout().GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE);
+	}
+
+protected:
+	const VulkanComputePipelineDescriptorInfo *PipelineDescriptorInfo;
+
+	PackedUniformBuffers PackedUniformBuffers;
+	uint64 PackedUniformBuffersMask;
+	uint64 PackedUniformBuffersDirty;
+
+	VulkanComputePipeline *ComputePipeline;
+
+	template <bool bUseDynamicGlobalUBs>
+	bool InternalUpdateDescriptorSets(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer);
+
+	friend class PendingComputeState;
+	friend class CommandListContext;
 };
 
 class GraphicsPipelineDescriptorState : public CommonPipelineDescriptorState

@@ -5,6 +5,40 @@
 #include "pipeline.h"
 #include "context.h"
 
+PendingComputeState::~PendingComputeState()
+{
+	std::cout << pipelineStates.size() << std::endl;
+	for (auto it = pipelineStates.begin(); it != pipelineStates.end(); it++)
+	{
+		CommonPipelineDescriptorState *state = it->second;
+		delete state;
+		it->second = nullptr;
+	}
+}
+
+void PendingComputeState::PrepareForDispatch(CmdBuffer *InCmdBuffer)
+{
+	check(CurrentState);
+
+	VkCommandBuffer CmdBuffer = InCmdBuffer->GetHandle();
+
+	if (device->SupportsBindless())
+	{
+		printf("Error: Don't support Bindless %s\n", __FILE__);
+		exit(-1);
+	}
+	else
+	{
+		const bool bHasDescriptorSets = CurrentState->UpdateDescriptorSets(&Context, InCmdBuffer);
+
+		CurrentPipeline->Bind(CmdBuffer);
+		if (bHasDescriptorSets)
+		{
+			CurrentState->BindDescriptorSets(CmdBuffer);
+		}
+	}
+}
+
 PendingGfxState::~PendingGfxState()
 {
 	std::unordered_map<VulkanGraphicsPipelineState *, GraphicsPipelineDescriptorState *> Temp;

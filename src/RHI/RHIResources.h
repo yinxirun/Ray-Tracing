@@ -254,6 +254,18 @@ private:
     uint64 SortKey = 0;
 };
 
+class ComputePipelineState : public RHIResource
+{
+public:
+    ComputePipelineState() : RHIResource(RRT_ComputePipelineState) {}
+
+    inline void SetValid(bool InIsValid) { bIsValid = InIsValid; }
+    inline bool IsValid() const { return bIsValid; }
+
+private:
+    bool bIsValid = true;
+};
+
 // 1189
 struct BufferDesc
 {
@@ -535,10 +547,10 @@ public:
     RHIGeometryShader() : GraphicsShader(RRT_GeometryShader, SF_Geometry) {}
 };
 
-class RHIComputeShader : public RHIShader
+class ComputeShader : public RHIShader
 {
 public:
-    RHIComputeShader() : RHIShader(RRT_ComputeShader, SF_Compute) //, Stats(nullptr)
+    ComputeShader() : RHIShader(RRT_ComputeShader, SF_Compute) //, Stats(nullptr)
     {
     }
 

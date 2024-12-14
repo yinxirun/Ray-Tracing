@@ -221,6 +221,54 @@ int RHITest()
     return 0;
 }
 
+int RHIComputeTest()
+{
+    RHIInit();
+    RHICommandListImmediate &dummy = RHICommandListExecutor::GetImmediateCommandList();
+    dummy.SwitchPipeline(RHIPipeline::Graphics);
+
+    ComputeShader *shader = CreateComputeShader(process_shader("shaders/test.comp.spv", SF_Compute));
+    ComputePipelineState *pso = CreateComputePipelineState(shader);
+
+    CommandContext *context = GetDefaultContext();
+
+    ResourceCreateInfo ci{};
+    BufferDesc bufDesc;
+    bufDesc.Size = 100 * sizeof(float);
+    bufDesc.Stride = sizeof(float);
+    bufDesc.Usage = BUF_UnorderedAccess;
+    std::shared_ptr<Buffer> data = CreateBuffer(bufDesc, Access::UAVCompute, ci);
+    {
+        std::vector<float> temp;
+        for (int i = 0; i < 100; ++i)
+        {
+            temp.push_back(i + 1);
+        }
+        void *mapped = LockBuffer_BottomOfPipe(dummy, data.get(), 0, 100 * sizeof(float), ResourceLockMode::RLM_WriteOnly);
+        memcpy(mapped, temp.data(), bufDesc.Size);
+        UnlockBuffer_BottomOfPipe(dummy, data.get());
+    }
+
+    context->SetComputePipelineState(pso);
+
+    {
+        std::vector<float> temp(100, 0);
+        void *mapped = LockBuffer_BottomOfPipe(dummy, data.get(), 0, 100 * sizeof(float), ResourceLockMode::RLM_ReadOnly);
+        memcpy(temp.data(), mapped, bufDesc.Size);
+        UnlockBuffer_BottomOfPipe(dummy, data.get());
+
+        for (float f : temp)
+        {
+            std::cout << f << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    data.reset();
+    RHIExit();
+    return 0;
+}
+
 #include "engine/classes/components/static_mesh_component.h"
 #include "engine/scene_view.h"
 #include "renderer/scene_private.h"
@@ -229,6 +277,9 @@ int RHITest()
 RendererModule module;
 int main()
 {
+    RHIComputeTest();
+    return 0;
+
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     // 固定窗口大小

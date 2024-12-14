@@ -26,6 +26,7 @@ CommandListContext::CommandListContext(RHI *InRHI, Device *InDevice, Queue *InQu
 
     // Create Pending state, contains pipeline states such as current shader and etc..
     pendingGfxState = new PendingGfxState(device, *this);
+    pendingComputeState = new PendingComputeState(device, *this);
 
     UniformBufferUploader = new VulkanUniformBufferUploader(device);
 }
@@ -45,7 +46,7 @@ CommandListContext::~CommandListContext()
 
     delete UniformBufferUploader;
     delete pendingGfxState;
-    // delete PendingComputeState;
+    delete pendingComputeState;
 
     tempFrameAllocationBuffer.Destroy();
 }

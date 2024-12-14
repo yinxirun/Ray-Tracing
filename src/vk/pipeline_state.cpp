@@ -6,6 +6,77 @@
 
 static bool ShouldAlwaysWriteDescriptors() { return false; }
 
+ComputePipelineDescriptorState::ComputePipelineDescriptorState(Device *InDevice, VulkanComputePipeline *InComputePipeline)
+	: CommonPipelineDescriptorState(InDevice), PackedUniformBuffersMask(0), PackedUniformBuffersDirty(0), ComputePipeline(InComputePipeline)
+{
+	check(InComputePipeline);
+	const ShaderHeader &CodeHeader = InComputePipeline->GetShaderCodeHeader();
+	PackedUniformBuffers.Init(CodeHeader, PackedUniformBuffersMask);
+
+	descriptorSetsLayout = &InComputePipeline->GetLayout().GetDescriptorSetsLayout();
+	PipelineDescriptorInfo = &InComputePipeline->GetComputeLayout().GetComputePipelineDescriptorInfo();
+
+	UsedSetsMask = PipelineDescriptorInfo->HasDescriptorsInSetMask;
+
+	CreateDescriptorWriteInfos();
+	InComputePipeline->AddRef();
+
+	ensure(DSWriter.size() == 0 || DSWriter.size() == 1);
+}
+
+void CommandListContext::SetComputePipelineState(ComputePipelineState *ComputePipelineState)
+{
+	CmdBuffer *cmdBuffer = commandBufferManager->GetActiveCmdBuffer();
+
+	if (cmdBuffer->CurrentDescriptorPoolSetContainer == nullptr)
+	{
+		cmdBuffer->CurrentDescriptorPoolSetContainer = &device->GetDescriptorPoolsManager().AcquirePoolSetContainer();
+	}
+
+	// #todo-rco: Set PendingGfx to null
+	VulkanComputePipeline *ComputePipeline = static_cast<VulkanComputePipeline *>(ComputePipelineState);
+	pendingComputeState->SetComputePipeline(ComputePipeline);
+
+	/* ApplyStaticUniformBuffers(const_cast<VulkanComputeShader*>(ComputePipeline->GetShader())); */
+}
+
+template <bool bUseDynamicGlobalUBs>
+bool ComputePipelineDescriptorState::InternalUpdateDescriptorSets(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer)
+{
+	// Early exit
+	if (!UsedSetsMask)
+	{
+		return false;
+	}
+
+	VulkanUniformBufferUploader *UniformBufferUploader = CmdListContext->GetUniformBufferUploader();
+	uint8 *CPURingBufferBase = (uint8 *)UniformBufferUploader->GetCPUMappedPointer();
+	const VkDeviceSize UBOffsetAlignment = device->GetLimits().minUniformBufferOffsetAlignment;
+
+	if (PackedUniformBuffersDirty != 0)
+	{
+		check(0);
+	}
+
+	// We are not using UseVulkanDescriptorCache() for compute pipelines
+	// Compute tend to use volatile resources that polute descriptor cache
+
+	if (!CmdBuffer->AcquirePoolSetAndDescriptorsIfNeeded(*descriptorSetsLayout, true, DescriptorSetHandles.data()))
+	{
+		return false;
+	}
+
+	const VkDescriptorSet DescriptorSet = DescriptorSetHandles[0];
+	DSWriter[0].SetDescriptorSet(DescriptorSet);
+
+	{
+		vkUpdateDescriptorSets(device->GetInstanceHandle(), DSWriteContainer.DescriptorWrites.size(),
+							   DSWriteContainer.DescriptorWrites.data(), 0, nullptr);
+	}
+
+	return true;
+}
+
 // 694
 void DescriptorSetWriter::Reset()
 {
@@ -301,3 +372,5 @@ bool GraphicsPipelineDescriptorState::InternalUpdateDescriptorSets(CommandListCo
 
 template bool GraphicsPipelineDescriptorState::InternalUpdateDescriptorSets<true>(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer);
 template bool GraphicsPipelineDescriptorState::InternalUpdateDescriptorSets<false>(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer);
+template bool ComputePipelineDescriptorState::InternalUpdateDescriptorSets<true>(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer);
+template bool ComputePipelineDescriptorState::InternalUpdateDescriptorSets<false>(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer);

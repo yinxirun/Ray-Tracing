@@ -9,6 +9,7 @@
 #include "configuration.h"
 #include "shader_resources.h"
 #include "RHI/RHIGlobals.h"
+#include "resources.h"
 
 #include <vector>
 
@@ -53,6 +54,32 @@ void GetVulkanShaders(const BoundShaderStateInput &BSI, VulkanShader *OutShaders
 #else
         ensure(0);
 #endif
+    }
+}
+
+VulkanPipeline::VulkanPipeline(Device *InDevice)
+    : device(InDevice), Pipeline(VK_NULL_HANDLE), Layout(nullptr) {}
+
+VulkanPipeline::~VulkanPipeline()
+{
+    if (Pipeline != VK_NULL_HANDLE)
+    {
+        device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::DeferredDeletionQueue2::EType::Pipeline, Pipeline);
+        Pipeline = VK_NULL_HANDLE;
+    }
+    /* we do NOT own Layout !*/
+}
+
+VulkanComputePipeline::VulkanComputePipeline(Device *InDevice)
+    : VulkanPipeline(InDevice), computeShader(nullptr) {}
+
+VulkanComputePipeline::~VulkanComputePipeline()
+{
+    device->NotifyDeletedComputePipeline(this);
+
+    if (computeShader)
+    {
+        computeShader->Release();
     }
 }
 
@@ -828,7 +855,7 @@ VulkanPipelineLayout *PipelineStateCacheManager::FindOrAddLayout(const Descripto
     }
     else
     {
-        /* Layout = new FVulkanComputeLayout(Device); */
+        Layout = new VulkanComputeLayout(device);
     }
 
     Layout->descriptorSetsLayout.CopyFrom(DescriptorSetLayoutInfo);
@@ -1201,6 +1228,118 @@ VkResult PipelineStateCacheManager::CreateVKPipeline(VulkanGraphicsPipelineState
     VkResult Result = vkCreateGraphicsPipelines(device->GetInstanceHandle(), VK_NULL_HANDLE,
                                                 1, &PipelineInfo, VULKAN_CPU_ALLOCATOR, Pipeline);
     return Result;
+}
+
+// 2197
+VulkanComputePipeline *PipelineStateCacheManager::CreateComputePipelineState(ComputeShader *ComputeShaderRHI)
+{
+    VulkanComputeShader *shader = static_cast<VulkanComputeShader *>(ComputeShaderRHI);
+    return device->GetPipelineStateCache()->GetOrCreateComputePipeline(shader);
+}
+
+ComputePipelineState *RHI::CreateComputePipelineState(ComputeShader *shader)
+{
+    return device->PipelineStateCache->CreateComputePipelineState(shader);
+}
+
+VulkanComputePipeline *PipelineStateCacheManager::GetOrCreateComputePipeline(VulkanComputeShader *ComputeShader)
+{
+    check(ComputeShader);
+    const uint64 Key = ComputeShader->GetShaderKey();
+    {
+        /* FRWScopeLock ScopeLock(ComputePipelineLock, SLT_ReadOnly); */
+        auto it = ComputePipelineEntries.find(Key);
+        VulkanComputePipeline **ComputePipelinePtr = it == ComputePipelineEntries.end() ? nullptr : &it->second;
+        if (ComputePipelinePtr)
+        {
+            return *ComputePipelinePtr;
+        }
+    }
+
+    VulkanComputePipeline *ComputePipeline = CreateComputePipelineFromShader(ComputeShader);
+
+    {
+        /* FRWScopeLock ScopeLock(ComputePipelineLock, SLT_Write); */
+        if (0 == ComputePipelineEntries.count(Key))
+        {
+            ComputePipelineEntries[Key] = ComputePipeline;
+        }
+    }
+
+    return ComputePipeline;
+}
+
+VulkanComputePipeline *PipelineStateCacheManager::CreateComputePipelineFromShader(VulkanComputeShader *Shader)
+{
+    VulkanComputePipeline *Pipeline = new VulkanComputePipeline(device);
+
+    Pipeline->computeShader = Shader;
+    Pipeline->computeShader->AddRef();
+
+    DescriptorSetsLayoutInfo DescriptorSetLayoutInfo;
+    const ShaderHeader &CSHeader = Shader->GetCodeHeader();
+    UniformBufferGatherInfo UBGatherInfo;
+    DescriptorSetLayoutInfo.ProcessBindingsForStage(VK_SHADER_STAGE_COMPUTE_BIT, ShaderStage::Compute, CSHeader, UBGatherInfo);
+    DescriptorSetLayoutInfo.FinalizeBindings<true>(*device, UBGatherInfo, std::vector<SamplerState *>());
+    VulkanPipelineLayout *Layout = FindOrAddLayout(DescriptorSetLayoutInfo, false);
+    VulkanComputeLayout *ComputeLayout = (VulkanComputeLayout *)Layout;
+    if (!ComputeLayout->ComputePipelineDescriptorInfo.IsInitialized())
+    {
+        ComputeLayout->ComputePipelineDescriptorInfo.Initialize(Layout->GetDescriptorSetsLayout().RemappingInfo);
+    }
+
+    std::shared_ptr<ShaderModule> shaderModule = Shader->GetOrCreateHandle(Layout, Layout->GetDescriptorSetLayoutHash());
+
+    VkComputePipelineCreateInfo PipelineInfo;
+    ZeroVulkanStruct(PipelineInfo, VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO);
+    PipelineInfo.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    PipelineInfo.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    PipelineInfo.stage.module = shaderModule->GetVkShaderModule();
+    // main_00000000_00000000
+    char EntryPoint[24];
+    Shader->GetEntryPoint(EntryPoint, 24);
+    PipelineInfo.stage.pName = EntryPoint;
+    PipelineInfo.layout = ComputeLayout->GetPipelineLayout();
+
+    if (device->SupportsBindless())
+    {
+        PipelineInfo.flags |= VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+    }
+
+    VkPipelineShaderStageRequiredSubgroupSizeCreateInfo RequiredSubgroupSizeCreateInfo;
+    if ((CSHeader.WaveSize > 0) && device->GetOptionalExtensions().HasEXTSubgroupSizeControl)
+    {
+        check(0);
+    }
+
+    VkResult Result;
+    {
+        /*         FScopedPipelineCache PipelineCacheShared = GlobalPSOCache.Get(EPipelineCacheAccess::Shared); */
+        Result = vkCreateComputePipelines(device->GetInstanceHandle(), VK_NULL_HANDLE,
+                                          1, &PipelineInfo, VULKAN_CPU_ALLOCATOR, &Pipeline->Pipeline);
+    }
+
+    if (Result != VK_SUCCESS)
+    {
+        check(0);
+        /* std::string ComputeHash = Shader->GetHash().ToString();
+        UE_LOG(LogVulkanRHI, Error, TEXT("Failed to create compute pipeline.\nShaders in pipeline: CS: %s"), *ComputeHash);
+        Pipeline->SetValid(false); */
+    }
+
+    Pipeline->Layout = ComputeLayout;
+
+    return Pipeline;
+}
+
+void PipelineStateCacheManager::NotifyDeletedComputePipeline(VulkanComputePipeline *Pipeline)
+{
+    if (Pipeline->computeShader)
+    {
+        const uint64 Key = Pipeline->computeShader->GetShaderKey();
+        /* FRWScopeLock ScopeLock(ComputePipelineLock, SLT_Write);  */
+        ComputePipelineEntries.erase(Key);
+    }
 }
 
 // 2487
