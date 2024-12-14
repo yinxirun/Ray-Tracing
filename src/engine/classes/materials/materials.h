@@ -2,7 +2,21 @@
 #include "core/math/vec.h"
 #include <string>
 
-enum class MaterialType { DIFFUSE, SPECULAR, EMISSIVE };
+enum class MaterialType : uint16
+{
+    DIFFUSE,
+    SPECULAR,
+    EMISSIVE,
+    NUM_MATERIAL
+};
+
+struct MetallicRoughnessParameters
+{
+    Vec3 albedo;
+    float roughness;
+    float metallic;
+};
+
 class Material
 {
 public:
