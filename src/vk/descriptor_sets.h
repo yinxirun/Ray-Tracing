@@ -689,9 +689,8 @@ public:
 
     RHIDescriptorHandle ReserveDescriptor(VkDescriptorType DescriptorType);
 
-    void UpdateImage(RHIDescriptorHandle DescriptorHandle,
-                     VkImageView VulkanImage, bool bIsDepthStencil,
-                     bool bImmediateUpdate = true);
+    void UpdateImage(RHIDescriptorHandle DescriptorHandle, VkImageView VulkanImage, bool bIsDepthStencil, bool bImmediateUpdate = true);
+    void UpdateBuffer(RHIDescriptorHandle DescriptorHandle, VkBuffer VulkanBuffer, VkDeviceSize BufferOffset, VkDeviceSize BufferSize, bool bImmediateUpdate = true);
 
 private:
     const bool bIsSupported = false;
@@ -738,14 +737,24 @@ public:
         return bChanged;
     }
 
-    bool WriteImage(uint32 DescriptorIndex, const View::TextureView &textureView, VkImageLayout Layout)
+    bool WriteImage(uint32 DescriptorIndex, const VulkanView::TextureView &textureView, VkImageLayout Layout)
     {
         return WriteTextureView<VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE>(DescriptorIndex, textureView, Layout);
     }
 
-    bool WriteStorageImage(uint32 DescriptorIndex, const View::TextureView &TextureView, VkImageLayout Layout)
+    bool WriteStorageImage(uint32 DescriptorIndex, const VulkanView::TextureView &TextureView, VkImageLayout Layout)
     {
         return WriteTextureView<VK_DESCRIPTOR_TYPE_STORAGE_IMAGE>(DescriptorIndex, TextureView, Layout);
+    }
+
+    bool WriteStorageTexelBuffer(uint32 DescriptorIndex, const VulkanView::TypedBufferView &View)
+    {
+        return WriteBufferView<VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER>(DescriptorIndex, View);
+    }
+
+    bool WriteStorageBuffer(uint32 DescriptorIndex, const VulkanView::StructuredBufferView &View)
+    {
+        return WriteBuffer<VK_DESCRIPTOR_TYPE_STORAGE_BUFFER>(DescriptorIndex, View.Buffer, View.HandleId, View.Offset, View.Size);
     }
 
 protected:
@@ -795,7 +804,7 @@ protected:
     }
 
     template <VkDescriptorType DescriptorType>
-    bool WriteTextureView(uint32 DescriptorIndex, const View::TextureView &TextureView, VkImageLayout Layout)
+    bool WriteTextureView(uint32 DescriptorIndex, const VulkanView::TextureView &TextureView, VkImageLayout Layout)
     {
         check(DescriptorIndex < NumWrites);
         SetWritten(DescriptorIndex);
@@ -838,6 +847,28 @@ protected:
         return bChanged;
     }
 
+    template <VkDescriptorType DescriptorType>
+    bool WriteBufferView(uint32 DescriptorIndex, const VulkanView::TypedBufferView &View)
+    {
+        check(DescriptorIndex < NumWrites);
+        check(WriteDescriptors[DescriptorIndex].descriptorType == DescriptorType);
+        SetWritten(DescriptorIndex);
+        WriteDescriptors[DescriptorIndex].pTexelBufferView = &View.View;
+
+        const bool bVolatile = View.bVolatile;
+
+        bHasVolatileResources |= bVolatile;
+
+        if (!bVolatile && UseVulkanDescriptorCache())
+        {
+            check(0);
+        }
+        else
+        {
+            return true;
+        }
+    }
+
     // A view into someone else's descriptors
     VkWriteDescriptorSet *WriteDescriptors;
 
@@ -861,7 +892,7 @@ protected:
                                  VkWriteDescriptorSetAccelerationStructureKHR *InAccelerationStructuresWriteDescriptors,
                                  VkAccelerationStructureKHR *InAccelerationStructures,
 #endif // VULKAN_RHI_RAYTRACING
-                                 const VulkanSamplerState &DefaultSampler, const View::TextureView &DefaultImageView);
+                                 const VulkanSamplerState &DefaultSampler, const VulkanView::TextureView &DefaultImageView);
 
     friend class CommonPipelineDescriptorState;
     friend class ComputePipelineDescriptorState;

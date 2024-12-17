@@ -284,3 +284,11 @@ void BindlessDescriptorManager::UpdateImage(RHIDescriptorHandle DescriptorHandle
         // UpdateDescriptor(DescriptorHandle, DescriptorData, bImmediateUpdate);
     }
 }
+
+void BindlessDescriptorManager::UpdateBuffer(RHIDescriptorHandle DescriptorHandle, VkBuffer VulkanBuffer, VkDeviceSize BufferOffset, VkDeviceSize BufferSize, bool bImmediateUpdate)
+{
+    if (bIsSupported)
+    {
+        check(0);
+    }
+}

@@ -50,7 +50,7 @@ public:
 	}
 
 	// 	void SetSRV(FVulkanCmdBuffer* CmdBuffer, bool bCompute, uint8 DescriptorSet, uint32 BindingIndex, FVulkanShaderResourceView* SRV);
-	// 	void SetUAV(FVulkanCmdBuffer* CmdBuffer, bool bCompute, uint8 DescriptorSet, uint32 BindingIndex, FVulkanUnorderedAccessView* UAV);
+	void SetUAV(CmdBuffer* CmdBuffer, bool bCompute, uint8 DescriptorSet, uint32 BindingIndex, VulkanUnorderedAccessView* UAV);
 
 	inline void SetTexture(uint8 DescriptorSet, uint32 BindingIndex, const VulkanTexture *Texture, VkImageLayout Layout)
 	{
@@ -176,6 +176,8 @@ public:
 	{
 		Bind(CmdBuffer, ComputePipeline->GetLayout().GetPipelineLayout(), VK_PIPELINE_BIND_POINT_COMPUTE);
 	}
+
+	inline const VulkanComputePipelineDescriptorInfo &GetComputePipelineDescriptorInfo() const { return *PipelineDescriptorInfo; }
 
 protected:
 	const VulkanComputePipelineDescriptorInfo *PipelineDescriptorInfo;

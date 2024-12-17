@@ -1,6 +1,7 @@
 #pragma once
 #include "vulkan_memory.h"
 #include "pipeline.h"
+#include "context.h"
 #include "pipeline_state.h"
 #include "RHI/RHIDefinitions.h"
 #include <iostream>
@@ -42,7 +43,24 @@ public:
         }
     }
 
-    void PrepareForDispatch(CmdBuffer* CmdBuffer);
+    void PrepareForDispatch(CmdBuffer *CmdBuffer);
+
+    inline const VulkanComputeShader *GetCurrentShader() const
+    {
+        return CurrentPipeline ? CurrentPipeline->GetShader() : nullptr;
+    }
+
+    inline void SetUAVForStage(uint32 UAVIndex, VulkanUnorderedAccessView *UAV)
+    {
+        const VulkanComputePipelineDescriptorInfo &DescriptorInfo = CurrentState->GetComputePipelineDescriptorInfo();
+        uint8 DescriptorSet;
+        uint32 BindingIndex;
+        if (!DescriptorInfo.GetDescriptorSetAndBindingIndex(ShaderHeader::Global, UAVIndex, DescriptorSet, BindingIndex))
+            return;
+
+        check(UAV);
+        CurrentState->SetUAV(Context.GetCommandBufferManager()->GetActiveCmdBuffer(), true, DescriptorSet, BindingIndex, UAV);
+    }
 
     void NotifyDeletedPipeline(VulkanComputePipeline *Pipeline)
     {

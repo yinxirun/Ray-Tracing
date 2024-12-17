@@ -207,7 +207,7 @@ inline Archive &operator<<(Archive &Ar, ShaderHeader &Header)
     // Ar << Header.RayTracingPayloadSize;
     // Ar << Header.SourceHash;
     // Ar << Header.SpirvCRC;
-    // Ar << Header.WaveSize;
+    Ar << Header.WaveSize;
     // Ar << Header.UniformBufferSpirvInfos;
     // Ar << Header.GlobalSpirvInfos;
     // Ar << Header.DebugName;

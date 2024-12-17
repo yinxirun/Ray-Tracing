@@ -35,6 +35,7 @@ class CommandListContext;
 class CmdBuffer;
 struct GfxPipelineDesc;
 class VulkanPipelineLayout;
+class VulkanMultiBuffer;
 
 // Converts the internal texture dimension to Vulkan view type
 inline VkImageViewType UETextureDimensionToVkImageViewType(TextureDimension Dimension)
@@ -57,7 +58,7 @@ inline VkImageViewType UETextureDimensionToVkImageViewType(TextureDimension Dime
     }
 };
 
-class View
+class VulkanView
 {
 public:
     struct InvalidatedState
@@ -105,9 +106,9 @@ public:
 #endif
     };
 
-    View(Device &InDevice, VkDescriptorType InDescriptorType);
+    VulkanView(Device &InDevice, VkDescriptorType InDescriptorType);
 
-    ~View();
+    ~VulkanView();
 
     void Invalidate();
 
@@ -115,11 +116,19 @@ public:
 
     bool IsInitialized() const { return (GetViewType() != Null) || invalidatedState.bInitialized; }
 
+    TypedBufferView const &GetTypedBufferView() const { return typedBufferView; }
     TextureView const &GetTextureView() const { return textureView; }
+    StructuredBufferView const &GetStructuredBufferView() const { return structuredBufferView; }
 
-    View *InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, PixelFormat UEFormat,
-                            VkFormat Format, uint32_t FirstMip, uint32_t NumMips, uint32_t ArraySliceIndex, uint32_t NumArraySlices, bool bUseIdentitySwizzle = false,
-                            VkImageUsageFlags ImageUsageFlags = 0);
+    // NOTE: The InOffset applies to the FVulkanResourceMultiBuffer (it does not include any internal Allocation offsets that may exist)
+    VulkanView *InitAsTypedBufferView(VulkanMultiBuffer *Buffer, PixelFormat Format, uint32 InOffset, uint32 InSize);
+
+    VulkanView *InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, PixelFormat UEFormat,
+                                  VkFormat Format, uint32_t FirstMip, uint32_t NumMips, uint32_t ArraySliceIndex, uint32_t NumArraySlices, bool bUseIdentitySwizzle = false,
+                                  VkImageUsageFlags ImageUsageFlags = 0);
+
+    // NOTE: The InOffset applies to the FVulkanResourceMultiBuffer (it does not include any internal Allocation offsets that may exist)
+    VulkanView *InitAsStructuredBufferView(VulkanMultiBuffer *Buffer, uint32 InOffset, uint32 InSize);
 
 private:
     Device &device;
@@ -330,11 +339,14 @@ struct CpuReadbackBuffer
 };
 
 // 576
-class LinkedView : public View
+class VulkanLinkedView : public VulkanView
 {
 protected:
-    LinkedView(Device &Device, VkDescriptorType DescriptorType)
-        : View(Device, DescriptorType) {}
+    VulkanLinkedView(Device &Device, VkDescriptorType DescriptorType)
+        : VulkanView(Device, DescriptorType) {}
+
+public:
+    virtual void UpdateView() = 0;
 };
 
 // 542
@@ -346,7 +358,7 @@ public:
     virtual void UpdateLinkedViews();
 
 private:
-    LinkedView *LinkedViews = nullptr;
+    VulkanLinkedView *LinkedViews = nullptr;
 };
 
 enum class EImageOwnerType : uint8
@@ -373,9 +385,9 @@ public:
     virtual ~VulkanTexture();
 
     /// View with all mips/layers
-    View *DefaultView = nullptr;
+    VulkanView *DefaultView = nullptr;
     // View with all mips/layers, but if it's a Depth/Stencil, only the Depth view
-    View *PartialView = nullptr;
+    VulkanView *PartialView = nullptr;
 
     void *GetTextureBaseRHI() override final { return this; }
 
@@ -572,8 +584,13 @@ public:
                       const RHITransientHeapAllocation *InTransientHeapAllocation = nullptr);
     virtual ~VulkanMultiBuffer();
 
+    inline const VmaAllocation GetCurrentAllocation() const { return BufferAllocs[CurrentBufferIndex].alloc; }
     inline VkBuffer GetHandle() const { return BufferAllocs[CurrentBufferIndex].handle; }
+    inline bool IsVolatile() const { return EnumHasAnyFlags(GetUsage(), BUF_Volatile); }
     inline uint32 GetOffset() const { return BufferAllocs[CurrentBufferIndex].offset; }
+    // Remaining size from the current offset
+    inline uint64 GetCurrentSize() const { return BufferAllocs[CurrentBufferIndex].allocInfo.size; }
+    inline VkBufferUsageFlags GetBufferUsageFlags() const { return usageFlags; }
     inline VkIndexType GetIndexType() const { return (GetStride() == 4) ? VK_INDEX_TYPE_UINT32 : VK_INDEX_TYPE_UINT16; }
     void *Lock(RHICommandListBase &RHICmdList, ResourceLockMode LockMode, uint32 Size, uint32 Offset);
     void *Lock(CommandListContext &Context, ResourceLockMode LockMode, uint32 Size, uint32 Offset);
@@ -646,6 +663,15 @@ public:
     UniformBufferUsage Usage;
 
     bool bUniformView = false;
+};
+
+class VulkanUnorderedAccessView final : public UnorderedAccessView, public VulkanLinkedView
+{
+public:
+    VulkanUnorderedAccessView(RHICommandListBase &RHICmdList, Device &InDevice, ViewableResource *InResource, ViewDesc const &InViewDesc);
+
+    VulkanViewableResource *GetBaseResource() const;
+    void UpdateView() override;
 };
 
 // 1258

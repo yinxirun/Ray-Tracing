@@ -11,7 +11,7 @@
 
 class Device;
 class SwapChain;
-class View;
+class VulkanView;
 class VulkanViewport;
 class Queue;
 class CommandListContext;
@@ -82,7 +82,7 @@ protected:
 
     std::vector<VkImage> backBufferImages;
     std::vector<VulkanRHI::Semaphore *> renderingDoneSemaphores;
-    std::vector<View *> textureViews;
+    std::vector<VulkanView *> textureViews;
     std::shared_ptr<BackBuffer> RHIBackBuffer;
     // 'Dummy' back buffer
     std::shared_ptr<VulkanTexture> renderingBackBuffer;

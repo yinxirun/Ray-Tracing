@@ -122,6 +122,20 @@ void ProcessGlobal(std::vector<ShaderHeader::GlobalInfo> &outInfo,
 
         spirv_cross::SPIRType type = inData.get_type(res.base_type_id);
     }
+
+    for (auto &res : inResource.storage_buffers)
+    {
+        ShaderHeader::GlobalInfo globalInfo;
+        uint32 binding = inData.get_decoration(res.id, spv::DecorationBinding);
+        globalInfo.bImmutableSampler = false;
+        globalInfo.OriginalBindingIndex = binding;
+        globalInfo.CombinedSamplerStateAliasIndex = UINT16_MAX;
+        globalInfo.TypeIndex = outType.size();
+        outInfo.push_back(globalInfo);
+        outType.push_back(VulkanBindingType::StorageBuffer);
+
+        spirv_cross::SPIRType type = inData.get_type(res.base_type_id);
+    }
 }
 
 std::vector<uint8> process_shader(std::string spvFilename, ShaderFrequency freq)

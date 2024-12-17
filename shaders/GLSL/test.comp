@@ -1,0 +1,16 @@
+#version 460
+
+layout (local_size_x = 128, local_size_y = 1) in;
+
+layout(set = 0, binding = 0) buffer InOut{
+    float data[];
+};
+// layout(std140, set = 0, binding = 0) buffer InOut{
+//     float data[];
+// };
+
+void main()
+{
+    uint index = gl_GlobalInvocationID.x;  
+    data[index] = data[index] * data[index];
+}

@@ -197,7 +197,7 @@ public:
         return *DefaultSampler;
     }
 
-    inline const View::TextureView &GetDefaultImageView() const
+    inline const VulkanView::TextureView &GetDefaultImageView() const
     {
         return DefaultTexture->DefaultView->GetTextureView();
     }

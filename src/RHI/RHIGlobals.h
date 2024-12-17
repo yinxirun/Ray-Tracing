@@ -6,6 +6,9 @@ struct RHIGlobals
     /** Whether or not the RHI can handle a non-zero FirstInstance to DrawIndexedPrimitive and friends - extra SetStreamSource calls will be needed if this is false */
     bool SupportsFirstInstance = false;
 
+    /** Whether a raw (ByteAddress) buffer view can be created for any buffer, regardless of its EBufferUsageFlags::ByteAddressBuffer flag. */
+    bool SupportsRawViewsForAnyBuffer = false;
+
     struct FVariableRateShading
     {
         /** Whether VRS (in all flavors) is currently enabled (separate from whether it's supported/available). */

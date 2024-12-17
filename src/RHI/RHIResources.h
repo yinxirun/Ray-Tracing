@@ -223,10 +223,10 @@ private:
     const ERHIResourceType ResourceType;
 };
 
-class RHIViewableResource : public RHIResource
+class ViewableResource : public RHIResource
 {
 public:
-    RHIViewableResource(ERHIResourceType InResourceType, Access InAccess);
+    ViewableResource(ERHIResourceType InResourceType, Access InAccess);
 
     void ReleaseOwnership() { TrackedAccess = Access::Unknown; }
 
@@ -297,7 +297,7 @@ struct BufferDesc
     }
 };
 
-class Texture : public RHIViewableResource
+class Texture : public ViewableResource
 {
 protected:
     Texture(const TextureCreateDesc &InDesc);
@@ -697,12 +697,12 @@ private:
 };
 
 // 1220
-class Buffer : public RHIViewableResource
+class Buffer : public ViewableResource
 {
 public:
     /** Initialization constructor. */
     Buffer(BufferDesc const &InDesc)
-        : RHIViewableResource(RRT_Buffer, Access::Unknown /* TODO (RemoveUnknowns): Use InitialAccess from descriptor after refactor. */),
+        : ViewableResource(RRT_Buffer, Access::Unknown /* TODO (RemoveUnknowns): Use InitialAccess from descriptor after refactor. */),
           Desc(InDesc)
     {
     }
@@ -719,7 +719,7 @@ public:
 protected:
     void ReleaseOwnership()
     {
-        RHIViewableResource::ReleaseOwnership();
+        ViewableResource::ReleaseOwnership();
         Desc = BufferDesc::Null();
     }
 
@@ -754,6 +754,185 @@ class Viewport : public RHIResource
 {
 public:
     Viewport() : RHIResource(RRT_Viewport) {}
+};
+
+// The unified RHI view descriptor. These are stored in the base FRHIView type, and packed to minimize memory usage.
+// Platform RHI implementations use the GetViewInfo() functions to convert an FRHIViewDesc into the required info to make a view / descriptor for the GPU.
+struct ViewDesc
+{
+    enum class ViewType : uint8
+    {
+        BufferSRV,
+        BufferUAV,
+        TextureSRV,
+        TextureUAV
+    };
+
+    enum class BufferType : uint8
+    {
+        Unknown = 0,
+        Typed = 1,
+        Structured = 2,
+        AccelerationStructure = 3,
+        Raw = 4
+    };
+
+    enum class Dimension : uint8
+    {
+        Unknown = 0,
+        Texture2D = 1,
+        Texture2DArray = 2,
+        TextureCube = 3,
+        TextureCubeArray = 4,
+        Texture3D = 5,
+        NumBits = 3
+    };
+
+    // Properties that apply to all views.
+    struct Common
+    {
+        ViewType ViewType;
+        PixelFormat Format;
+    };
+    //   Properties shared by buffer views. Some fields are SRV or UAV specific.
+    struct FBuffer : public Common
+    {
+        BufferType bufferType;
+        uint8 bAtomicCounter : 1; // UAV only
+        uint8 bAppendBuffer : 1;  // UAV only
+        uint8 /* padding */ : 6;
+        uint32 OffsetInBytes;
+        uint32 NumElements;
+        uint32 Stride;
+
+        struct ViewInfo
+        {
+            // The offset in bytes from the beginning of the viewed buffer resource.
+            uint32 OffsetInBytes;
+            // The size in bytes of a single element in the view.
+            uint32 StrideInBytes;
+            // The number of elements visible in the view.
+            uint32 NumElements;
+            // The total number of bytes the data visible in the view covers (i.e. stride * numelements).
+            uint32 SizeInBytes;
+            // Whether this is a typed / structured / raw view etc.
+            BufferType BufferType;
+            // The format of the data exposed by this view. PF_Unknown for all buffer types except typed buffer views.
+            PixelFormat Format;
+            // When true, the view is refering to a BUF_NullResource, so a null descriptor should be created.
+            bool bNullView;
+        };
+
+    protected:
+        ViewInfo GetViewInfo(Buffer *TargetBuffer) const;
+    };
+
+    struct BufferUAV : public FBuffer
+    {
+        struct FInitializer;
+        struct ViewInfo;
+        ViewInfo GetViewInfo(Buffer *TargetBuffer) const;
+    };
+
+    struct BufferSRV : public FBuffer
+    {
+        struct FInitializer;
+        struct ViewInfo;
+        ViewInfo GetViewInfo(Buffer *TargetBuffer) const;
+    };
+
+    union
+    {
+        Common Common;
+        union
+        {
+            BufferSRV SRV;
+            BufferUAV UAV;
+        } buffer;
+    };
+
+    bool IsSRV() const
+    {
+        return Common.ViewType == ViewType::BufferSRV || Common.ViewType == ViewType::TextureSRV;
+    }
+    bool IsUAV() const { return !IsSRV(); }
+
+    bool IsBuffer() const { return Common.ViewType == ViewType::BufferSRV || Common.ViewType == ViewType::BufferUAV; }
+    bool IsTexture() const { return !IsBuffer(); }
+
+    ViewDesc() : ViewDesc(ViewType::BufferSRV)
+    {
+        memset(this, 0, sizeof(ViewDesc));
+    }
+
+protected:
+    ViewDesc(ViewType ViewType)
+    {
+        memset(this, 0, sizeof(ViewDesc));
+    }
+};
+
+// Buffer SRV specific info
+struct ViewDesc::BufferSRV::ViewInfo : public ViewDesc::FBuffer::ViewInfo
+{
+};
+
+// Buffer UAV specific info
+struct ViewDesc::BufferUAV::ViewInfo : public ViewDesc::FBuffer::ViewInfo
+{
+    bool bAtomicCounter = false;
+    bool bAppendBuffer = false;
+};
+
+class RHIView : public RHIResource
+{
+public:
+    RHIView(ERHIResourceType InResourceType, ViewableResource *InResource, ViewDesc const &InViewDesc)
+        : RHIResource(InResourceType), Resource(InResource), viewDesc(InViewDesc)
+    {
+        checkf(InResource, "Cannot create a view of a nullptr resource.");
+    }
+
+    bool IsBuffer() const { return viewDesc.IsBuffer(); }
+    bool IsTexture() const { return viewDesc.IsTexture(); }
+
+    Buffer *GetBuffer() const
+    {
+        check(viewDesc.IsBuffer());
+        return static_cast<Buffer *>(Resource);
+    }
+
+    Texture *GetTexture() const
+    {
+        check(viewDesc.IsTexture());
+        return static_cast<Texture *>(Resource);
+    }
+
+private:
+    ViewableResource *Resource;
+
+protected:
+    ViewDesc const viewDesc;
+};
+
+class UnorderedAccessView : public RHIView
+{
+public:
+    explicit UnorderedAccessView(ViewableResource *InResource, ViewDesc const &InViewDesc)
+        : RHIView(RRT_UnorderedAccessView, InResource, InViewDesc)
+    {
+        check(viewDesc.IsUAV());
+    }
+};
+
+class ShaderResourceView : public RHIView
+{
+public:
+    explicit ShaderResourceView(ViewableResource *InResource, ViewDesc const &InViewDesc)
+        : RHIView(RRT_ShaderResourceView, InResource, InViewDesc)
+    {
+        check(viewDesc.IsSRV());
+    }
 };
 
 // 3214

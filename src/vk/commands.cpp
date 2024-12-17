@@ -207,6 +207,17 @@ void CommandListContext::DispatchComputeShader(uint32 ThreadGroupCountX, uint32 
     vkCmdDispatch(CmdBuffer, ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 }
 
+void CommandListContext::SetUAVParameter(ComputeShader *ComputeShaderRHI, uint32 UAVIndex, UnorderedAccessView *UAVRHI)
+{
+    if (UAVRHI)
+    {
+        check(pendingComputeState->GetCurrentShader() == static_cast<VulkanComputeShader *>(ComputeShaderRHI));
+
+        VulkanUnorderedAccessView *UAV = static_cast<VulkanUnorderedAccessView *>(UAVRHI);
+        pendingComputeState->SetUAVForStage(UAVIndex, UAV);
+    }
+}
+
 void CommandListContext::SetShaderSampler(GraphicsShader *ShaderRHI, uint32 SamplerIndex, SamplerState *NewStateRHI)
 {
     ShaderStage::Stage Stage = GetAndVerifyShaderStage(ShaderRHI, pendingGfxState);

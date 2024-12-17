@@ -151,7 +151,7 @@ void CommonPipelineDescriptorState::CreateDescriptorWriteInfos()
 	DSWriter.resize(NumSets);
 
 	const VulkanSamplerState &DefaultSampler = device->GetDefaultSampler();
-	const View::TextureView &DefaultImageView = device->GetDefaultImageView();
+	const VulkanView::TextureView &DefaultImageView = device->GetDefaultImageView();
 
 	HashableDescriptorInfo *CurrentHashableDescriptorInfo = nullptr;
 	if (UseVulkanDescriptorCache())
@@ -374,3 +374,40 @@ template bool GraphicsPipelineDescriptorState::InternalUpdateDescriptorSets<true
 template bool GraphicsPipelineDescriptorState::InternalUpdateDescriptorSets<false>(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer);
 template bool ComputePipelineDescriptorState::InternalUpdateDescriptorSets<true>(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer);
 template bool ComputePipelineDescriptorState::InternalUpdateDescriptorSets<false>(CommandListContext *CmdListContext, CmdBuffer *CmdBuffer);
+
+void CommonPipelineDescriptorState::SetUAV(CmdBuffer *CmdBuffer, bool bCompute, uint8 DescriptorSet, uint32 BindingIndex, VulkanUnorderedAccessView *UAV)
+{
+	check(!bUseBindless);
+
+	Access Access = bCompute ? Access::UAVCompute : Access::UAVGraphics;
+
+	switch (UAV->GetViewType())
+	{
+	case VulkanView::EType::Null:
+		checkf(false, "Attempt to bind a null UAV.");
+		break;
+
+	case VulkanView::EType::TypedBuffer:
+		MarkDirty(DSWriter[DescriptorSet].WriteStorageTexelBuffer(BindingIndex, UAV->GetTypedBufferView()));
+		break;
+
+	case VulkanView::EType::Texture:
+	{
+		const VulkanTexture *vulkanTexture = static_cast<VulkanTexture *>(UAV->GetTexture());
+		const VkImageLayout ExpectedLayout = LayoutManager::GetDefaultLayout(CmdBuffer, *vulkanTexture, Access);
+		MarkDirty(DSWriter[DescriptorSet].WriteStorageImage(BindingIndex, UAV->GetTextureView(), ExpectedLayout));
+	}
+	break;
+
+	case VulkanView::EType::StructuredBuffer:
+		check((static_cast<VulkanMultiBuffer*>(UAV->GetBuffer())->GetBufferUsageFlags() & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) == VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+		MarkDirty(DSWriter[DescriptorSet].WriteStorageBuffer(BindingIndex, UAV->GetStructuredBufferView()));
+		break;
+
+#if VULKAN_RHI_RAYTRACING
+	case FVulkanView::EType::AccelerationStructure:
+		MarkDirty(DSWriter[DescriptorSet].WriteAccelerationStructure(BindingIndex, UAV->GetAccelerationStructureView().Handle));
+		break;
+#endif
+	}
+}

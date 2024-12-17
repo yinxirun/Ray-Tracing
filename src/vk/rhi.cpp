@@ -445,3 +445,8 @@ void RHI::RemoveDebugLayerCallback()
 {
     DestroyDebugUtilsMessengerEXT(instance, messenger, nullptr);
 }
+
+uint64 RHI::GetMinimumAlignmentForBufferBackedSRV(PixelFormat Format)
+{
+    return GPixelFormats[Format].BlockBytes;
+}

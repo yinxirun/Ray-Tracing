@@ -83,3 +83,14 @@ __forceinline void UpdateTexture2D(RHICommandListBase &RHICmdList, Texture *Text
 {
     rhi->UpdateTexture2D(RHICmdList, Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
 }
+
+__forceinline std::shared_ptr<UnorderedAccessView> CreateUnorderedAccessView(class RHICommandListBase &RHICmdList,
+                                                                             ViewableResource *Resource, ViewDesc const &ViewDesc)
+{
+    return rhi->CreateUnorderedAccessView(RHICmdList, Resource, ViewDesc);
+}
+
+__forceinline uint64 GetMinimumAlignmentForBufferBackedSRV(PixelFormat Format)
+{
+	return rhi->GetMinimumAlignmentForBufferBackedSRV(Format);
+}

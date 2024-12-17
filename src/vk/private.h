@@ -12,7 +12,7 @@
 class CmdBuffer;
 class Device;
 class RenderPass;
-class View;
+class VulkanView;
 
 template <typename BitsType>
 constexpr bool VKHasAllFlags(VkFlags Flags, BitsType Contains)
@@ -307,11 +307,11 @@ public:
 
 	VkFramebuffer GetHandle() { return framebuffer; }
 
-	std::vector<std::unique_ptr<View>> OwnedTextureViews;
-	std::vector<View const *> AttachmentTextureViews;
+	std::vector<std::unique_ptr<VulkanView>> OwnedTextureViews;
+	std::vector<VulkanView const *> AttachmentTextureViews;
 
 	// Copy from the Depth render target partial view
-	View const *PartialDepthTextureView = nullptr;
+	VulkanView const *PartialDepthTextureView = nullptr;
 
 	bool ContainsRenderTarget(VkImage Image) const
 	{

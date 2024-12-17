@@ -1,17 +1,18 @@
 #include "resources.h"
 #include "device.h"
+#include "rhi.h"
 #include "descriptor_sets.h"
 #include "../definitions.h"
 #include "configuration.h"
 #include "util.h"
 #include "private.h"
 
-View::View(Device &InDevice, VkDescriptorType InDescriptorType) : device(InDevice)
+VulkanView::VulkanView(Device &InDevice, VkDescriptorType InDescriptorType) : device(InDevice)
 {
     BindlessHandle = device.GetBindlessDescriptorManager()->ReserveDescriptor(InDescriptorType);
 }
 
-View::~View()
+VulkanView::~VulkanView()
 {
     Invalidate();
 
@@ -23,7 +24,7 @@ View::~View()
     }
 }
 
-void View::Invalidate()
+void VulkanView::Invalidate()
 {
     // Carry forward its initialized state
     const bool bIsInitialized = IsInitialized();
@@ -59,9 +60,16 @@ void View::Invalidate()
     invalidatedState.bInitialized = bIsInitialized;
 }
 
-View *View::InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, PixelFormat UEFormat,
-                              VkFormat Format, uint32_t FirstMip, uint32_t NumMips, uint32_t ArraySliceIndex, uint32_t NumArraySlices, bool bUseIdentitySwizzle,
-                              VkImageUsageFlags ImageUsageFlags)
+VulkanView *VulkanView::InitAsTypedBufferView(VulkanMultiBuffer *Buffer, PixelFormat UEFormat, uint32 InOffset, uint32 InSize)
+{
+    // todo
+    check(0);
+    return nullptr;
+}
+
+VulkanView *VulkanView::InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, PixelFormat UEFormat,
+                                          VkFormat Format, uint32_t FirstMip, uint32_t NumMips, uint32_t ArraySliceIndex, uint32_t NumArraySlices, bool bUseIdentitySwizzle,
+                                          VkImageUsageFlags ImageUsageFlags)
 {
     // We will need a deferred update if the descriptor was already in use
     const bool bImmediateUpdate = !IsInitialized();
@@ -149,13 +157,191 @@ View *View::InitAsTextureView(VkImage InImage, VkImageViewType ViewType, VkImage
     return this;
 }
 
+VulkanView *VulkanView::InitAsStructuredBufferView(VulkanMultiBuffer *Buffer, uint32 InOffset, uint32 InSize)
+{
+    // We will need a deferred update if the descriptor was already in use
+    const bool bImmediateUpdate = !IsInitialized();
+
+    check(GetViewType() == EType::Null);
+    viewType = EType::StructuredBuffer;
+    StructuredBufferView &SBV = structuredBufferView;
+
+    const uint32 TotalOffset = Buffer->GetOffset() + InOffset;
+
+    SBV.Buffer = Buffer->GetHandle();
+    SBV.HandleId = (uint64)Buffer->GetCurrentAllocation();
+    SBV.Offset = TotalOffset;
+
+    // :todo-jn: Volatile buffers use temporary allocations that can be smaller than the buffer creation size.  Check if the savings are still worth it.
+    if (Buffer->IsVolatile())
+    {
+        InSize = std::min<uint64>(InSize, Buffer->GetCurrentSize());
+    }
+
+    SBV.Size = InSize;
+
+    device.GetBindlessDescriptorManager()->UpdateBuffer(BindlessHandle, Buffer->GetHandle(), TotalOffset, InSize, bImmediateUpdate);
+
+    return this;
+}
+
 // 276
 void VulkanViewableResource::UpdateLinkedViews()
 {
-    for (LinkedView *view = LinkedViews; view; /*view = view->Next()*/)
+    for (VulkanLinkedView *view = LinkedViews; view; /*view = view->Next()*/)
     {
         printf("ERROR: Don't support LinkedView %s %d\n", __FILE__, __LINE__);
         exit(-1);
         // view->UpdateView();
     }
+}
+
+static VkDescriptorType GetDescriptorTypeForViewDesc(ViewDesc const &ViewDesc)
+{
+    if (ViewDesc.IsBuffer())
+    {
+        if (ViewDesc.IsSRV())
+        {
+            switch (ViewDesc.buffer.SRV.bufferType)
+            {
+            case ViewDesc::BufferType::Raw:
+            case ViewDesc::BufferType::Structured:
+                return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+            case ViewDesc::BufferType::Typed:
+                return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+
+            case ViewDesc::BufferType::AccelerationStructure:
+                return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+
+            default:
+                checkNoEntry();
+                return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+            }
+        }
+        else
+        {
+            switch (ViewDesc.buffer.UAV.bufferType)
+            {
+            case ViewDesc::BufferType::Raw:
+            case ViewDesc::BufferType::Structured:
+                return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+            case ViewDesc::BufferType::Typed:
+                return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+
+            case ViewDesc::BufferType::AccelerationStructure:
+                return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+
+            default:
+                checkNoEntry();
+                return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+            }
+        }
+    }
+    else
+    {
+        check(0);
+        /*         if (ViewDesc.IsSRV())
+                {
+                    // Sampled images aren't supported in R64, shadercompiler patches them to storage image
+                    if (ViewDesc.common.Format == PF_R64_UINT)
+                    {
+                        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                    }
+
+                    return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+                }
+                else
+                {
+                    return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                } */
+    }
+}
+
+void VulkanUnorderedAccessView::UpdateView()
+{
+    Invalidate();
+
+    if (IsBuffer())
+    {
+        VulkanMultiBuffer *Buffer = static_cast<VulkanMultiBuffer *>(GetBuffer());
+        auto const Info = viewDesc.buffer.UAV.GetViewInfo(Buffer);
+
+        checkf(!Info.bAppendBuffer && !Info.bAtomicCounter, "UAV counters not implemented in Vulkan RHI.");
+
+        if (!Info.bNullView)
+        {
+            switch (Info.BufferType)
+            {
+            case ViewDesc::BufferType::Raw:
+            case ViewDesc::BufferType::Structured:
+                InitAsStructuredBufferView(Buffer, Info.OffsetInBytes, Info.SizeInBytes);
+                break;
+
+            case ViewDesc::BufferType::Typed:
+                check(VKHasAllFlags(Buffer->GetBufferUsageFlags(), VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT));
+                InitAsTypedBufferView(Buffer, Info.Format, Info.OffsetInBytes, Info.SizeInBytes);
+                break;
+
+#if VULKAN_RHI_RAYTRACING
+            case FRHIViewDesc::EBufferType::AccelerationStructure:
+                checkNoEntry(); // @todo implement
+                break;
+#endif
+
+            default:
+                checkNoEntry();
+                break;
+            }
+        }
+    }
+    else
+    {
+        check(0);
+        /* 		VulkanTexture* Texture = static_cast<VulkanTexture*>(GetTexture());
+                auto const Info = viewDesc.Texture.UAV.GetViewInfo(Texture);
+
+                uint32 ArrayFirst = Info.ArrayRange.First;
+                uint32 ArrayNum = Info.ArrayRange.Num;
+                if (Info.Dimension == ViewDesc::Dimension::TextureCube || Info.Dimension == ViewDesc::Dimension::TextureCubeArray)
+                {
+                    ArrayFirst *= 6;
+                    ArrayNum *= 6;
+                    checkf((ArrayFirst + ArrayNum) <= Texture->GetNumberOfArrayLevels(), "View extends beyond original cube texture level count!");
+                }
+
+                InitAsTextureView(
+                      Texture->Image
+                    , GetVkImageViewTypeForDimensionUAV(Info.Dimension, Texture->GetViewType())
+                    , Texture->GetPartialAspectMask()
+                    , Info.Format
+                    , UEToVkTextureFormat(Info.Format, false)
+                    , Info.MipLevel
+                    , 1
+                    , ArrayFirst
+                    , ArrayNum
+                    , true
+                ); */
+    }
+}
+
+VulkanUnorderedAccessView::VulkanUnorderedAccessView(RHICommandListBase &RHICmdList, Device &InDevice,
+                                                     ViewableResource *InResource, ViewDesc const &InViewDesc)
+    : UnorderedAccessView(InResource, InViewDesc), VulkanLinkedView(InDevice, GetDescriptorTypeForViewDesc(InViewDesc))
+{
+    /* RHICmdList.EnqueueLambda([this](FRHICommandListBase&)
+    {
+        LinkHead(GetBaseResource()->LinkedViews);
+        UpdateView();
+    }); */
+
+    UpdateView();
+}
+
+std::shared_ptr<UnorderedAccessView> RHI::CreateUnorderedAccessView(class RHICommandListBase &RHICmdList,
+                                                                    ViewableResource *Resource, ViewDesc const &ViewDesc)
+{
+    UnorderedAccessView *view = new VulkanUnorderedAccessView(RHICmdList, *device, Resource, ViewDesc);
+    return std::shared_ptr<UnorderedAccessView>(view);
 }

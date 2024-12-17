@@ -7,12 +7,24 @@
 
 PendingComputeState::~PendingComputeState()
 {
-	std::cout << pipelineStates.size() << std::endl;
+	// for (auto it = pipelineStates.begin(); it != pipelineStates.end(); it++)
+	// {
+	// 	CommonPipelineDescriptorState *state = it->second;
+	// 	delete state;
+	// }
+	// 上面这段代码有BUG，delete state的执行会导致pipelineStates改变
+
+	std::vector<CommonPipelineDescriptorState *> toDelete;
 	for (auto it = pipelineStates.begin(); it != pipelineStates.end(); it++)
 	{
 		CommonPipelineDescriptorState *state = it->second;
-		delete state;
-		it->second = nullptr;
+		toDelete.push_back(state);
+	}
+	pipelineStates.clear();
+
+	for (CommonPipelineDescriptorState *ptr : toDelete)
+	{
+		delete ptr;
 	}
 }
 

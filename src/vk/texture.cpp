@@ -490,7 +490,7 @@ VulkanTexture::VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, c
     const VkImageUsageFlags SRVUsage = bIsSRGB ? (ImageCreateInfo.ImageCreateInfo.usage & ~VK_IMAGE_USAGE_STORAGE_BIT) : ImageCreateInfo.ImageCreateInfo.usage;
     if (ViewType != VK_IMAGE_VIEW_TYPE_MAX_ENUM)
     {
-        DefaultView = (new View(InDevice, DescriptorType))->InitAsTextureView(Image, ViewType, GetFullAspectMask(), InCreateDesc.Format, ViewFormat, 0, std::max(InCreateDesc.NumMips, (uint8)1u), 0, GetNumberOfArrayLevels(), !SupportsSampling(), SRVUsage);
+        DefaultView = (new VulkanView(InDevice, DescriptorType))->InitAsTextureView(Image, ViewType, GetFullAspectMask(), InCreateDesc.Format, ViewFormat, 0, std::max(InCreateDesc.NumMips, (uint8)1u), 0, GetNumberOfArrayLevels(), !SupportsSampling(), SRVUsage);
     }
 
     if (FullAspectMask == PartialAspectMask)
@@ -499,7 +499,7 @@ VulkanTexture::VulkanTexture(RHICommandListBase *RHICmdList, Device &InDevice, c
     }
     else
     {
-        PartialView = (new View(InDevice, DescriptorType))->InitAsTextureView(Image, ViewType, PartialAspectMask, InCreateDesc.Format, ViewFormat, 0, std::max(InCreateDesc.NumMips, (uint8)1u), 0, GetNumberOfArrayLevels(), false);
+        PartialView = (new VulkanView(InDevice, DescriptorType))->InitAsTextureView(Image, ViewType, PartialAspectMask, InCreateDesc.Format, ViewFormat, 0, std::max(InCreateDesc.NumMips, (uint8)1u), 0, GetNumberOfArrayLevels(), false);
     }
 
     if (!InCreateDesc.BulkData)

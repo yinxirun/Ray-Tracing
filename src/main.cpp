@@ -236,7 +236,7 @@ int RHIComputeTest()
     BufferDesc bufDesc;
     bufDesc.Size = 100 * sizeof(float);
     bufDesc.Stride = sizeof(float);
-    bufDesc.Usage = BUF_UnorderedAccess;
+    bufDesc.Usage = BUF_UnorderedAccess | BUF_StructuredBuffer;
     std::shared_ptr<Buffer> data = CreateBuffer(bufDesc, Access::UAVCompute, ci);
     {
         std::vector<float> temp;
@@ -249,7 +249,20 @@ int RHIComputeTest()
         UnlockBuffer_BottomOfPipe(dummy, data.get());
     }
 
+    ViewDesc viewDesc;
+    viewDesc.buffer.UAV.ViewType = ViewDesc::ViewType::BufferUAV;
+    viewDesc.buffer.UAV.bAtomicCounter = false;
+    viewDesc.buffer.UAV.bAppendBuffer = false;
+    viewDesc.buffer.UAV.bufferType = ViewDesc::BufferType::Structured;
+    viewDesc.buffer.UAV.NumElements = 100;
+    viewDesc.buffer.UAV.OffsetInBytes = 0;
+    viewDesc.buffer.UAV.Stride = sizeof(float);
+    auto uav = CreateUnorderedAccessView(dummy, data.get(), viewDesc);
+    
     context->SetComputePipelineState(pso);
+    context->SetUAVParameter(shader, 0, uav.get());
+    context->DispatchComputeShader(128, 1, 1);
+    context->SubmitCommandsHint();
 
     {
         std::vector<float> temp(100, 0);
@@ -264,6 +277,8 @@ int RHIComputeTest()
         std::cout << std::endl;
     }
 
+
+    uav.reset();
     data.reset();
     RHIExit();
     return 0;

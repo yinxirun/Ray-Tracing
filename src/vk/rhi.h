@@ -107,7 +107,7 @@ public:
     virtual GraphicsPipelineState *CreateGraphicsPipelineState(const GraphicsPipelineStateInitializer &Initializer);
 
     // FlushType: Thread safe
-    virtual ComputePipelineState* CreateComputePipelineState(ComputeShader *ComputeShader);
+    virtual ComputePipelineState *CreateComputePipelineState(ComputeShader *ComputeShader);
 
     /**
      * Creates a uniform buffer.  The contents of the uniform buffer are provided in a parameter, and are immutable.
@@ -124,7 +124,14 @@ public:
     // 339
     virtual std::shared_ptr<Buffer> CreateBuffer(BufferDesc const &Desc, Access ResourceState, ResourceCreateInfo &CreateInfo);
 
+	// Gets the minimum alignment (in bytes) required for creating a shader resource view on a buffer-backed resource.
+	// FlushType: Thread safe
+	virtual uint64 GetMinimumAlignmentForBufferBackedSRV(PixelFormat Format);
+
     virtual std::shared_ptr<Texture> CreateTexture(RHICommandListBase &RHICmdList, const TextureCreateDesc &CreateDesc);
+
+    virtual std::shared_ptr<UnorderedAccessView> CreateUnorderedAccessView(class RHICommandListBase &RHICmdList,
+                                                                           ViewableResource *Resource, ViewDesc const &ViewDesc);
 
     /**
      * Locks an RHI texture's mip-map for read/write operations on the CPU

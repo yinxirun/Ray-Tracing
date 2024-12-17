@@ -70,7 +70,7 @@ void BackBuffer::AcquireBackBufferImage(CommandListContext &Context)
             int32 acquiredImageIndex = viewport->acquiredImageIndex;
             check(acquiredImageIndex >= 0 && acquiredImageIndex < viewport->textureViews.size());
 
-            View &ImageView = *(viewport->textureViews[acquiredImageIndex]);
+            VulkanView &ImageView = *(viewport->textureViews[acquiredImageIndex]);
 
             Image = ImageView.GetTextureView().Image;
             DefaultView = &ImageView;
@@ -92,7 +92,7 @@ void BackBuffer::AcquireBackBufferImage(CommandListContext &Context)
         {
             // fallback to a 'dummy' backbuffer
             check(viewport->renderingBackBuffer);
-            View *DummyView = viewport->renderingBackBuffer->DefaultView;
+            VulkanView *DummyView = viewport->renderingBackBuffer->DefaultView;
             Image = DummyView->GetTextureView().Image;
             DefaultView = DummyView;
             PartialView = DummyView;
@@ -465,7 +465,7 @@ void VulkanViewport::CreateSwapchain(struct SwapChainRecreateInfo *recreateInfo)
         {
             backBufferImages[Index] = Images[Index];
             const VkDescriptorType DescriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-            textureViews.push_back((new View(*device, DescriptorType))->InitAsTextureView(Images[Index], VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT, pixelFormat, UEToVkTextureFormat(pixelFormat, false), 0, 1, 0, 1, false));
+            textureViews.push_back((new VulkanView(*device, DescriptorType))->InitAsTextureView(Images[Index], VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT, pixelFormat, UEToVkTextureFormat(pixelFormat, false), 0, 1, 0, 1, false));
 
             // Clear the swapchain to avoid a validation warning, and transition to PresentSrc
 
@@ -534,7 +534,7 @@ void VulkanViewport::DestroySwapchain(struct SwapChainRecreateInfo *RecreateInfo
 
     if (SupportsStandardSwapchain() && swapChain)
     {
-        for (View *view : textureViews)
+        for (VulkanView *view : textureViews)
         {
             delete view;
         }
@@ -585,13 +585,13 @@ Framebuffer::Framebuffer(Device &device, const SetRenderTargetsInfo &InRTInfo,
     auto CreateOwnedView = [&]()
     {
         const VkDescriptorType DescriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        View *view = new View(device, DescriptorType);
+        VulkanView *view = new VulkanView(device, DescriptorType);
         AttachmentTextureViews.push_back(view);
         OwnedTextureViews.emplace_back(view);
         return view;
     };
 
-    auto AddExternalView = [&](View const *View)
+    auto AddExternalView = [&](VulkanView const *View)
     {
         AttachmentTextureViews.push_back(View);
     };
@@ -738,7 +738,7 @@ Framebuffer::Framebuffer(Device &device, const SetRenderTargetsInfo &InRTInfo,
 
     std::vector<VkImageView> AttachmentViews;
     AttachmentViews.reserve(AttachmentTextureViews.size());
-    for (View const *View : AttachmentTextureViews)
+    for (VulkanView const *View : AttachmentTextureViews)
     {
         AttachmentViews.push_back(View->GetTextureView().View);
     }

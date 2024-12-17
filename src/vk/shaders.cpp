@@ -250,7 +250,7 @@ uint32 DescriptorSetWriter::SetupDescriptorWrites(
     VkWriteDescriptorSetAccelerationStructureKHR *InAccelerationStructuresWriteDescriptors,
     VkAccelerationStructureKHR *InAccelerationStructures,
 #endif // VULKAN_RHI_RAYTRACING
-    const VulkanSamplerState &DefaultSampler, const View::TextureView &DefaultImageView)
+    const VulkanSamplerState &DefaultSampler, const VulkanView::TextureView &DefaultImageView)
 {
     this->HashableDescriptorInfos = InHashableDescriptorInfos;
     this->WriteDescriptors = InWriteDescriptors;

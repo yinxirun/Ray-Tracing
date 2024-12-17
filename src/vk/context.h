@@ -38,6 +38,7 @@ public:
 
     // RHI
     virtual void SetShaderSampler(GraphicsShader *Shader, uint32 SamplerIndex, SamplerState *NewState) final override;
+    virtual void SetUAVParameter(ComputeShader *ComputeShader, uint32 UAVIndex, UnorderedAccessView *UAV) final override;
     virtual void SetShaderTexture(GraphicsShader *Shader, uint32 TextureIndex, Texture *NewTexture) final override;
     virtual void SetShaderUniformBuffer(GraphicsShader *Shader, uint32 BufferIndex, UniformBuffer *Buffer) final override;
     virtual void DrawIndexedPrimitive(Buffer *IndexBuffer, int32 BaseVertexIndex, uint32 FirstInstance,

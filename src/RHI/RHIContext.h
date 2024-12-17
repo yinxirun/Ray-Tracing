@@ -36,6 +36,8 @@ public:
     /// @param NewState The new sampler state.
     virtual void SetShaderSampler(GraphicsShader *Shader, uint32 SamplerIndex, SamplerState *NewState) = 0;
 
+    virtual void SetUAVParameter(ComputeShader *ComputeShader, uint32 UAVIndex, UnorderedAccessView *UAV) = 0;
+
     /// Submit the current command buffer to the GPU if possible.
     virtual void SubmitCommandsHint() = 0;
 
