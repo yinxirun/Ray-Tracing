@@ -3,9 +3,11 @@
 
 #include <fstream>
 #include <algorithm>
+#include <atomic>
 
 #include "path_tracing.h"
 #include "scene.h"
+#include "parallel.h"
 #include "geometry/aabb.h"
 #include "geometry/primitive.h"
 
@@ -28,14 +30,12 @@ void BVHBuildNode::InitInterior(int axis, BVHBuildNode *c0, BVHBuildNode *c1)
   nPrimitives = 0;
 }
 
-BVHAccel::BVHPrimitiveInfo::BVHPrimitiveInfo(size_t primitiveNumber,
-                                             const AABB &bounds)
+BVHAccel::BVHPrimitiveInfo::BVHPrimitiveInfo(size_t primitiveNumber, const AABB &bounds)
     : primitiveNumber(primitiveNumber),
       bounds(bounds),
       centroid(.5f * bounds.pMin + .5f * bounds.pMax) {}
 
-BVHAccel::BVHAccel(std::vector<std::shared_ptr<Primitive>> &p,
-                   int maxPrimsInNode, SplitMethod splitMethod)
+BVHAccel::BVHAccel(std::vector<std::shared_ptr<Primitive>> &p, int maxPrimsInNode, SplitMethod splitMethod)
     : maxPrimsInNode(std::min(255, maxPrimsInNode)),
       primitives(p),
       splitMethod(splitMethod)
@@ -57,6 +57,117 @@ BVHAccel::BVHAccel(std::vector<std::shared_ptr<Primitive>> &p,
     root = recursiveBuild(primitiveInfo, 0, primitives.size(), &totalNodes,
                           orderedPrims);
   primitives.swap(orderedPrims);
+}
+
+void BVHAccel::RadixSort(std::vector<MortonPrimitive> *v)
+{
+  std::vector<MortonPrimitive> tempVector(v->size());
+  constexpr int bitsPerPass = 6;
+  constexpr int nBits = 30;
+  constexpr int nPasses = nBits / bitsPerPass;
+  for (int pass = 0; pass < nPasses; ++pass)
+  {
+    // Perform one pass of radix sort, sorting bitsPerPass bits
+    int lowBit = pass * bitsPerPass;
+    {
+      // Set in and out vector pointers for radix sort pass
+      std::vector<MortonPrimitive> &in = (pass & 1) ? tempVector : *v;
+      std::vector<MortonPrimitive> &out = (pass & 1) ? *v : tempVector;
+      // Count number of zero bits in array for current radix sort bit
+      constexpr int nBuckets = 1 << bitsPerPass;
+      int bucketCount[nBuckets] = {0};
+      constexpr int bitMask = (1 << bitsPerPass) - 1;
+      for (const MortonPrimitive &mp : in)
+      {
+        int bucket = (mp.mortonCode >> lowBit) & bitMask;
+        ++bucketCount[bucket];
+      }
+      // Compute starting index in output array for each bucket
+      int outIndex[nBuckets];
+      outIndex[0] = 0;
+      for (int i = 1; i < nBuckets; ++i)
+        outIndex[i] = outIndex[i - 1] + bucketCount[i - 1];
+      // Store sorted values in output array
+      for (const MortonPrimitive &mp : in)
+      {
+        int bucket = (mp.mortonCode >> lowBit) & bitMask;
+        out[outIndex[bucket]++] = mp;
+      }
+    }
+  }
+  // Copy final result from tempVector, if needed
+  if (nPasses & 1)
+    std::swap(*v, tempVector);
+}
+
+BVHBuildNode *BVHAccel::HLBVHBuild(std::vector<BVHPrimitiveInfo> &primitiveInfo, int *totalNodes, std::vector<std::shared_ptr<Primitive>> &orderedPrims)
+{
+  // Compute bounding box of all primitive centroids
+  AABB bound;
+  for (BVHPrimitiveInfo &pi : primitiveInfo)
+  {
+    bound = Union(bound, pi.centroid);
+  }
+
+  // Compute Morton indices of primitives
+  std::vector<MortonPrimitive> mortonPrims(primitiveInfo.size());
+  ParallelFor(
+      [&](int i)
+      {
+        constexpr int mortonBits = 10;
+        constexpr int mortonScale = 1 << mortonBits;
+        mortonPrims[i].primitiveIndex = primitiveInfo[i].primitiveNumber;
+        glm::vec3 centroidOffset = bound.Offset(primitiveInfo[i].centroid);
+        mortonPrims[i].mortonCode = EncodeMorton3(centroidOffset * (float)mortonScale);
+      },
+      primitiveInfo.size(), 512);
+
+  // Radix sort primitive Morton indices
+  RadixSort(&mortonPrims);
+
+  // Create LBVH treelets at bottom of BVH
+
+  // Find intervals of primitives for each treelet
+  std::vector<LBVHTreelet> treeletsToBuild;
+  for (int start = 0, end = 1; end <= (int)mortonPrims.size(); ++end)
+  {
+    // 莫顿码前12位一致的为一组
+    uint32_t mask = 0b00111111111111000000000000000000;
+    if (end == (int)mortonPrims.size() || ((mortonPrims[start].mortonCode & mask) != (mortonPrims[end].mortonCode & mask)))
+    {
+      int nPrimitives = end - start;
+      int maxBVHNodes = 2 * nPrimitives;
+      BVHBuildNode *nodes = nullptr;
+      treeletsToBuild.push_back({start, nPrimitives, nodes});
+
+      start = end;
+    }
+  }
+  // Create LBVHs for treelets in parallel
+  std::atomic<int> atomicTotal(0);
+  std::atomic<int> orderedPrimsOffset(0);
+  orderedPrims.resize(primitives.size());
+
+  auto generate = [&](int i)
+  {
+    // Generate ith LBVH treelet
+    int nodesCreated = 0;
+    const int firstBitIndex = 29 - 12;
+    LBVHTreelet &tr = treeletsToBuild[i];
+    tr.buildNodes = emitLBVH(tr.buildNodes, primitiveInfo, &mortonPrims[tr.startIndex],
+                             tr.nPrimitives, &nodesCreated, orderedPrims, &orderedPrimsOffset, firstBitIndex);
+    atomicTotal += nodesCreated;
+  };
+  ParallelFor(generate, treeletsToBuild.size());
+
+  *totalNodes = atomicTotal;
+
+  // Create and return SAH BVH from LBVH treelets
+  std::vector<BVHBuildNode *> finishedTreelets;
+  for (LBVHTreelet &treelet : treeletsToBuild)
+    finishedTreelets.push_back(treelet.buildNodes);
+
+  return buildUpperSAH(finishedTreelets, 0, finishedTreelets.size(), totalNodes);
 }
 
 struct BucketInfo

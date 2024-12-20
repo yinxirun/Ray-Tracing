@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 
+#include "parallel.h"
 #include "bvh_accel.h"
 #include "fxaa.h"
 #include "nlohmann/json.hpp"
@@ -18,6 +19,7 @@ const float epsilon = 0.001;
 
 int main()
 {
+  ParallelInit();
   nlohmann::json configLoader;
   std::fstream f("config.json", std::ios::in);
   f >> configLoader;
@@ -89,5 +91,7 @@ int main()
 
   delete[] pixels;
 
+
+  ParallelCleanup();
   return 0;
 }

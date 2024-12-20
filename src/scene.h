@@ -11,9 +11,16 @@
 #include "geometry/vertex.h"
 #include "glm/glm.hpp"
 
-enum class MaterialType { DIFFUSE, SPECULAR, EMISSIVE };
+enum class MaterialType
+{
+  DIFFUSE,
+  SPECULAR,
+  EMISSIVE,
+  DIFFUSE_SPECULAR
+};
 
-struct Material {
+struct Material
+{
   std::string name;
   glm::vec3 albedo;
   glm::vec3 emission;
@@ -22,14 +29,16 @@ struct Material {
   MaterialType type;
 };
 
-class Section {
- public:
+class Section
+{
+public:
   std::vector<unsigned> polygonIDs;
   unsigned materialId = 0;
 };
 
-class Mesh {
- public:
+class Mesh
+{
+public:
   Mesh() = default;
   inline unsigned getNumFaces() { return indices.size() / 3; }
   inline const std::vector<Vertex> &getVertices() { return vertices; }
@@ -40,12 +49,13 @@ class Mesh {
   std::vector<unsigned> indices;
 };
 
-class Scene {
- public:
+class Scene
+{
+public:
   std::vector<std::shared_ptr<Primitive>> AllTriangles();
   void load(std::string fileName);
 
- private:
+private:
   std::vector<Mesh> meshes;
   std::vector<std::unique_ptr<Material>> materials;
 };

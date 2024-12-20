@@ -257,6 +257,7 @@ glm::vec3 PathTracingSolver::BRDF(glm::vec3 in, glm::vec3 out, glm::vec3 normal,
     }
     case MaterialType::DIFFUSE:
       return material->albedo / pi;
+    case MaterialType::DIFFUSE_SPECULAR:
     default:
       return glm::vec3(0);
   }
@@ -304,6 +305,7 @@ void PathTracingSolver::Sample(const Material *material, glm::vec3 normal,
       direction = sinf(theta) * cosf(phi) * t + sinf(theta) * sinf(phi) * b +
                   cosf(theta) * normal;
       break;
+    case MaterialType::DIFFUSE_SPECULAR:
     default:
       // 半球均匀采样
       theta = acos(1 - x);
