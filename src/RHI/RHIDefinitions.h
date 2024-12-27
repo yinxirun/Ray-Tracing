@@ -1,19 +1,9 @@
 #pragma once
 #include "definitions.h"
 #include "core/math/color.h"
-
-// 用于控制是否打印未实现函数的信息
-#define PRINT_UNIMPLEMENT
-#undef PRINT_UNIMPLEMENT
-
-#define PRINT_SEPERATOR_RHI_UNIMPLEMENT
-#undef PRINT_SEPERATOR_RHI_UNIMPLEMENT
-
-#define PRINT_TO_EXPLORE
-#undef PRINT_TO_EXPLORE
+#include "core/misc/enum_class_flags.h"
 
 #define DEPRECATED(x, y)
-
 
 // RHICreateUniformBuffer assumes C++ constant layout matches the shader layout when extracting float constants, yet the C++ struct contains pointers.
 // Enforce a min size of 64 bits on pointer types in uniform buffer structs to guarantee layout matching between languages.
@@ -511,8 +501,8 @@ ENUM_CLASS_FLAGS(BufferUsageFlags);
 
 enum class ClearBinding
 {
-	NoneBound,			// no clear color associated with this target.  Target will not do hardware clears on most platforms
-	ColorBound,		// target has a clear color bound.  Clears will use the bound color, and do hardware clears.
+	NoneBound,		   // no clear color associated with this target.  Target will not do hardware clears on most platforms
+	ColorBound,		   // target has a clear color bound.  Clears will use the bound color, and do hardware clears.
 	DepthStencilBound, // target has a depthstencil value bound.  Clears will use the bound values and do hardware clears.
 };
 
@@ -591,6 +581,129 @@ enum class TextureDimension : uint8
 	TextureCubeArray
 };
 
+/** Flags used for texture creation */
+enum class TextureCreateFlags : uint64
+{
+	None = 0,
+	// Texture can be used as a render target
+	RenderTargetable = 1ull << 0,
+	// Texture can be used as a resolve target
+	ResolveTargetable = 1ull << 1,
+	// Texture can be used as a depth-stencil target.
+	DepthStencilTargetable = 1ull << 2,
+	// Texture can be used as a shader resource.
+	ShaderResource = 1ull << 3,
+	// Texture is encoded in sRGB gamma space
+	SRGB = 1ull << 4,
+	// Texture data is writable by the CPU
+	CPUWritable = 1ull << 5,
+	// Texture will be created with an un-tiled format
+	NoTiling = 1ull << 6,
+	// Texture will be used for video decode
+	VideoDecode = 1ull << 7,
+	// Texture that may be updated every frame
+	Dynamic = 1ull << 8,
+	// Texture will be used as a render pass attachment that will be read from
+	InputAttachmentRead = 1ull << 9,
+	/** Texture represents a foveation attachment */
+	Foveation = 1ull << 10,
+	// Prefer 3D internal surface tiling mode for volume textures when possible
+	Tiling3D = 1ull << 11,
+	// This texture has no GPU or CPU backing. It only exists in tile memory on TBDR GPUs (i.e., mobile).
+	Memoryless = 1ull << 12,
+	// Create the texture with the flag that allows mip generation later, only applicable to D3D11
+	GenerateMipCapable = 1ull << 13,
+	// The texture can be partially allocated in fastvram
+	FastVRAMPartialAlloc = 1ull << 14,
+	// Do not create associated shader resource view, only applicable to D3D11 and D3D12
+	DisableSRVCreation = 1ull << 15,
+	// Do not allow Delta Color Compression (DCC) to be used with this texture
+	DisableDCC = 1ull << 16,
+	// UnorderedAccessView (DX11 only)
+	// Warning: Causes additional synchronization between draw calls when using a render target allocated with this flag, use sparingly
+	// See: GCNPerformanceTweets.pdf Tip 37
+	UAV = 1ull << 17,
+	// Render target texture that will be displayed on screen (back buffer)
+	Presentable = 1ull << 18,
+	// Texture data is accessible by the CPU
+	CPUReadback = 1ull << 19,
+	// Texture was processed offline (via a texture conversion process for the current platform)
+	OfflineProcessed = 1ull << 20,
+	// Texture needs to go in fast VRAM if available (HINT only)
+	FastVRAM = 1ull << 21,
+	// by default the texture is not showing up in the list - this is to reduce clutter, using the FULL option this can be ignored
+	HideInVisualizeTexture = 1ull << 22,
+	// Texture should be created in virtual memory, with no physical memory allocation made
+	// You must make further calls to RHIVirtualTextureSetFirstMipInMemory to allocate physical memory
+	// and RHIVirtualTextureSetFirstMipVisible to map the first mip visible to the GPU
+	Virtual = 1ull << 23,
+	// Creates a RenderTargetView for each array slice of the texture
+	// Warning: if this was specified when the resource was created, you can't use SV_RenderTargetArrayIndex to route to other slices!
+	TargetArraySlicesIndependently = 1ull << 24,
+	// Texture that may be shared with DX9 or other devices
+	Shared = 1ull << 25,
+	// RenderTarget will not use full-texture fast clear functionality.
+	NoFastClear = 1ull << 26,
+	// Texture is a depth stencil resolve target
+	DepthStencilResolveTarget = 1ull << 27,
+	// Flag used to indicted this texture is a streamable 2D texture, and should be counted towards the texture streaming pool budget.
+	Streamable = 1ull << 28,
+	// Render target will not FinalizeFastClear; Caches and meta data will be flushed, but clearing will be skipped (avoids potentially trashing metadata)
+	NoFastClearFinalize = 1ull << 29,
+	/** Texture needs to support atomic operations */
+	Atomic64Compatible = 1ull << 30,
+	// Workaround for 128^3 volume textures getting bloated 4x due to tiling mode on some platforms.
+	ReduceMemoryWithTilingMode = 1ull << 31,
+	/** Texture needs to support atomic operations */
+	AtomicCompatible = 1ull << 33,
+	/** Texture should be allocated for external access. Vulkan only */
+	External = 1ull << 34,
+	/** Don't automatically transfer across GPUs in multi-GPU scenarios.  For example, if you are transferring it yourself manually. */
+	MultiGPUGraphIgnore = 1ull << 35,
+};
+ENUM_CLASS_FLAGS(TextureCreateFlags);
+
+// Compatibility defines
+#define TexCreate_None TextureCreateFlags::None
+#define TexCreate_RenderTargetable TextureCreateFlags::RenderTargetable
+#define TexCreate_ResolveTargetable TextureCreateFlags::ResolveTargetable
+#define TexCreate_DepthStencilTargetable TextureCreateFlags::DepthStencilTargetable
+#define TexCreate_ShaderResource TextureCreateFlags::ShaderResource
+#define TexCreate_SRGB TextureCreateFlags::SRGB
+#define TexCreate_CPUWritable TextureCreateFlags::CPUWritable
+#define TexCreate_NoTiling TextureCreateFlags::NoTiling
+#define TexCreate_VideoDecode TextureCreateFlags::VideoDecode
+#define TexCreate_Dynamic TextureCreateFlags::Dynamic
+#define TexCreate_InputAttachmentRead TextureCreateFlags::InputAttachmentRead
+#define TexCreate_Foveation TextureCreateFlags::Foveation
+#define TexCreate_3DTiling TextureCreateFlags::Tiling3D
+#define TexCreate_Memoryless TextureCreateFlags::Memoryless
+#define TexCreate_GenerateMipCapable TextureCreateFlags::GenerateMipCapable
+#define TexCreate_FastVRAMPartialAlloc TextureCreateFlags::FastVRAMPartialAlloc
+#define TexCreate_DisableSRVCreation TextureCreateFlags::DisableSRVCreation
+#define TexCreate_DisableDCC TextureCreateFlags::DisableDCC
+#define TexCreate_UAV TextureCreateFlags::UAV
+#define TexCreate_Presentable TextureCreateFlags::Presentable
+#define TexCreate_CPUReadback TextureCreateFlags::CPUReadback
+#define TexCreate_OfflineProcessed TextureCreateFlags::OfflineProcessed
+#define TexCreate_FastVRAM TextureCreateFlags::FastVRAM
+#define TexCreate_HideInVisualizeTexture TextureCreateFlags::HideInVisualizeTexture
+#define TexCreate_Virtual TextureCreateFlags::Virtual
+#define TexCreate_TargetArraySlicesIndependently TextureCreateFlags::TargetArraySlicesIndependently
+#define TexCreate_Shared TextureCreateFlags::Shared
+#define TexCreate_NoFastClear TextureCreateFlags::NoFastClear
+#define TexCreate_DepthStencilResolveTarget TextureCreateFlags::DepthStencilResolveTarget
+#define TexCreate_Streamable TextureCreateFlags::Streamable
+#define TexCreate_NoFastClearFinalize TextureCreateFlags::NoFastClearFinalize
+#define TexCreate_ReduceMemoryWithTilingMode TextureCreateFlags::ReduceMemoryWithTilingMode
+#define TexCreate_Transient TextureCreateFlags::Transient
+#define TexCreate_AtomicCompatible TextureCreateFlags::AtomicCompatible
+#define TexCreate_External TextureCreateFlags::External
+#define TexCreate_MultiGPUGraphIgnore TextureCreateFlags::MultiGPUGraphIgnore
+#define TexCreate_ReservedResource TextureCreateFlags::ReservedResource
+#define TexCreate_ImmediateCommit TextureCreateFlags::ImmediateCommit
+#define TexCreate_Invalid TextureCreateFlags::Invalid
+
 struct RHIDescriptorHandle
 {
 	RHIDescriptorHandle() = default;
@@ -621,13 +734,10 @@ enum class RenderTargetLoadAction : uint8
 {
 	// Untouched contents of the render target are undefined. Any existing content is not preserved.
 	ENoAction,
-
 	// Existing contents are preserved.
 	ELoad,
-
 	// The render target is cleared to the fast clear value specified on the resource.
 	EClear,
-
 	Num,
 	NumBits = 2,
 };

@@ -40,7 +40,9 @@ namespace VulkanRHI
         {
             vmaUnmapMemory(device->GetAllocator(), allocation);
             vmaDestroyBuffer(device->GetAllocator(), buffer, allocation);
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
             std::cout << "Destroy StagingBuffer: " << std::hex << buffer << std::endl;
+#endif
         }
     }
 
@@ -48,7 +50,9 @@ namespace VulkanRHI
     {
         vmaUnmapMemory(device->GetAllocator(), allocation);
         vmaDestroyBuffer(device->GetAllocator(), buffer, allocation);
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
         std::cout << "Destroy StagingBuffer: " << std::hex << buffer << std::endl;
+#endif
         buffer = VK_NULL_HANDLE;
         allocation = VK_NULL_HANDLE;
     }
@@ -119,7 +123,9 @@ namespace VulkanRHI
         allocCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
         vmaCreateBuffer(device->GetAllocator(), &StagingBufferCreateInfo, &allocCI,
                         &stagingBuffer->buffer, &stagingBuffer->allocation, &stagingBuffer->allocationInfo);
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
         std::cout << "Create Staging Buffer: " << std::hex << stagingBuffer->buffer << std::endl;
+#endif
         {
             /* FScopeLock Lock(&StagingLock); */
             usedStagingBuffers.push_back(stagingBuffer);
@@ -346,7 +352,9 @@ namespace VulkanRHI
         VmaAllocationInfo info{};
         check(buffer == VK_NULL_HANDLE);
         VkResult result = vmaCreateBuffer(InDevice->GetAllocator(), &bufferCI, &allocationCI, &buffer, &allocation, &info);
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
         std::cout << "Create TempFrameAllocationBuffer: " << std::hex << buffer << std::endl;
+#endif
         if (result == VK_SUCCESS)
         {
             MappedData = (uint8 *)info.pMappedData;
@@ -363,7 +371,9 @@ namespace VulkanRHI
         {
             Entries[Index].Reset(device);
             vmaDestroyBuffer(device->GetAllocator(), Entries[Index].buffer, Entries[Index].allocation);
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
             std::cout << "Destroy TempFrameAllocationBuffer: " << std::hex << Entries[Index].buffer << std::endl;
+#endif
             Entries[Index].buffer = VK_NULL_HANDLE;
             Entries[Index].allocation = VK_NULL_HANDLE;
         }
@@ -420,7 +430,9 @@ namespace VulkanRHI
         for (int i = 0; i < pendingDeletionAlloc.size(); ++i)
         {
             vmaDestroyBuffer(InDevice->GetAllocator(), pendingDeletionBuf[i], pendingDeletionAlloc[i]);
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
             std::cout << "Destroy TempFrameAllocationBuffer: " << std::hex << pendingDeletionBuf[i] << std::endl;
+#endif
         }
         pendingDeletionBuf.clear();
         pendingDeletionAlloc.clear();

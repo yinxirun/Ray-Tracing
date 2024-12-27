@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include "definitions.h"
+#include "misc/enum_class_flags.h"
 
 enum PixelFormat : uint8
 {

@@ -143,7 +143,9 @@ VulkanUniformBuffer::VulkanUniformBuffer(Device &InDevice, std::shared_ptr<const
             allocationCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
             VkResult result = vmaCreateBuffer(device->GetAllocator(), &bufferCI, &allocationCI, &handle, &allocation, &info);
-            std::cout << "Create VulkanUniformBuffer: " << std::hex << handle << std::endl; 
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
+            std::cout << "Create VulkanUniformBuffer: " << std::hex << handle << std::endl;
+#endif
             offset = 0;
 
             if (Contents)
@@ -158,7 +160,9 @@ VulkanUniformBuffer::VulkanUniformBuffer(Device &InDevice, std::shared_ptr<const
 VulkanUniformBuffer::~VulkanUniformBuffer()
 {
     vmaDestroyBuffer(device->GetAllocator(), handle, allocation);
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
     std::cout << "Destroy VulkanUniformBuffer: " << std::hex << handle << std::endl;
+#endif
 }
 
 void VulkanUniformBuffer::UpdateResourceTable(const UniformBufferLayout &InLayout, const void *Contents, int32 NumResources)
@@ -263,9 +267,11 @@ VulkanRingBuffer::VulkanRingBuffer(Device *InDevice, uint64 TotalSize, VkFlags U
     allcationCI.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     VkResult result = vmaCreateBuffer(device->GetAllocator(), &bufferCI, &allcationCI, &handle, &allocation, &info);
-    std::cout << "Create VulkanRingBuffer: " << std::hex << handle << std::endl; 
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
+    std::cout << "Create VulkanRingBuffer: " << std::hex << handle << std::endl;
+#endif
 
-    printf("Notice Min Alignment of Ring Buffer\n %s %d\n", __FILE__, __LINE__);
+    printf("Notice Min Alignment of Ring Buffer %s %d\n", __FILE__, __LINE__);
     MinAlignment = 0;
 
     // Start by wrapping around to set up the correct fence
@@ -281,7 +287,9 @@ VulkanRingBuffer::VulkanRingBuffer(Device *InDevice, uint64 TotalSize, VkFlags U
 VulkanRingBuffer::~VulkanRingBuffer()
 {
     vmaDestroyBuffer(device->GetAllocator(), handle, allocation);
+#ifdef DEBUG_BUFFER_CREATE_DESTROY
     std::cout << "Destroy VulkanRingBuffer: " << std::hex << handle << std::endl;
+#endif
     handle = VK_NULL_HANDLE;
     allocation = VK_NULL_HANDLE;
 }
@@ -296,15 +304,6 @@ uint64 VulkanRingBuffer::WrapAroundAllocateMemory(uint64 Size, uint32 Alignment,
     {
         if (FenceCounter == FenceCmdBuffer->GetFenceSignaledCounter())
         {
-            // if (FenceCounter == FenceCmdBuffer->GetSubmittedFenceCounter())
-            {
-                // UE_LOG(LogVulkanRHI, Error, TEXT("Ringbuffer overflow during the same cmd buffer!"));
-            }
-            // else
-            {
-                // UE_LOG(LogVulkanRHI, Error, TEXT("Wrapped around the ring buffer! Waiting for the GPU..."));
-                // Device->GetImmediateContext().GetCommandBufferManager()->WaitForCmdBuffer(FenceCmdBuffer, 0.5f);
-            }
         }
     }
 

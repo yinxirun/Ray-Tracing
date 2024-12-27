@@ -8,7 +8,7 @@ class PrimitiveComponent;
 class ForwardPassMeshProcessor : public MeshPassProcessor
 {
 public:
-    ForwardPassMeshProcessor(EMeshPass::Type InMeshPassType, const Scene *Scene);
+    ForwardPassMeshProcessor(MeshPass::Type InMeshPassType, const Scene *Scene);
 
     void AddMeshBatch(const MeshBatch &meshBatch, uint64 BatchElementMask,
                       const PrimitiveComponent *PrimitiveSceneProxy, int32 StaticMeshId);

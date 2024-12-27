@@ -47,5 +47,6 @@ public:
     uint8 bUseForMaterial : 1; // Whether it can be used in renderpasses requiring material outputs.
 
     /// Cached from vertex factory to avoid dereferencing VF in InitViews.
+    /// 没搞懂干什么用的
     uint8 bSupportsCachingMeshDrawCommands : 1;
 };

@@ -17,7 +17,7 @@ struct MeshProcessorShaders
 };
 
 /** Mesh pass types supported. */
-namespace EMeshPass
+namespace MeshPass
 {
     enum Type : uint8
     {
@@ -33,12 +33,12 @@ class MeshPassMask
 public:
     MeshPassMask() : Data(0) {}
 
-    void Set(EMeshPass::Type Pass)
+    void Set(MeshPass::Type Pass)
     {
         Data |= (uint64(1) << Pass);
     }
 
-    bool Get(EMeshPass::Type Pass) const
+    bool Get(MeshPass::Type Pass) const
     {
         return !!(Data & (uint64(1) << Pass));
     }
@@ -129,11 +129,11 @@ public:
 class CachedMeshDrawCommandInfo
 {
 public:
-    CachedMeshDrawCommandInfo() : CachedMeshDrawCommandInfo(EMeshPass::Num)
+    CachedMeshDrawCommandInfo() : CachedMeshDrawCommandInfo(MeshPass::Num)
     {
     }
 
-    explicit CachedMeshDrawCommandInfo(EMeshPass::Type InMeshPass)
+    explicit CachedMeshDrawCommandInfo(MeshPass::Type InMeshPass)
         : CommandIndex(-1)
     {
     }
@@ -180,7 +180,7 @@ protected:
     Scene &scene;
     MeshDrawCommand MeshDrawCommandForStateBucketing;
     CachedMeshDrawCommandInfo CommandInfo;
-    EMeshPass::Type CurrMeshPass = EMeshPass::Num;
+    MeshPass::Type CurrMeshPass = MeshPass::Num;
 };
 
 class CachedPassMeshDrawListContextImmediate : public CachedPassMeshDrawListContext
@@ -198,10 +198,10 @@ public:
 class MeshPassProcessor
 {
 public:
-    EMeshPass::Type MeshPassType;
+    MeshPass::Type MeshPassType;
     const Scene *scene;
     MeshPassDrawListContext *DrawListContext;
-    MeshPassProcessor(EMeshPass::Type InMeshPassType, const Scene *InScene);
+    MeshPassProcessor(MeshPass::Type InMeshPassType, const Scene *InScene);
     virtual ~MeshPassProcessor() {}
 
     // FMeshPassProcessor interface
@@ -216,7 +216,7 @@ public:
 class PassProcessorManager
 {
 public:
-    static MeshPassProcessor *CreateMeshPassProcessor(EMeshPass::Type PassType, const Scene *Scene,
+    static MeshPassProcessor *CreateMeshPassProcessor(MeshPass::Type PassType, const Scene *Scene,
                                                       MeshPassDrawListContext *InDrawListContext);
 };
 

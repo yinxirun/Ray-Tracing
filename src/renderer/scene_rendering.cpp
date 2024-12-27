@@ -66,9 +66,9 @@ void SceneRenderer::GatherDynamicMeshElements(std::vector<ViewInfo> &InViews,
 
 void SceneRenderer::SetupMeshPass(ViewInfo &View, ExclusiveDepthStencil::Type BasePassDepthStencilAccess, ViewCommands &ViewCommands)
 {
-    for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+    for (int32 PassIndex = 0; PassIndex < MeshPass::Num; PassIndex++)
     {
-        const EMeshPass::Type PassType = (EMeshPass::Type)PassIndex;
+        const MeshPass::Type PassType = (MeshPass::Type)PassIndex;
         MeshPassProcessor *meshPassProcessor = nullptr;
         MeshDrawCommandPass pass = View.MeshDrawCommandPasses[PassIndex];
 

@@ -37,7 +37,7 @@ public:
 
     std::vector<std::shared_ptr<PrimitiveComponent>> primitives;
 
-    CachedPassMeshDrawList CachedDrawLists[EMeshPass::Num];
+    CachedPassMeshDrawList CachedDrawLists[MeshPass::Num];
 
     ExclusiveDepthStencil::Type DefaultBasePassDepthStencilAccess;
 };

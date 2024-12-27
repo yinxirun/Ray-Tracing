@@ -1,18 +1,19 @@
-#include "engine/classes/materials/materials.h"
-#include "RHI/dynamic_rhi.h"
-#include "RHI/RHICommandList.h"
-#include "static_mesh.h"
-#define TINYOBJLOADER_IMPLEMENTATION
+#include "application.h"
 #include "tiny_obj_loader.h"
-#include <iostream>
-#include <unordered_map>
-struct Vertex
+#include "definitions.h"
+#include "core/math/vec.h"
+#include "RHI/RHICommandList.h"
+#include "RHI/RHIResources.h"
+#include "RHI/dynamic_rhi.h"
+#include <memory>
+
+struct SimpleVertex
 {
     Vec3 position;
     Vec3 normal;
     Vec2 texCoord;
 
-    bool operator==(const Vertex &other) const
+    bool operator==(const SimpleVertex &other) const
     {
         return position == other.position && normal == other.normal &&
                texCoord == other.texCoord;
@@ -22,9 +23,9 @@ struct Vertex
 namespace std
 {
     template <>
-    struct hash<Vertex>
+    struct hash<SimpleVertex>
     {
-        size_t operator()(Vertex const &vertex) const
+        size_t operator()(SimpleVertex const &vertex) const
         {
             return ((hash<glm::vec3>()(vertex.position) ^
                      (hash<glm::vec3>()(vertex.normal) << 1)) >>
@@ -33,10 +34,74 @@ namespace std
         }
     };
 }
-void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh)
-{
-    tinyobj::ObjReaderConfig reader_config;
 
+class SimpleMaterial
+{
+public:
+    enum class MaterialType
+    {
+        DIFFUSE,
+        SPECULAR,
+        EMISSIVE
+    } type;
+
+    Vec3 albedo;
+    Vec3 emission;
+    float roughness = 0;
+    float metallic = 0;
+    std::string name;
+};
+
+/// @brief A set of static mesh triangles which are rendered with the same material.
+class SimpleSection
+{
+public:
+    /** The index of the material with which to render this section. */
+    int32 materialIndex;
+    /** Range of vertices and indices used when rendering this section. */
+    uint32 firstIndex;
+    uint32 numTriangles;
+};
+
+class SimpleLODResource
+{
+public:
+    std::vector<SimpleSection> sections;
+    std::vector<Vec3> position;
+    std::vector<Vec3> tangent;
+    std::vector<Vec3> normal;
+    std::vector<Vec2> uv;
+    std::vector<uint32> index;
+
+    std::shared_ptr<Buffer> positonBuffer;
+    std::shared_ptr<Buffer> tangentBuffer;
+    std::shared_ptr<Buffer> normalBuffer;
+    std::shared_ptr<Buffer> uvBuffer;
+    std::shared_ptr<Buffer> indexBuffer;
+};
+
+class SimpleStaticMesh
+{
+public:
+    std::vector<SimpleLODResource> LOD;
+    std::vector<SimpleMaterial> materials;
+};
+
+class SimpleScene
+{
+public:
+    void AddStaticMesh(const SimpleStaticMesh &mesh)
+    {
+        staticMeshes.push_back(std::move(mesh));
+    }
+    std::vector<SimpleStaticMesh> staticMeshes;
+};
+
+SimpleStaticMesh LoadWavefrontStaticMesh(std::string inputfile, RHICommandListBase &cmdList)
+{
+    SimpleStaticMesh staticMesh;
+
+    tinyobj::ObjReaderConfig reader_config;
     tinyobj::ObjReader reader;
 
     if (!reader.ParseFromFile(inputfile, reader_config))
@@ -61,7 +126,7 @@ void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh)
 
     for (size_t s = 0; s < shapes.size(); s++)
     {
-        StaticMeshLODResources &currentLOD = staticMesh.lod1;
+        SimpleLODResource &currentLOD = staticMesh.LOD[0];
         assert(currentLOD.index.empty());
         assert(currentLOD.position.empty());
         assert(currentLOD.normal.empty());
@@ -73,8 +138,8 @@ void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh)
         // 1. load vertices and polygon. Remove unnecessary vertices.
         std::vector<uint32> indices;
         {
-            std::unordered_map<Vertex, size_t> uniqueVertices{};
-            std::vector<Vertex> vertices;
+            std::unordered_map<SimpleVertex, size_t> uniqueVertices{};
+            std::vector<SimpleVertex> vertices;
 
             size_t index_offset = 0;
             for (size_t f = 0; f < numPolygon; f++)
@@ -87,7 +152,7 @@ void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh)
                 // Loop over vertices in the face.
                 for (size_t v = 0; v < fv; v++)
                 {
-                    Vertex vertex;
+                    SimpleVertex vertex;
 
                     // access to vertex
                     tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
@@ -121,7 +186,7 @@ void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh)
                 index_offset += fv;
             }
             // 各个属性分开存储
-            for (Vertex &v : vertices)
+            for (SimpleVertex &v : vertices)
             {
                 currentLOD.position.push_back(v.position);
                 currentLOD.normal.push_back(v.normal);
@@ -133,28 +198,27 @@ void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh)
             staticMesh.materials.resize(mats.size());
             for (size_t i = 0; i < mats.size(); ++i)
             {
-                std::shared_ptr<Material> &material = staticMesh.materials[i];
-                material = std::make_shared<Material>();
-                material->name = mats[i].name;
-                material->albedo =
-                    glm::vec3(mats[i].diffuse[0], mats[i].diffuse[1], mats[i].diffuse[2]);
-                material->emission = glm::vec3(mats[i].emission[0], mats[i].emission[1],
-                                               mats[i].emission[2]);
-                material->metallic = mats[i].metallic;
-                material->roughness = mats[i].roughness;
+                SimpleMaterial &material = staticMesh.materials[i];
+                material.name = mats[i].name;
+                material.albedo =
+                    Vec3(mats[i].diffuse[0], mats[i].diffuse[1], mats[i].diffuse[2]);
+                material.emission = glm::vec3(mats[i].emission[0], mats[i].emission[1],
+                                              mats[i].emission[2]);
+                material.metallic = mats[i].metallic;
+                material.roughness = mats[i].roughness;
 
-                if (material->emission.x > 0 || material->emission.y > 0 ||
-                    material->emission.z > 0)
+                if (material.emission.x > 0 || material.emission.y > 0 ||
+                    material.emission.z > 0)
                 {
-                    material->type = MaterialType::EMISSIVE;
+                    material.type = SimpleMaterial::MaterialType::EMISSIVE;
                 }
-                else if (material->metallic > 0 || material->roughness > 0)
+                else if (material.metallic > 0 || material.roughness > 0)
                 {
-                    material->type = MaterialType::SPECULAR;
+                    material.type = SimpleMaterial::MaterialType::SPECULAR;
                 }
                 else
                 {
-                    material->type = MaterialType::DIFFUSE;
+                    material.type = SimpleMaterial::MaterialType::DIFFUSE;
                 }
             }
         }
@@ -169,7 +233,7 @@ void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh)
                 if (mat2Section.count(shapes[s].mesh.material_ids[f]) == 0)
                 {
                     size_t sectionID = currentLOD.sections.size();
-                    currentLOD.sections.push_back(StaticMeshSection());
+                    currentLOD.sections.push_back(SimpleSection());
                     section2Polygons.push_back(std::vector<uint32>());
                     currentLOD.sections[sectionID].materialIndex = shapes[s].mesh.material_ids[f];
                     section2Polygons[sectionID].push_back(f);
@@ -201,22 +265,29 @@ void load_wavefront_static_mesh(std::string inputfile, StaticMesh &staticMesh)
             }
         }
 
-        // 4. initialize RHI
-        RHICommandListBase &immediate = RHICommandListExecutor::GetImmediateCommandList();
         ResourceCreateInfo ci{};
-
         uint32 size = currentLOD.position.size() * sizeof(Vec3);
         BufferDesc bufferDesc(size, 12, BUF_VertexBuffer);
         currentLOD.positonBuffer = CreateBuffer(bufferDesc, Access::VertexOrIndexBuffer, ci);
-        void *mapped = LockBuffer_BottomOfPipe(immediate, currentLOD.positonBuffer.get(), 0, size, ResourceLockMode::RLM_WriteOnly);
+        void *mapped = LockBuffer_BottomOfPipe(cmdList, currentLOD.positonBuffer.get(), 0, size, ResourceLockMode::RLM_WriteOnly);
         memcpy(mapped, currentLOD.position.data(), size);
-        UnlockBuffer_BottomOfPipe(immediate, currentLOD.positonBuffer.get());
+        UnlockBuffer_BottomOfPipe(cmdList, currentLOD.positonBuffer.get());
 
         size = currentLOD.index.size() * sizeof(uint32);
         bufferDesc = BufferDesc(size, 4, BUF_IndexBuffer);
         currentLOD.indexBuffer = CreateBuffer(bufferDesc, Access::VertexOrIndexBuffer, ci);
-        mapped = LockBuffer_BottomOfPipe(immediate, currentLOD.indexBuffer.get(), 0, size, ResourceLockMode::RLM_WriteOnly);
+        mapped = LockBuffer_BottomOfPipe(cmdList, currentLOD.indexBuffer.get(), 0, size, ResourceLockMode::RLM_WriteOnly);
         memcpy(mapped, currentLOD.index.data(), size);
-        UnlockBuffer_BottomOfPipe(immediate, currentLOD.indexBuffer.get());
+        UnlockBuffer_BottomOfPipe(cmdList, currentLOD.indexBuffer.get());
     }
+
+    return staticMesh;
+}
+
+void RunSimpleApplication()
+{
+    RHICommandListBase &immediate = RHICommandListExecutor::GetImmediateCommandList();
+
+    SimpleScene scene;
+    auto staticMesh = LoadWavefrontStaticMesh("", immediate);
 }

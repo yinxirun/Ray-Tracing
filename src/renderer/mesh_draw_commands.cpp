@@ -5,7 +5,7 @@
 
 /// Converts each FMeshBatch into a set of MeshDrawCommands for a specific mesh pass type.
 void GenerateDynamicMeshDrawCommands(const ViewInfo &View,
-                                     EMeshPass::Type PassType,
+                                     MeshPass::Type PassType,
                                      MeshPassProcessor *PassMeshProcessor,
                                      const std::vector<MeshBatchAndRelevance> &DynamicMeshElements,
                                      const std::vector<MeshPassMask> *DynamicMeshElementsPassRelevance,
@@ -49,7 +49,7 @@ void GenerateDynamicMeshDrawCommands(const ViewInfo &View,
 /*
 如果我没猜错的话，InOutMeshDrawCommands是纯静态网格，InOutDynamicMeshCommandBuildRequests是依赖View的静态网格，DynamicMeshElements是动态网格
 */
-void MeshDrawCommandPass::DispatchPassSetup(Scene *scene, const ViewInfo *view, EMeshPass::Type PassType,
+void MeshDrawCommandPass::DispatchPassSetup(Scene *scene, const ViewInfo *view, MeshPass::Type PassType,
                                             ExclusiveDepthStencil::Type BasePassDepthStencilAccess,
                                             MeshPassProcessor *meshPassProcessor,
                                             const std::vector<MeshBatchAndRelevance> &DynamicMeshElements,

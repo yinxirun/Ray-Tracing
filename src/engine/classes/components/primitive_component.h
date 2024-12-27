@@ -37,6 +37,7 @@ public:
     virtual void GetDynamicMeshElements(const std::vector<const SceneView *> &Views, const Camera &ViewFamily, uint32 VisibilityMap, MeshElementCollector &Collector) const {}
 
     /**
+     * 生成静态网格的MeshBatch，存储到Primtive上。
      * Draws the primitive's static elements.  This is called from the rendering thread once when the scene proxy is created.
      * The static elements will only be rendered if GetViewRelevance declares static relevance.
      * @param PDI - The interface which receives the primitive elements.
@@ -59,7 +60,8 @@ public:
     /** The primitive's cached mesh draw commands infos for all static meshes. Kept separately from StaticMeshes for cache efficiency inside InitViews. */
     std::vector<CachedMeshDrawCommandInfo> staticMeshCommandInfos;
 
-    /** Adds the primitive's static meshes to the scene. */
+    /// Adds the primitive's static meshes to the scene.
+    /// 生成MeshBatch，存储到primitive上。如果可能，生成MeshDrawCommand
     static void AddStaticMeshes(RHICommandListBase &RHICmdList, Scene *Scene, std::vector<PrimitiveComponent *> SceneInfos, bool bCacheMeshDrawCommands = true);
 
     /** Creates cached mesh draw commands for all meshes. */

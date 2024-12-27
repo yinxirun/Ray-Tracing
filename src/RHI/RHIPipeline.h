@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/enum_class_flags.h"
+#include "core/misc/enum_class_flags.h"
 #include "definitions.h"
 
 enum class RHIPipeline : uint8

@@ -2,7 +2,7 @@
 #include "util.h"
 #include "device.h"
 #include "configuration.h"
-#include "core/enum_class_flags.h"
+#include "core/misc/enum_class_flags.h"
 #include <iostream>
 
 VulkanTexture::VulkanTexture(Device &InDevice, const TextureCreateDesc &InCreateDesc, VkImage InImage, bool bUnused)
@@ -13,7 +13,6 @@ VulkanTexture::VulkanTexture(Device &InDevice, const TextureCreateDesc &InCreate
 
 VulkanTexture::~VulkanTexture()
 {
-    // VULKAN_TRACK_OBJECT_DELETE(FVulkanTexture, this);
     if (ImageOwnerType != EImageOwnerType::Aliased)
     {
         if (PartialView != DefaultView)

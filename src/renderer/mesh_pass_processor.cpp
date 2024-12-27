@@ -70,7 +70,7 @@ void CachedPassMeshDrawListContextImmediate::FinalizeCommand(
     CachedDrawLists.MeshDrawCommands.push_back(MeshDrawCommand);
 }
 
-MeshPassProcessor::MeshPassProcessor(EMeshPass::Type InMeshPassType, const Scene *InScene)
+MeshPassProcessor::MeshPassProcessor(MeshPass::Type InMeshPassType, const Scene *InScene)
     : MeshPassType(InMeshPassType), scene(InScene) {}
 
 #define TEMP
@@ -167,10 +167,10 @@ void MeshPassProcessor::BuildMeshDrawCommands(const MeshBatch &meshBatch, const 
 
 #endif
 
-MeshPassProcessor *PassProcessorManager::CreateMeshPassProcessor(EMeshPass::Type PassType, const Scene *Scene,
+MeshPassProcessor *PassProcessorManager::CreateMeshPassProcessor(MeshPass::Type PassType, const Scene *Scene,
                                                                  MeshPassDrawListContext *InDrawListContext)
 {
-    if (PassType == EMeshPass::Forward)
+    if (PassType == MeshPass::Forward)
     {
         return new ForwardPassMeshProcessor(PassType, Scene);
     }

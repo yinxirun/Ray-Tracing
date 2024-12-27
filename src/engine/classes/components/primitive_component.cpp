@@ -25,11 +25,11 @@ private:
     PrimitiveComponent *primitiveComponent;
 };
 
-void PrimitiveComponent::AddStaticMeshes(RHICommandListBase &RHICmdList, Scene *Scene, std::vector<PrimitiveComponent *> SceneInfos, bool bCacheMeshDrawCommands)
+void PrimitiveComponent::AddStaticMeshes(RHICommandListBase &RHICmdList, Scene *Scene, std::vector<PrimitiveComponent *> primitives, bool bCacheMeshDrawCommands)
 {
-    for (int i = 0; i < SceneInfos.size(); ++i)
+    for (int i = 0; i < primitives.size(); ++i)
     {
-        PrimitiveComponent *primitive = SceneInfos[i];
+        PrimitiveComponent *primitive = primitives[i];
         // Cache the primitive's static mesh elements.
         BatchingSPDI BatchingSPDI(primitive);
         primitive->DrawStaticElements(&BatchingSPDI);
@@ -37,7 +37,7 @@ void PrimitiveComponent::AddStaticMeshes(RHICommandListBase &RHICmdList, Scene *
 
     if (bCacheMeshDrawCommands)
     {
-        CacheMeshDrawCommands(Scene, SceneInfos);
+        CacheMeshDrawCommands(Scene, primitives);
     }
 }
 
@@ -55,7 +55,7 @@ void PrimitiveComponent::CacheMeshDrawCommands(Scene *Scene, std::vector<Primiti
 
     for (int i = 0; i < primitives.size(); i++)
     {
-        primitives[i]->staticMeshCommandInfos.resize(EMeshPass::Num * primitives[i]->staticMeshes.size());
+        primitives[i]->staticMeshCommandInfos.resize(MeshPass::Num * primitives[i]->staticMeshes.size());
 
         for (int32 MeshIndex = 0; MeshIndex < primitives[i]->staticMeshes.size(); MeshIndex++)
         {
@@ -63,22 +63,22 @@ void PrimitiveComponent::CacheMeshDrawCommands(Scene *Scene, std::vector<Primiti
         }
     }
 
-    for (int i = 0; i < EMeshPass::Num; ++i)
+    for (int i = 0; i < MeshPass::Num; ++i)
     {
-        EMeshPass::Type PassType = (EMeshPass::Type)i;
+        MeshPass::Type PassType = (MeshPass::Type)i;
         MeshPassProcessor *PassMeshProcessor = PassProcessorManager::CreateMeshPassProcessor(PassType, Scene, &DrawListContext);
 
         if (PassMeshProcessor != nullptr)
         {
             for (const MeshInfoAndIndex &MeshAndInfo : MeshBatches)
             {
-                PrimitiveComponent *SceneInfo = primitives[MeshAndInfo.InfoIndex];
-                StaticMeshBatch &Mesh = SceneInfo->staticMeshes[MeshAndInfo.MeshIndex];
-                StaticMeshBatchRelevance &MeshRelevance = SceneInfo->staticMeshRelevances[MeshAndInfo.MeshIndex];
+                PrimitiveComponent *primitive = primitives[MeshAndInfo.InfoIndex];
+                StaticMeshBatch &Mesh = primitive->staticMeshes[MeshAndInfo.MeshIndex];
+                StaticMeshBatchRelevance &MeshRelevance = primitive->staticMeshRelevances[MeshAndInfo.MeshIndex];
 
                 uint64 BatchElementMask = ~0ull;
                 // NOTE: AddMeshBatch calls FCachedPassMeshDrawListContext::FinalizeCommand
-                PassMeshProcessor->AddMeshBatch(Mesh, BatchElementMask, SceneInfo);
+                PassMeshProcessor->AddMeshBatch(Mesh, BatchElementMask, primitive);
 
                 CachedMeshDrawCommandInfo CommandInfo = DrawListContext.GetCommandInfoAndReset();
 
@@ -87,8 +87,8 @@ void PrimitiveComponent::CacheMeshDrawCommands(Scene *Scene, std::vector<Primiti
                     MeshRelevance.CommandInfosMask.Set(PassType);
                     MeshRelevance.CommandInfosBase++;
 
-                    int commandInfoIndex = MeshAndInfo.MeshIndex * EMeshPass::Num + PassType;
-                    SceneInfo->staticMeshCommandInfos[commandInfoIndex] = CommandInfo;
+                    int commandInfoIndex = MeshAndInfo.MeshIndex * MeshPass::Num + PassType;
+                    primitive->staticMeshCommandInfos[commandInfoIndex] = CommandInfo;
                 }
             }
         }

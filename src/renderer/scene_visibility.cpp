@@ -37,14 +37,14 @@ void VisibilityTaskData::LaunchVisibilityTasks(std::function<void()> &BeginInitV
 ///////////////////////////////////////////////////////////////////////////////////
 struct DrawCommandRelevancePacket
 {
-    std::vector<VisibleMeshDrawCommand> VisibleCachedDrawCommands[EMeshPass::Num];
-    std::vector<const StaticMeshBatch *> DynamicBuildRequests[EMeshPass::Num];
-    int32 NumDynamicBuildRequestElements[EMeshPass::Num];
+    std::vector<VisibleMeshDrawCommand> VisibleCachedDrawCommands[MeshPass::Num];
+    std::vector<const StaticMeshBatch *> DynamicBuildRequests[MeshPass::Num];
+    int32 NumDynamicBuildRequestElements[MeshPass::Num];
     bool bUseCachedMeshDrawCommands = UseCachedCommands;
 
     void AddCommandsForMesh(int32 PrimitiveIndex, const PrimitiveComponent *InPrimitive,
                             const StaticMeshBatchRelevance &StaticMeshRelevance,
-                            const StaticMeshBatch &StaticMesh, const Scene &scene, EMeshPass::Type PassType)
+                            const StaticMeshBatch &StaticMesh, const Scene &scene, MeshPass::Type PassType)
     {
         const bool bUseCachedMeshCommand = bUseCachedMeshDrawCommands && StaticMeshRelevance.bSupportsCachingMeshDrawCommands;
 
@@ -127,7 +127,7 @@ struct RelevancePacket
         ViewInfo &WriteView = const_cast<ViewInfo &>(View);
         ViewCommands &WriteViewCommands = const_cast<ViewCommands &>(viewCommands);
 
-        for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+        for (int32 PassIndex = 0; PassIndex < MeshPass::Num; PassIndex++)
         {
             std::vector<VisibleMeshDrawCommand> &SrcCommands = DrawCommandPacket.VisibleCachedDrawCommands[PassIndex];
             std::vector<VisibleMeshDrawCommand> &DstCommands = WriteViewCommands.MeshCommands[PassIndex];
@@ -201,7 +201,7 @@ static void ComputeAndMarkRelevanceForView(const Scene *scene, ViewInfo &view, V
     }
 
     {
-        for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; PassIndex++)
+        for (int32 PassIndex = 0; PassIndex < MeshPass::Num; PassIndex++)
         {
             int32 NumVisibleCachedMeshDrawCommands = 0;
             int32 NumDynamicBuildRequests = 0;

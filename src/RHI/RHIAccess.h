@@ -1,7 +1,7 @@
 #pragma once
 
 #include "definitions.h"
-#include "core/enum_class_flags.h"
+#include "core/misc/enum_class_flags.h"
 
 enum class Access : uint32
 {

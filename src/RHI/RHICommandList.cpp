@@ -1,6 +1,6 @@
 #include "RHICommandList.h"
 #include "core/assertion_macros.h"
-#include "core/enum_class_flags.h"
+#include "core/misc/enum_class_flags.h"
 #include "RHI/RHIContext.h"
 #include "RHI/dynamic_rhi.h"
 #include <cmath>

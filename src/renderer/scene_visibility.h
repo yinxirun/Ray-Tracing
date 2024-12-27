@@ -7,18 +7,18 @@ class ViewCommands
 public:
     ViewCommands()
     {
-        for (int32 PassIndex = 0; PassIndex < EMeshPass::Num; ++PassIndex)
+        for (int32 PassIndex = 0; PassIndex < MeshPass::Num; ++PassIndex)
         {
             NumDynamicMeshCommandBuildRequestElements[PassIndex] = 0;
         }
     }
 
     // 已经缓存好的静态网格
-    std::array<std::vector<VisibleMeshDrawCommand>, EMeshPass::Num> MeshCommands;
+    std::array<std::vector<VisibleMeshDrawCommand>, MeshPass::Num> MeshCommands;
 
     // 需要缓存的静态网格（view相关）
-    std::array<int32, EMeshPass::Num> NumDynamicMeshCommandBuildRequestElements;
-    std::array<std::vector<const StaticMeshBatch *>, EMeshPass::Num> DynamicMeshCommandBuildRequests;
+    std::array<int32, MeshPass::Num> NumDynamicMeshCommandBuildRequestElements;
+    std::array<std::vector<const StaticMeshBatch *>, MeshPass::Num> DynamicMeshCommandBuildRequests;
 };
 
 class IVisibilityTaskData

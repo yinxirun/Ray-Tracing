@@ -292,9 +292,6 @@ int RHIComputeTest()
 RendererModule module;
 int main()
 {
-    RHIComputeTest();
-    return 0;
-
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     // 固定窗口大小

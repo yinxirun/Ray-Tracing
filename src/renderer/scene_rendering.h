@@ -26,7 +26,7 @@ private:
 class ViewInfo : public SceneView
 {
 public:
-    std::array<MeshDrawCommandPass, EMeshPass::Num> MeshDrawCommandPasses;
+    std::array<MeshDrawCommandPass, MeshPass::Num> MeshDrawCommandPasses;
 
     /** Gathered in initviews from all the primitives with dynamic view relevance, used in each mesh pass. */
     std::vector<MeshBatchAndRelevance> DynamicMeshElements;
@@ -35,7 +35,7 @@ public:
     std::vector<MeshPassMask> DynamicMeshElementsPassRelevance;
 
     /** Number of dynamic mesh elements per mesh pass (inside FViewInfo::DynamicMeshElements). */
-    int32 NumVisibleDynamicMeshElements[EMeshPass::Num];
+    int32 NumVisibleDynamicMeshElements[MeshPass::Num];
 
     /** A map from static mesh ID to a boolean visibility value. */
     std::vector<bool> StaticMeshVisibilityMap;

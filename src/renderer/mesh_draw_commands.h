@@ -11,7 +11,7 @@ class MeshDrawCommandPassSetupTaskContext
 public:
     const ViewInfo *View;
     const Scene *Scene;
-    EMeshPass::Type PassType;
+    MeshPass::Type PassType;
     ExclusiveDepthStencil::Type BasePassDepthStencilAccess;
     ExclusiveDepthStencil::Type DefaultBasePassDepthStencilAccess;
 
@@ -41,7 +41,7 @@ class MeshDrawCommandPass
 public:
     /// Dispatch visible mesh draw command process task, which prepares this pass for drawing.
     /// This includes generation of dynamic mesh draw commands, draw sorting and draw merging.
-    void DispatchPassSetup(Scene *scene, const ViewInfo *view, EMeshPass::Type PassType,
+    void DispatchPassSetup(Scene *scene, const ViewInfo *view, MeshPass::Type PassType,
                            ExclusiveDepthStencil::Type BasePassDepthStencilAccess,
                            MeshPassProcessor *meshPassProcessor,
                            const std::vector<MeshBatchAndRelevance> &DynamicMeshElements,
