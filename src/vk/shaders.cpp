@@ -111,7 +111,17 @@ ComputeShader *RHI::CreateComputeShader(std::vector<uint8> Code)
     return shader;
 }
 
-VulkanShader::~VulkanShader() {}
+VulkanShader::~VulkanShader()
+{
+    PurgeShaderModules();
+    device->GetShaderFactory().OnDeleteShader(*this);
+}
+
+void VulkanShader::PurgeShaderModules()
+{
+	/* FScopeLock Lock(&VulkanShaderModulesMapCS); */
+	ShaderModules.clear();
+}
 
 VulkanShader::SpirvCode VulkanShader::GetSpirvCode(const SpirvContainer &Container)
 {

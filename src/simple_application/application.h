@@ -1,3 +1,5 @@
 #pragma once
 
-extern void RunSimpleApplication();
+#include <GLFW/glfw3.h>
+
+extern void RunSimpleApplication(GLFWwindow*);

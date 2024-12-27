@@ -182,6 +182,8 @@ public:
 
     virtual ~VulkanShader();
 
+    void PurgeShaderModules();
+
     std::shared_ptr<ShaderModule> GetOrCreateHandle(const VulkanPipelineLayout *Layout, uint32 LayoutHash)
     {
         /* FScopeLock Lock(&VulkanShaderModulesMapCS); */
