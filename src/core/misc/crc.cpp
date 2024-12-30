@@ -1,4 +1,5 @@
 #include "crc.h"
+#include <iostream>
 
 uint32 CRCTablesSB8[8][256] =
     {
@@ -167,6 +168,60 @@ uint32 MemCrc32(const void *InData, int32 Length, uint32 CRC)
                 CRCTablesSB8[1][(V2 >> 16) & 0xFF] ^
                 CRCTablesSB8[0][V2 >> 24];
         }
+        Data = (const uint8 *)Data4;
+
+        Length %= 8;
+    }
+
+    for (; Length; --Length)
+    {
+        CRC = (CRC >> 8) ^ CRCTablesSB8[0][(CRC & 0xFF) ^ *Data++];
+    }
+
+    return ~CRC;
+}
+
+uint32 DebugMemCrc32(const void *InData, int32 Length, uint32 CRC)
+{
+    // Based on the Slicing-by-8 implementation found here:
+    // http://slicing-by-8.sourceforge.net/
+
+    CRC = ~CRC;
+
+    const uint8 *__restrict Data = (uint8 *)InData;
+
+    // First we need to align to 32-bits
+    int32 InitBytes = static_cast<int32>(Align(Data, 4) - Data);
+
+    if (Length > InitBytes)
+    {
+        Length -= InitBytes;
+
+        for (; InitBytes; --InitBytes)
+        {
+            CRC = (CRC >> 8) ^ CRCTablesSB8[0][(CRC & 0xFF) ^ *Data++];
+        }
+
+        auto Data4 = (const uint32 *)Data;
+        for (uint32 Repeat = Length / 8; Repeat; --Repeat)
+        {
+            uint32 V1 = *Data4++;
+            std::cout << V1 << " ";
+            std::cout << CRC << " ";
+            V1 = V1 ^ CRC;
+            std::cout << V1 << std::endl;
+            uint32 V2 = *Data4++;
+            CRC =
+                CRCTablesSB8[7][V1 & 0xFF] ^
+                CRCTablesSB8[6][(V1 >> 8) & 0xFF] ^
+                CRCTablesSB8[5][(V1 >> 16) & 0xFF] ^
+                CRCTablesSB8[4][V1 >> 24] ^
+                CRCTablesSB8[3][V2 & 0xFF] ^
+                CRCTablesSB8[2][(V2 >> 8) & 0xFF] ^
+                CRCTablesSB8[1][(V2 >> 16) & 0xFF] ^
+                CRCTablesSB8[0][V2 >> 24];
+        }
+        std::cout << "-------------------------" << std::endl;
         Data = (const uint8 *)Data4;
 
         Length %= 8;

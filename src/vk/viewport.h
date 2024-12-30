@@ -39,7 +39,7 @@ private:
     VulkanViewport *viewport;
 };
 
-class VulkanViewport : public Viewport
+class VulkanViewport : public Viewport, public VulkanRHI::DeviceChild
 {
 public:
     enum
@@ -78,8 +78,6 @@ public:
     VkFormat GetSwapchainImageFormat() const;
 
 protected:
-    Device *device;
-
     std::vector<VkImage> backBufferImages;
     std::vector<VulkanRHI::Semaphore *> renderingDoneSemaphores;
     std::vector<VulkanView *> textureViews;

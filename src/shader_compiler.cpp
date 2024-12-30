@@ -155,7 +155,7 @@ std::vector<uint8> process_shader(std::string spvFilename, ShaderFrequency freq)
     std::vector<uint32_t> spirv_binary(buffer.size() * sizeof(uint8_t) / sizeof(uint32_t));
     memcpy(spirv_binary.data(), buffer.data(), buffer.size());
 
-    spirv_cross::CompilerGLSL glsl(std::move(spirv_binary));
+    spirv_cross::CompilerGLSL glsl(spirv_binary);
 
     // The SPIR-V is now parsed, and we can perform reflection on it.
     spirv_cross::ShaderResources resources = glsl.get_shader_resources();

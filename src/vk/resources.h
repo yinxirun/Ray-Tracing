@@ -724,7 +724,9 @@ public:
 
     void Init(const ShaderHeader &InCodeHeader, uint64 &OutPackedUniformBufferStagingMask)
     {
+#ifdef PRINT_UNIMPLEMENT
         printf("Have not implement PackedUniformBuffers::Init %s %d\n", __FILE__, __LINE__);
+#endif
         // PackedUniformBuffers.AddDefaulted(InCodeHeader.PackedUBs.Num());
         // for (int32 Index = 0; Index < InCodeHeader.PackedUBs.Num(); ++Index)
         // {

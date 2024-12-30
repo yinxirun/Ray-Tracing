@@ -1,4 +1,6 @@
 #include "application.h"
+#include "simple_scene.h"
+#include "simple_renderer.h"
 #include "definitions.h"
 #include "core/math/vec.h"
 #include "RHI/RHICommandList.h"
@@ -18,101 +20,6 @@
 #include <tiny_obj_loader.h>
 
 #include <memory>
-
-struct SimpleVertex
-{
-    Vec3 position;
-    Vec3 normal;
-    Vec2 texCoord;
-
-    bool operator==(const SimpleVertex &other) const
-    {
-        return position == other.position && normal == other.normal &&
-               texCoord == other.texCoord;
-    }
-};
-
-namespace std
-{
-    template <>
-    struct hash<SimpleVertex>
-    {
-        size_t operator()(SimpleVertex const &vertex) const
-        {
-            return ((hash<glm::vec3>()(vertex.position) ^
-                     (hash<glm::vec3>()(vertex.normal) << 1)) >>
-                    1) ^
-                   (hash<glm::vec2>()(vertex.texCoord) << 1);
-        }
-    };
-}
-
-class SimpleMaterial
-{
-public:
-    enum class MaterialType
-    {
-        DIFFUSE,
-        SPECULAR,
-        EMISSIVE
-    } type;
-
-    Vec3 albedo;
-    Vec3 emission;
-    float roughness = 0;
-    float metallic = 0;
-    std::string name;
-};
-
-/// @brief A set of static mesh triangles which are rendered with the same material.
-class SimpleSection
-{
-public:
-    /** The index of the material with which to render this section. */
-    int32 materialIndex;
-    /** Range of vertices and indices used when rendering this section. */
-    uint32 firstIndex;
-    uint32 numTriangles;
-};
-
-class SimpleLODResource
-{
-public:
-    std::vector<SimpleSection> sections;
-    std::vector<Vec3> position;
-    std::vector<Vec3> tangent;
-    std::vector<Vec3> normal;
-    std::vector<Vec2> uv;
-    std::vector<uint32> index;
-
-    std::shared_ptr<Buffer> positonBuffer;
-    std::shared_ptr<Buffer> tangentBuffer;
-    std::shared_ptr<Buffer> normalBuffer;
-    std::shared_ptr<Buffer> uvBuffer;
-    std::shared_ptr<Buffer> indexBuffer;
-};
-
-class SimpleStaticMesh
-{
-public:
-    std::vector<SimpleLODResource> LOD;
-    std::vector<SimpleMaterial> materials;
-};
-
-class SimpleScene
-{
-public:
-    void AddStaticMesh(const SimpleStaticMesh &mesh)
-    {
-        staticMeshes.push_back(std::move(mesh));
-    }
-
-    void Render()
-    {
-    }
-
-    std::vector<SimpleStaticMesh> staticMeshes;
-};
 
 SimpleStaticMesh LoadWavefrontStaticMesh(std::string inputfile, RHICommandListBase &cmdList)
 {
@@ -283,36 +190,30 @@ SimpleStaticMesh LoadWavefrontStaticMesh(std::string inputfile, RHICommandListBa
             }
         }
 
-        ResourceCreateInfo ci{};
-        uint32 size = currentLOD.position.size() * sizeof(Vec3);
-        BufferDesc bufferDesc(size, 12, BUF_VertexBuffer);
-        currentLOD.positonBuffer = CreateBuffer(bufferDesc, Access::VertexOrIndexBuffer, ci);
-        void *mapped = LockBuffer_BottomOfPipe(cmdList, currentLOD.positonBuffer.get(), 0, size, ResourceLockMode::RLM_WriteOnly);
-        memcpy(mapped, currentLOD.position.data(), size);
-        UnlockBuffer_BottomOfPipe(cmdList, currentLOD.positonBuffer.get());
-
-        size = currentLOD.index.size() * sizeof(uint32);
-        bufferDesc = BufferDesc(size, 4, BUF_IndexBuffer);
-        currentLOD.indexBuffer = CreateBuffer(bufferDesc, Access::VertexOrIndexBuffer, ci);
-        mapped = LockBuffer_BottomOfPipe(cmdList, currentLOD.indexBuffer.get(), 0, size, ResourceLockMode::RLM_WriteOnly);
-        memcpy(mapped, currentLOD.index.data(), size);
-        UnlockBuffer_BottomOfPipe(cmdList, currentLOD.indexBuffer.get());
+        // 4. upload to GPU
+        auto Upload = [](RHICommandListBase &cmdList, void *src, uint32 elementNum, uint32 stride, std::shared_ptr<Buffer> &dst, BufferUsageFlags flag)
+        {
+            ResourceCreateInfo ci{};
+            uint32 size = elementNum * stride;
+            BufferDesc bufferDesc(size, stride, flag);
+            dst = CreateBuffer(bufferDesc, Access::VertexOrIndexBuffer, ci);
+            void *mapped = LockBuffer_BottomOfPipe(cmdList, dst.get(), 0, size, ResourceLockMode::RLM_WriteOnly);
+            memcpy(mapped, src, size);
+            UnlockBuffer_BottomOfPipe(cmdList, dst.get());
+        };
+        Upload(cmdList, currentLOD.position.data(), currentLOD.position.size(), sizeof(Vec3), currentLOD.positonBuffer, BUF_VertexBuffer);
+        Upload(cmdList, currentLOD.normal.data(), currentLOD.normal.size(), sizeof(Vec2), currentLOD.normalBuffer, BUF_VertexBuffer);
+        Upload(cmdList, currentLOD.uv.data(), currentLOD.uv.size(), sizeof(Vec2), currentLOD.uvBuffer, BUF_VertexBuffer);
+        Upload(cmdList, currentLOD.index.data(), currentLOD.index.size(), sizeof(Vec3), currentLOD.indexBuffer, BUF_IndexBuffer);
     }
 
     return staticMesh;
 }
 
-static const int WIDTH = 1600;
-static const int HEIGHT = 1200;
-static VulkanViewport *drawingViewport;
+const int WIDTH = 1600;
+const int HEIGHT = 1200;
+extern Viewport *drawingViewport;
 extern std::vector<uint8> process_shader(std::string filename, ShaderFrequency freq);
-
-struct CameraInfo
-{
-    Mat4 model;
-    Mat4 view;
-    Mat4 proj;
-};
 
 void RunSimpleApplication(GLFWwindow *window)
 {
@@ -320,12 +221,32 @@ void RunSimpleApplication(GLFWwindow *window)
     immediate.SwitchPipeline(RHIPipeline::Graphics);
 
     SimpleScene scene;
-    auto staticMesh = LoadWavefrontStaticMesh("assets/cornell-box/cornell-box_normal.obj", immediate);
-    scene.AddStaticMesh(staticMesh);
+    SimpleRenderer renderer(scene);
+    scene.AddStaticMesh(LoadWavefrontStaticMesh("assets/cube.obj", immediate));
+    {
+        CommandContext *context = GetDefaultContext();
+        std::shared_ptr<Viewport> viewport = CreateViewport(window, WIDTH, HEIGHT, false, PixelFormat::PF_B8G8R8A8);
+        drawingViewport = viewport.get();
+
+        renderer.Prepare(immediate);
+        while (!glfwWindowShouldClose(window))
+        {
+            glfwPollEvents();
+            context->BeginDrawingViewport(viewport);
+            context->BeginFrame();
+
+            renderer.Render(context, scene, viewport.get());
+
+            context->EndFrame();
+            context->EndDrawingViewport(viewport.get(), false);
+        }
+        context->SubmitCommandsHint();
+        return;
+    }
 
     // 准备资源
     CommandContext *context = GetDefaultContext();
-    std::shared_ptr<VulkanViewport> viewport = CreateViewport(window, WIDTH, HEIGHT, false, PixelFormat::PF_B8G8R8A8);
+    std::shared_ptr<Viewport> viewport = CreateViewport(window, WIDTH, HEIGHT, false, PixelFormat::PF_B8G8R8A8);
     drawingViewport = viewport.get();
 
     std::array<uint32, 12> indices = {4, 5, 6, 4, 6, 7,
@@ -390,14 +311,14 @@ void RunSimpleApplication(GLFWwindow *window)
     elements.push_back(VertexElement(1, 0, VET_Float3, 1, 12));
     elements.push_back(VertexElement(2, 0, VET_Float2, 2, 8));
     graphicsPSOInit.BoundShaderState.VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(elements);
-    graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(process_shader("shaders/a.vert.spv", SF_Vertex));
-    graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(process_shader("shaders/a.frag.spv", SF_Pixel));
+    graphicsPSOInit.BoundShaderState.VertexShaderRHI = CreateVertexShader(process_shader("shaders/test_cube.vert.spv", SF_Vertex));
+    graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(process_shader("shaders/test_cube.frag.spv", SF_Pixel));
 
     // 相机参数
     CameraInfo perCamera;
-    perCamera.model = Rotate(Mat4(1), Radians(90), Vec3(0, 0, 1));
-    perCamera.view = Mat4(1);
-    perCamera.proj = Mat4(1);
+    perCamera.model = Rotate(Mat4(1), Radians(0), Vec3(0, 0, 1));
+    perCamera.view = Lookat(Vec3(0, 0, -1), Vec3(0, 0, 0), Vec3(0, 1, 0));
+    perCamera.proj = Perspective(Radians(60), (float)WIDTH / (float)HEIGHT, 100, 0.1);
     UniformBufferLayoutInitializer UBInit;
     UBInit.BindingFlags = UniformBufferBindingFlags::Shader;
     UBInit.ConstantBufferSize = sizeof(CameraInfo);
@@ -441,11 +362,10 @@ void RunSimpleApplication(GLFWwindow *window)
         context->BeginDrawingViewport(viewport);
         context->BeginFrame();
 
-        RenderPassInfo RPInfo(viewport->GetBackBuffer().get(), RenderTargetActions::Clear_Store,
+        RenderPassInfo RPInfo(GetViewportBackBuffer(viewport.get()).get(), RenderTargetActions::Clear_Store,
                               depth.get(), EDepthStencilTargetActions::ClearDepthStencil_DontStoreDepthStencil);
         context->BeginRenderPass(RPInfo, "no name");
 
-        // PSO的回收还没写，目前是会泄漏的
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);
         context->SetGraphicsPipelineState(pso, 0, false);
         context->SetShaderUniformBuffer(graphicsPSOInit.BoundShaderState.VertexShaderRHI, 0, ub.get());

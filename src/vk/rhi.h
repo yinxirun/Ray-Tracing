@@ -90,8 +90,8 @@ public:
 
     virtual ComputeContext *GetCommandContext(RHIPipeline Pipeline, RHIGPUMask GPUMask);
 
-    std::shared_ptr<VulkanViewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
-                                                   bool bIsFullscreen, PixelFormat PreferredPixelFormat);
+    std::shared_ptr<Viewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
+                                             bool bIsFullscreen, PixelFormat PreferredPixelFormat);
 
     // 288
     /**
@@ -124,9 +124,9 @@ public:
     // 339
     virtual std::shared_ptr<Buffer> CreateBuffer(BufferDesc const &Desc, Access ResourceState, ResourceCreateInfo &CreateInfo);
 
-	// Gets the minimum alignment (in bytes) required for creating a shader resource view on a buffer-backed resource.
-	// FlushType: Thread safe
-	virtual uint64 GetMinimumAlignmentForBufferBackedSRV(PixelFormat Format);
+    // Gets the minimum alignment (in bytes) required for creating a shader resource view on a buffer-backed resource.
+    // FlushType: Thread safe
+    virtual uint64 GetMinimumAlignmentForBufferBackedSRV(PixelFormat Format);
 
     virtual std::shared_ptr<Texture> CreateTexture(RHICommandListBase &RHICmdList, const TextureCreateDesc &CreateDesc);
 
@@ -171,6 +171,10 @@ public:
         InternalUpdateTexture2D(RHICmdList, Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
     }
 
+    // With RHI thread, this is the current backbuffer from the perspective of the render thread.
+    // FlushType: Thread safe
+    std::shared_ptr<Texture> GetViewportBackBuffer(Viewport *Viewport);
+
     // 673
     //  Compute the hash of the state components of the PSO initializer for PSO Precaching (only hash data relevant for the RHI specific PSO)
     virtual uint64 ComputeStatePrecachePSOHash(const GraphicsPipelineStateInitializer &Initializer);
@@ -179,7 +183,7 @@ public:
     virtual uint64 ComputePrecachePSOHash(const GraphicsPipelineStateInitializer &Initializer);
 
     // 715
-    virtual void ResizeViewport(VulkanViewport *Viewport, uint32 SizeX, uint32 SizeY,
+    virtual void ResizeViewport(Viewport *Viewport, uint32 SizeX, uint32 SizeY,
                                 bool bIsFullscreen, PixelFormat PreferredPixelFormat);
     // 919
     //  Buffer Lock/Unlock

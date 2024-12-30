@@ -19,13 +19,18 @@
 
 extern std::vector<uint8> process_shader(std::string filename, ShaderFrequency freq);
 
-VulkanViewport *drawingViewport = nullptr;
+Viewport *drawingViewport = nullptr;
 extern RHICommandListExecutor GRHICommandListExecutor;
 
 void OnSizeChanged(GLFWwindow *window, int width, int height)
 {
+    while (width == 0 || height == 0)
+    {
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
     rhi->ResizeViewport(drawingViewport, width, height, false, PF_Unknown);
-    // printf("Resize Viewport. Width: %d Height: %d\n", width, height);
+    printf("Resize Viewport. Width: %d Height: %d\n", width, height);
 }
 
 std::vector<uint8> readFile(const std::string &filename)
@@ -68,7 +73,7 @@ int RHIGraphicTest()
     dummy.SwitchPipeline(RHIPipeline::Graphics);
     {
         CommandContext *context = GetDefaultContext();
-        std::shared_ptr<VulkanViewport> viewport = CreateViewport(window, WIDTH, HEIGHT, false, PixelFormat::PF_B8G8R8A8);
+        std::shared_ptr<Viewport> viewport = CreateViewport(window, WIDTH, HEIGHT, false, PixelFormat::PF_B8G8R8A8);
         drawingViewport = viewport.get();
 
         std::array<uint32, 12> indices = {4, 5, 6, 4, 6, 7,
@@ -184,7 +189,7 @@ int RHIGraphicTest()
             context->BeginDrawingViewport(viewport);
             context->BeginFrame();
 
-            RenderPassInfo RPInfo(viewport->GetBackBuffer().get(), RenderTargetActions::Clear_Store,
+            RenderPassInfo RPInfo(GetViewportBackBuffer(viewport.get()).get(), RenderTargetActions::Clear_Store,
                                   depth.get(), EDepthStencilTargetActions::ClearDepthStencil_DontStoreDepthStencil);
             context->BeginRenderPass(RPInfo, "no name");
 
@@ -284,9 +289,6 @@ int RHIComputeTest()
 #include "simple_application/application.h"
 int main()
 {
-    RHIGraphicTest();
-    return 0;
-
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     // 固定窗口大小

@@ -6,8 +6,8 @@ extern RHI *rhi;
 
 __forceinline CommandContext *GetDefaultContext() { return rhi->GetDefaultContext(); }
 
-__forceinline std::shared_ptr<VulkanViewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
-                                                             bool bIsFullscreen, PixelFormat PreferredPixelFormat)
+__forceinline std::shared_ptr<Viewport> CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
+                                                       bool bIsFullscreen, PixelFormat PreferredPixelFormat)
 {
     return rhi->CreateViewport(WindowHandle, SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
 }
@@ -92,5 +92,10 @@ __forceinline std::shared_ptr<UnorderedAccessView> CreateUnorderedAccessView(cla
 
 __forceinline uint64 GetMinimumAlignmentForBufferBackedSRV(PixelFormat Format)
 {
-	return rhi->GetMinimumAlignmentForBufferBackedSRV(Format);
+    return rhi->GetMinimumAlignmentForBufferBackedSRV(Format);
+}
+
+__forceinline std::shared_ptr<Texture> GetViewportBackBuffer(Viewport *viewport)
+{
+    return rhi->GetViewportBackBuffer(viewport);
 }

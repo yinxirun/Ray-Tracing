@@ -65,15 +65,17 @@ void CommandListContext::RHIPopEvent()
 #endif
 }
 
-void CommandListContext::BeginDrawingViewport(std::shared_ptr<VulkanViewport> &Viewport)
+void CommandListContext::BeginDrawingViewport(std::shared_ptr<Viewport> &Viewport)
 {
     check(Viewport);
-    rhi->drawingViewport = Viewport;
+    rhi->drawingViewport = std::static_pointer_cast<VulkanViewport>(Viewport);
 }
 
-void CommandListContext::EndDrawingViewport(VulkanViewport *Viewport, bool bLockToVsync)
+void CommandListContext::EndDrawingViewport(Viewport *ViewportRHI, bool bLockToVsync)
 {
     check(IsImmediate());
+    VulkanViewport *Viewport = static_cast<VulkanViewport *>(ViewportRHI);
+
     CmdBuffer *cmdBuffer = commandBufferManager->GetActiveCmdBuffer();
     check(!cmdBuffer->HasEnded() && !cmdBuffer->IsInsideRenderPass());
 

@@ -89,7 +89,6 @@ static void UpdateUniformBufferHelper(CommandListContext &Context, VulkanUniform
         VkBuffer UBBuffer = VulkanUniformBuffer->handle;
         VkBuffer LockHandle = LockInfo.buffer;
 
-        printf("没同步？？\n");
         vkCmdCopyBuffer(CmdBuffer->GetHandle(), LockHandle, UBBuffer, 1, &Region);
     }
 }

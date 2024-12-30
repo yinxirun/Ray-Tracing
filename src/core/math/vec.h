@@ -1,4 +1,5 @@
 #pragma once
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -27,7 +28,7 @@ inline Mat4 Rotate(const Mat4 &m, float angle, const Vec3 &v) { return glm::rota
 
 inline Mat4 Lookat(const Vec3 &eye, const Vec3 &centre, const Vec3 &up) { return glm::lookAt(eye, centre, up); }
 
-inline Mat4 Perspective(float fovy, float aspect, float near, float far) { return glm::perspective(fovy, aspect, near, far) * glm::mat4(); }
+inline Mat4 Perspective(float fovy, float aspect, float near, float far) { return glm::perspective(fovy, aspect, near, far); }
 
 template <int L, typename T, glm::qualifier Q>
 glm::vec<L, T, Q> Normalize(glm::vec<L, T, Q> const &x) { return glm::normalize(x); }

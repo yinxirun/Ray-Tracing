@@ -101,10 +101,12 @@ void BackBuffer::AcquireBackBufferImage(CommandListContext &Context)
 }
 
 VulkanViewport::VulkanViewport(Device *d, void *InWindowHandle, uint32_t sizeX, uint32_t sizeY, PixelFormat InPreferredPixelFormat)
-    : device(d), sizeX(sizeX), sizeY(sizeY), pixelFormat(InPreferredPixelFormat), acquiredImageIndex(-1),
+    : VulkanRHI::DeviceChild(d), sizeX(sizeX), sizeY(sizeY), pixelFormat(InPreferredPixelFormat), acquiredImageIndex(-1),
       swapChain(nullptr), windowHandle(InWindowHandle), acquiredSemaphore(nullptr)
 {
     RHI::Get().viewports.push_back(this);
+
+    bRenderOffscreen = false;
     CreateSwapchain(nullptr);
 
     if (SupportsStandardSwapchain())
@@ -920,4 +922,18 @@ PixelFormat VulkanViewport::GetPixelFormatForNonDefaultSwapchain()
     {
         return PixelFormat::PF_Unknown;
     }
+}
+
+std::shared_ptr<Texture> RHI::GetViewportBackBuffer(Viewport* ViewportRHI)
+{
+	check(IsInRenderingThread());
+	check(ViewportRHI);
+	VulkanViewport* Viewport = static_cast<VulkanViewport*>(ViewportRHI);
+
+	if (Viewport->swapChain)
+	{
+		/* Viewport->swapChain->RenderThreadPacing(); */
+	}
+
+	return Viewport->GetBackBuffer(/* RHICommandListExecutor::GetImmediateCommandList() */);
 }

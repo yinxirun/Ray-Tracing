@@ -179,8 +179,8 @@ GraphicsPipelineState *RHI::CreateGraphicsPipelineState(const GraphicsPipelineSt
     return device->PipelineStateCache->CreateGraphicsPipelineState(Initializer);
 }
 
-std::shared_ptr<VulkanViewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
-                                                    bool bIsFullscreen, PixelFormat PreferredPixelFormat)
+std::shared_ptr<Viewport> RHI::CreateViewport(void *WindowHandle, uint32 SizeX, uint32 SizeY,
+                                              bool bIsFullscreen, PixelFormat PreferredPixelFormat)
 {
     // Use a default pixel format if none was specified
     if (PreferredPixelFormat == PF_Unknown)
@@ -188,7 +188,7 @@ std::shared_ptr<VulkanViewport> RHI::CreateViewport(void *WindowHandle, uint32 S
         PreferredPixelFormat = PF_B8G8R8A8;
     }
 
-    return std::shared_ptr<VulkanViewport>(new VulkanViewport(device, WindowHandle, SizeX, SizeY, PreferredPixelFormat));
+    return std::shared_ptr<Viewport>(new VulkanViewport(device, WindowHandle, SizeX, SizeY, PreferredPixelFormat));
 }
 
 void *RHI::LockBuffer_BottomOfPipe(RHICommandListBase &RHICmdList, Buffer *BufferRHI, uint32 Offset, uint32 Size, ResourceLockMode LockMode)
@@ -349,10 +349,12 @@ uint64 RHI::ComputePrecachePSOHash(const GraphicsPipelineStateInitializer &Initi
     return CityHash64((const char *)&HashKey, sizeof(NonStateHashKey));
 }
 
-void RHI::ResizeViewport(VulkanViewport *viewport, uint32 sizeX, uint32 sizeY,
+void RHI::ResizeViewport(Viewport *viewportRHI, uint32 sizeX, uint32 sizeY,
                          bool bIsFullscreen, PixelFormat preferredPixelFormat)
 {
     check(IsInGameThread());
+
+    auto viewport = static_cast<VulkanViewport *>(viewportRHI);
 
     // Use a default pixel format if none was specified
     if (preferredPixelFormat == PF_Unknown)

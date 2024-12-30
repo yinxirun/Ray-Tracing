@@ -678,7 +678,7 @@ void PipelineStateCacheManager::CreateGfxEntry(const GraphicsPipelineStateInitia
 
     DescriptorSetRemappingInfo &RemappingInfo = DescriptorSetLayoutInfo.RemappingInfo;
 
-    if (RemappingInfo.InputAttachmentData.size())
+    if (RemappingInfo.inputAttachmentData.size())
     {
         // input attachements can't exist in a first sub-pass
         check(PSOInitializer.SubpassHint != SubpassHint::None);

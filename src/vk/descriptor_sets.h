@@ -107,7 +107,7 @@ struct DescriptorSetRemappingInfo
         }
     };
     std::array<StageInfo, ShaderStage::NumStages> StageInfos;
-    std::vector<InputAttachmentData> InputAttachmentData;
+    std::vector<InputAttachmentData> inputAttachmentData;
 
     inline bool IsEmpty() const
     {
@@ -176,7 +176,51 @@ struct DescriptorSetRemappingInfo
 
     inline bool operator==(const DescriptorSetRemappingInfo &In) const
     {
-        printf("fuck\n");
+        if (inputAttachmentData.size() != In.inputAttachmentData.size())
+        {
+            return false;
+        }
+
+        if (SetInfos.size() != In.SetInfos.size())
+        {
+            return false;
+        }
+
+        if (memcmp(inputAttachmentData.data(), In.inputAttachmentData.data(), sizeof(InputAttachmentData) * inputAttachmentData.size()))
+        {
+            return false;
+        }
+
+        for (int32 SetInfosIndex = 0; SetInfosIndex < SetInfos.size(); ++SetInfosIndex)
+        {
+            int32 SetInfosNums = SetInfos[SetInfosIndex].Types.size();
+            if (SetInfos[SetInfosIndex].NumBufferInfos != In.SetInfos[SetInfosIndex].NumBufferInfos ||
+                SetInfos[SetInfosIndex].NumImageInfos != In.SetInfos[SetInfosIndex].NumImageInfos ||
+#if VULKAN_RHI_RAYTRACING
+                SetInfos[SetInfosIndex].NumAccelerationStructures != In.SetInfos[SetInfosIndex].NumAccelerationStructures ||
+#endif // VULKAN_RHI_RAYTRACING
+                SetInfosNums != In.SetInfos[SetInfosIndex].Types.size() ||
+                (SetInfosNums != 0 && memcmp(SetInfos[SetInfosIndex].Types.data(), In.SetInfos[SetInfosIndex].Types.data(), sizeof(VkDescriptorType) * SetInfosNums)))
+            {
+                return false;
+            }
+        }
+
+        for (uint32 StageInfosIndex = 0; StageInfosIndex < ShaderStage::NumStages; ++StageInfosIndex)
+        {
+            if (StageInfos[StageInfosIndex].PackedUBDescriptorSet != In.StageInfos[StageInfosIndex].PackedUBDescriptorSet ||
+                StageInfos[StageInfosIndex].Pad0 != In.StageInfos[StageInfosIndex].Pad0 ||
+                StageInfos[StageInfosIndex].Globals.size() != In.StageInfos[StageInfosIndex].Globals.size() ||
+                StageInfos[StageInfosIndex].PackedUBBindingIndices.size() != In.StageInfos[StageInfosIndex].PackedUBBindingIndices.size() ||
+                StageInfos[StageInfosIndex].UniformBuffers.size() != In.StageInfos[StageInfosIndex].UniformBuffers.size() ||
+                memcmp(StageInfos[StageInfosIndex].Globals.data(), In.StageInfos[StageInfosIndex].Globals.data(), sizeof(RemappingInfo) * StageInfos[StageInfosIndex].Globals.size()) ||
+                memcmp(StageInfos[StageInfosIndex].PackedUBBindingIndices.data(), In.StageInfos[StageInfosIndex].PackedUBBindingIndices.data(), sizeof(uint16) * StageInfos[StageInfosIndex].PackedUBBindingIndices.size()) ||
+                memcmp(StageInfos[StageInfosIndex].UniformBuffers.data(), In.StageInfos[StageInfosIndex].UniformBuffers.data(), sizeof(UBRemappingInfo) * StageInfos[StageInfosIndex].UniformBuffers.size()))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
     inline bool operator!=(const DescriptorSetRemappingInfo &In) const
