@@ -15,5 +15,5 @@ layout(set = 0, binding = 0) uniform Camera{
 void main(){
     gl_Position = camera.proj * camera.view * camera.model * vec4(pos, 1);
     OutNormal = mat3(transpose(inverse(camera.model))) * normal;
-    OutUV = uv;
+    OutUV = gl_Position.xy / gl_Position.w;
 }

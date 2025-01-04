@@ -235,7 +235,7 @@ RenderTargetLayout::RenderTargetLayout(Device &InDevice, const RenderPassInfo &R
 
         ExclusiveDepthStencil ExclusiveDepthStencil = RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil;
         if (Platform::RequiresDepthWriteOnStencilClear() &&
-            RPInfo.DepthStencilRenderTarget.Action == EDepthStencilTargetActions::LoadDepthClearStencil_StoreDepthStencil)
+            RPInfo.DepthStencilRenderTarget.Action == DepthStencilTargetActions::LoadDepthClearStencil_StoreDepthStencil)
         {
             ExclusiveDepthStencil = ExclusiveDepthStencil::DepthWrite_StencilWrite;
             CurrentDepthLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;

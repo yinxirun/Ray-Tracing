@@ -36,10 +36,6 @@ template <typename ShaderType>
 ShaderType *VulkanShaderFactory::CreateShader(std::vector<uint8> &Code, Device *Device)
 {
     const uint32 ShaderCodeLen = Code.size();
-    if (std::is_same<VulkanVertexShader, ShaderType>::value)
-    {
-        const uint32 ShaderCodeCRC = DebugMemCrc32(Code.data(), Code.size());
-    }
     const uint32 ShaderCodeCRC = MemCrc32(Code.data(), Code.size());
     const uint64 ShaderKey = ((uint64)ShaderCodeLen | ((uint64)ShaderCodeCRC << 32));
 

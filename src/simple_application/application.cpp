@@ -202,9 +202,9 @@ SimpleStaticMesh LoadWavefrontStaticMesh(std::string inputfile, RHICommandListBa
             UnlockBuffer_BottomOfPipe(cmdList, dst.get());
         };
         Upload(cmdList, currentLOD.position.data(), currentLOD.position.size(), sizeof(Vec3), currentLOD.positonBuffer, BUF_VertexBuffer);
-        Upload(cmdList, currentLOD.normal.data(), currentLOD.normal.size(), sizeof(Vec2), currentLOD.normalBuffer, BUF_VertexBuffer);
+        Upload(cmdList, currentLOD.normal.data(), currentLOD.normal.size(), sizeof(Vec3), currentLOD.normalBuffer, BUF_VertexBuffer);
         Upload(cmdList, currentLOD.uv.data(), currentLOD.uv.size(), sizeof(Vec2), currentLOD.uvBuffer, BUF_VertexBuffer);
-        Upload(cmdList, currentLOD.index.data(), currentLOD.index.size(), sizeof(Vec3), currentLOD.indexBuffer, BUF_IndexBuffer);
+        Upload(cmdList, currentLOD.index.data(), currentLOD.index.size(), sizeof(uint32), currentLOD.indexBuffer, BUF_IndexBuffer);
     }
 
     return staticMesh;
@@ -363,7 +363,7 @@ void RunSimpleApplication(GLFWwindow *window)
         context->BeginFrame();
 
         RenderPassInfo RPInfo(GetViewportBackBuffer(viewport.get()).get(), RenderTargetActions::Clear_Store,
-                              depth.get(), EDepthStencilTargetActions::ClearDepthStencil_DontStoreDepthStencil);
+                              depth.get(), DepthStencilTargetActions::ClearDepthStencil_DontStoreDepthStencil);
         context->BeginRenderPass(RPInfo, "no name");
 
         auto *pso = CreateGraphicsPipelineState(graphicsPSOInit);

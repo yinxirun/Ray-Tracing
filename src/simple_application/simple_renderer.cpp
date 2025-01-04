@@ -27,7 +27,7 @@ void SimpleRenderer::Prepare(RHICommandListBase &immediate)
     // 相机参数
     CameraInfo perCamera;
     perCamera.model = Rotate(Mat4(1), Radians(0), Vec3(0, 0, 1));
-    perCamera.view = Lookat(Vec3(0, 0, -1), Vec3(0, 0, 0), Vec3(0, 1, 0));
+    perCamera.view = Lookat(Vec3(2, 2, 2), Vec3(0, 0, 0), Vec3(0, 1, 0));
     perCamera.proj = Perspective(Radians(60), (float)WIDTH / (float)HEIGHT, 100, 0.1);
     UniformBufferLayoutInitializer UBInit;
     UBInit.BindingFlags = UniformBufferBindingFlags::Shader;
@@ -71,7 +71,7 @@ void SimpleRenderer::Render(CommandContext *context, SimpleScene &scene, Viewpor
     graphicsPSOInit.BoundShaderState.PixelShaderRHI = CreatePixelShader(process_shader("shaders/test_cube.frag.spv", SF_Pixel));
 
     RenderPassInfo RPInfo(GetViewportBackBuffer(viewport).get(), RenderTargetActions::Clear_Store,
-                          depth.get(), EDepthStencilTargetActions::ClearDepthStencil_DontStoreDepthStencil);
+                          depth.get(), DepthStencilTargetActions::ClearDepthStencil_DontStoreDepthStencil);
     context->BeginRenderPass(RPInfo, "no name");
     for (SimpleStaticMesh &mesh : scene.staticMeshes)
     {
@@ -82,7 +82,7 @@ void SimpleRenderer::Render(CommandContext *context, SimpleScene &scene, Viewpor
         context->SetStreamSource(0, mesh.LOD[0].positonBuffer.get(), 0);
         context->SetStreamSource(1, mesh.LOD[0].normalBuffer.get(), 0);
         context->SetStreamSource(2, mesh.LOD[0].uvBuffer.get(), 0);
-        context->DrawIndexedPrimitive(mesh.LOD[0].indexBuffer.get(), 0, 0, mesh.LOD[0].position.size(), 0, mesh.LOD[0].position.size() / 3, 1);
+        context->DrawIndexedPrimitive(mesh.LOD[0].indexBuffer.get(), 0, 0, mesh.LOD[0].position.size(), 0, mesh.LOD[0].index.size() / 3, 1);
     }
     context->EndRenderPass();
 }

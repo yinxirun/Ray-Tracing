@@ -190,7 +190,7 @@ int RHIGraphicTest()
             context->BeginFrame();
 
             RenderPassInfo RPInfo(GetViewportBackBuffer(viewport.get()).get(), RenderTargetActions::Clear_Store,
-                                  depth.get(), EDepthStencilTargetActions::ClearDepthStencil_DontStoreDepthStencil);
+                                  depth.get(), DepthStencilTargetActions::ClearDepthStencil_DontStoreDepthStencil);
             context->BeginRenderPass(RPInfo, "no name");
 
             // PSO的回收还没写，目前是会泄漏的

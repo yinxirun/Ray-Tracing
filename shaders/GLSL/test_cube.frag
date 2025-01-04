@@ -5,6 +5,6 @@ layout(location = 1) in vec2 uv;
 layout(location = 0) out vec4 OutColor;
 
 void main(){
-    OutColor = vec4(1,1,1,1);
+    OutColor = vec4(normal*0.5+0.5,1);
 }
 

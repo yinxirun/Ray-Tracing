@@ -1256,7 +1256,7 @@ inline RenderTargetStoreAction GetStoreAction(RenderTargetActions Action)
 }
 
 // 4156
-enum class EDepthStencilTargetActions : uint8
+enum class DepthStencilTargetActions : uint8
 {
     DepthMask = 4,
 
@@ -1285,14 +1285,14 @@ enum class EDepthStencilTargetActions : uint8
 };
 
 // 4189
-inline RenderTargetActions GetDepthActions(EDepthStencilTargetActions Action)
+inline RenderTargetActions GetDepthActions(DepthStencilTargetActions Action)
 {
-    return (RenderTargetActions)((uint8)Action >> (uint8)EDepthStencilTargetActions::DepthMask);
+    return (RenderTargetActions)((uint8)Action >> (uint8)DepthStencilTargetActions::DepthMask);
 }
 
-inline RenderTargetActions GetStencilActions(EDepthStencilTargetActions Action)
+inline RenderTargetActions GetStencilActions(DepthStencilTargetActions Action)
 {
-    return (RenderTargetActions)((uint8)Action & ((1 << (uint8)EDepthStencilTargetActions::DepthMask) - 1));
+    return (RenderTargetActions)((uint8)Action & ((1 << (uint8)DepthStencilTargetActions::DepthMask) - 1));
 }
 
 // 4199
@@ -1341,7 +1341,7 @@ struct RenderPassInfo
     {
         Texture *DepthStencilTarget = nullptr;
         Texture *ResolveTarget = nullptr;
-        EDepthStencilTargetActions Action = EDepthStencilTargetActions::DontLoad_DontStore;
+        DepthStencilTargetActions Action = DepthStencilTargetActions::DontLoad_DontStore;
         ExclusiveDepthStencil ExclusiveDepthStencil;
     };
     DepthStencilEntry DepthStencilRenderTarget;
@@ -1375,7 +1375,7 @@ struct RenderPassInfo
     }
 
     // Color and depth
-    explicit RenderPassInfo(Texture *ColorRT, RenderTargetActions ColorAction, Texture *DepthRT, EDepthStencilTargetActions DepthActions, ExclusiveDepthStencil InEDS = ExclusiveDepthStencil::DepthWrite_StencilWrite)
+    explicit RenderPassInfo(Texture *ColorRT, RenderTargetActions ColorAction, Texture *DepthRT, DepthStencilTargetActions DepthActions, ExclusiveDepthStencil InEDS = ExclusiveDepthStencil::DepthWrite_StencilWrite)
     {
         check(ColorRT);
         ColorRenderTargets[0].RenderTarget = ColorRT;

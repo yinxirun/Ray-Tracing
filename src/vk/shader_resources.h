@@ -73,20 +73,20 @@ struct ShaderHeader
 
     struct UBResourceInfo
     {
-        uint16 SourceUBResourceIndex;
-        uint16 OriginalBindingIndex;
+        uint16 SourceUBResourceIndex = -1;
+        uint16 OriginalBindingIndex = -1;
         // Index into the Global Array
-        uint16 GlobalIndex;
-        TEnumAsByte<UniformBufferBaseType> UBBaseType;
+        uint16 GlobalIndex = -1;
+        TEnumAsByte<UniformBufferBaseType> UBBaseType = UniformBufferBaseType::UBMT_INVALID;
         uint8 Pad0 = 0;
     };
 
     struct UniformBufferInfo
     {
         uint32 LayoutHash = 0;
-        uint16 ConstantDataOriginalBindingIndex;
+        uint16 ConstantDataOriginalBindingIndex = 0;
         /// @brief Completely empty UB
-        uint8 bOnlyHasResources;
+        uint8 bOnlyHasResources = 0;
         uint8 Pad0 = 0;
         std::vector<UBResourceInfo> ResourceEntries;
     };
@@ -94,11 +94,11 @@ struct ShaderHeader
 
     struct GlobalInfo
     {
-        uint16 OriginalBindingIndex;
+        uint16 OriginalBindingIndex = 0;
         // If this is UINT16_MAX, it's a regular parameter, otherwise this is the SamplerState portion for a CombinedImageSampler
         // and this is the index into Global for the Texture portion
-        uint16 CombinedSamplerStateAliasIndex;
-        uint16 TypeIndex;
+        uint16 CombinedSamplerStateAliasIndex = 0;
+        uint16 TypeIndex = 0;
         // 1 if this is an immutable sampler
         uint8 bImmutableSampler = 0;
         uint8 Pad0 = 0;
